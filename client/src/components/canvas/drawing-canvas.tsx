@@ -47,6 +47,7 @@ export function DrawingCanvas({
     isDrawing: false,
     drawStart: null,
   });
+  const [mousePos, setMousePos] = useState<Point | null>(null);
 
   const gridSize = 20; // 20px = 1ft
 
@@ -101,21 +102,21 @@ export function DrawingCanvas({
     }
 
     // Draw preview when drawing
-    if (canvasState.isDrawing && canvasState.drawStart) {
+    if (canvasState.isDrawing && canvasState.drawStart && mousePos) {
       ctx.strokeStyle = selectedColor;
       ctx.lineWidth = 2;
       ctx.setLineDash([3, 3]);
       
-      const mousePos = canvasState.drawStart;
-      const snappedStart = CanvasUtils.snapToGrid(mousePos, gridSize);
+      const snappedStart = CanvasUtils.snapToGrid(canvasState.drawStart, gridSize);
+      const snappedEnd = CanvasUtils.snapToGrid(mousePos, gridSize);
       
-      // Draw preview rectangle (simplified)
-      ctx.strokeRect(
-        snappedStart.x,
-        snappedStart.y,
-        gridSize * 4, // Default preview size
-        gridSize * 3
-      );
+      const width = Math.abs(snappedEnd.x - snappedStart.x);
+      const height = Math.abs(snappedEnd.y - snappedStart.y);
+      const x = Math.min(snappedStart.x, snappedEnd.x);
+      const y = Math.min(snappedStart.y, snappedEnd.y);
+      
+      // Draw preview rectangle with actual dimensions
+      ctx.strokeRect(x, y, width, height);
       ctx.setLineDash([]);
     }
   }, [
@@ -126,9 +127,18 @@ export function DrawingCanvas({
     selectedColor,
     showGrid,
     canvasState,
+    mousePos,
     getEdgeColor,
     gridSize,
   ]);
+
+  const handleMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
+    setMousePos(point);
+  }, []);
 
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -274,6 +284,7 @@ export function DrawingCanvas({
         }`}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
+        onMouseMove={handleMouseMove}
         onClick={handleClick}
       />
       
