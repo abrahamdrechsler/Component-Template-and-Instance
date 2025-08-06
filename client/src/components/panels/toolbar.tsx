@@ -100,8 +100,11 @@ export function Toolbar({
         <h1 className="text-lg font-semibold text-gray-900">Edge Conflict Prototype</h1>
       </div>
 
-      {/* Grid Controls */}
-      <div className="flex items-center space-x-2">
+      {/* Grid Controls and Shortcuts */}
+      <div className="flex items-center space-x-4">
+        <div className="text-xs text-gray-500 hidden md:block">
+          <kbd className="px-1 py-0.5 bg-gray-200 text-gray-600 rounded">Del</kbd> to delete selected room
+        </div>
         <div className="flex items-center space-x-2">
           <Checkbox
             id="show-grid"

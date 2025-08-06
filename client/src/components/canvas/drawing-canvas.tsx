@@ -52,6 +52,19 @@ export function DrawingCanvas({
 
   const gridSize = 20; // 20px = 1ft
 
+  // Handle keyboard events for delete key
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Delete' && selectedRoomId) {
+        event.preventDefault();
+        onDeleteRoom(selectedRoomId);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedRoomId, onDeleteRoom]);
+
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -408,7 +421,8 @@ export function DrawingCanvas({
     <div className="relative w-full h-full">
       <canvas
         ref={canvasRef}
-        className={`border border-gray-300 ${
+        tabIndex={0}
+        className={`border border-gray-300 outline-none ${
           selectedTool === 'draw' ? 'cursor-crosshair' :
           selectedTool === 'move' ? 'cursor-grab' :
           'cursor-pointer'
