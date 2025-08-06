@@ -74,56 +74,69 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
       newRoom.y = validPosition.y;
     }
 
-    setRooms(prev => [...prev, newRoom]);
+    const updatedRooms = [...rooms, newRoom];
+    setRooms(updatedRooms);
     
-    // Generate edges for the new room
-    const newEdges = CanvasUtils.generateRoomEdges(newRoom);
-    setEdges(prev => [...prev, ...newEdges]);
+    // Regenerate ALL edges with segmentation based on all rooms
+    const allEdges: Edge[] = [];
+    for (const room of updatedRooms) {
+      const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, updatedRooms);
+      allEdges.push(...roomEdges);
+    }
+    setEdges(allEdges);
   }, [selectedColor, rooms]);
 
   const deleteRoom = useCallback((roomId: string) => {
-    setRooms(prev => prev.filter(room => room.id !== roomId));
-    setEdges(prev => prev.filter(edge => edge.roomId !== roomId));
+    const updatedRooms = rooms.filter(room => room.id !== roomId);
+    setRooms(updatedRooms);
+    
+    // Regenerate ALL edges with segmentation based on remaining rooms
+    const allEdges: Edge[] = [];
+    for (const room of updatedRooms) {
+      const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, updatedRooms);
+      allEdges.push(...roomEdges);
+    }
+    setEdges(allEdges);
     
     if (selectedRoomId === roomId) {
       setSelectedRoomId(undefined);
     }
-  }, [selectedRoomId]);
+  }, [selectedRoomId, rooms]);
 
   const moveRoom = useCallback((roomId: string, x: number, y: number) => {
     const room = rooms.find(r => r.id === roomId);
     if (!room) return;
 
-    setRooms(prev => prev.map(room => 
+    const updatedRooms = rooms.map(room => 
       room.id === roomId ? { ...room, x, y } : room
-    ));
+    );
+    setRooms(updatedRooms);
     
-    // Update edges for the moved room
-    const updatedRoom = { ...room, x, y };
-    const newEdges = CanvasUtils.generateRoomEdges(updatedRoom);
-    setEdges(prev => [
-      ...prev.filter(edge => edge.roomId !== roomId),
-      ...newEdges
-    ]);
+    // Regenerate ALL edges with segmentation based on all rooms (including moved room)
+    const allEdges: Edge[] = [];
+    for (const room of updatedRooms) {
+      const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, updatedRooms);
+      allEdges.push(...roomEdges);
+    }
+    setEdges(allEdges);
   }, [rooms]);
 
   const updateRoom = useCallback((roomId: string, updates: Partial<Room>) => {
-    setRooms(prev => prev.map(room => 
+    const updatedRooms = rooms.map(room => 
       room.id === roomId ? { ...room, ...updates } : room
-    ));
+    );
+    setRooms(updatedRooms);
     
-    // Regenerate edges if dimensions changed
+    // Regenerate edges if dimensions or position changed
     if (updates.width !== undefined || updates.height !== undefined || 
         updates.x !== undefined || updates.y !== undefined) {
-      const room = rooms.find(r => r.id === roomId);
-      if (room) {
-        const updatedRoom = { ...room, ...updates };
-        const newEdges = CanvasUtils.generateRoomEdges(updatedRoom);
-        setEdges(prev => [
-          ...prev.filter(edge => edge.roomId !== roomId),
-          ...newEdges
-        ]);
+      // Regenerate ALL edges with segmentation based on all rooms
+      const allEdges: Edge[] = [];
+      for (const room of updatedRooms) {
+        const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, updatedRooms);
+        allEdges.push(...roomEdges);
       }
+      setEdges(allEdges);
     }
   }, [rooms]);
 
