@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RoomColor, EdgeFightingMode, ConflictMatrixEntry } from '@shared/schema';
 import { ROOM_COLORS, DEFAULT_COLOR_PRIORITY } from '@/types/room';
 import { GripVertical } from 'lucide-react';
+import { useState } from 'react';
 
 interface SettingsPanelProps {
   mode: EdgeFightingMode;
@@ -27,6 +28,8 @@ export function SettingsPanel({
   onConflictMatrixChange,
   onSelectedColorChange,
 }: SettingsPanelProps) {
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  
   const colorNames = {
     red: 'Red',
     pink: 'Pink',
@@ -70,6 +73,29 @@ export function SettingsPanel({
     const [movedItem] = newPriority.splice(fromIndex, 1);
     newPriority.splice(toIndex, 0, movedItem);
     onColorPriorityChange(newPriority);
+  };
+
+  const handleDragStart = (e: React.DragEvent, index: number) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', e.currentTarget.outerHTML);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDrop = (e: React.DragEvent, dropIndex: number) => {
+    e.preventDefault();
+    if (draggedIndex !== null && draggedIndex !== dropIndex) {
+      movePriorityItem(draggedIndex, dropIndex);
+    }
+    setDraggedIndex(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedIndex(null);
   };
 
   return (
@@ -123,16 +149,25 @@ export function SettingsPanel({
               {colorPriority.map((color, index) => (
                 <div
                   key={color}
-                  className="flex items-center p-2 bg-gray-50 rounded border"
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, index)}
+                  onDragOver={handleDragOver}
+                  onDrop={(e) => handleDrop(e, index)}
+                  onDragEnd={handleDragEnd}
+                  className={`flex items-center p-2 rounded border cursor-move transition-colors ${
+                    draggedIndex === index
+                      ? 'bg-blue-100 border-blue-300 opacity-50'
+                      : 'bg-gray-50 hover:bg-gray-100'
+                  }`}
                 >
+                  <GripVertical className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
                   <div
-                    className="w-4 h-4 rounded mr-3"
+                    className="w-4 h-4 rounded mr-3 flex-shrink-0"
                     style={{ backgroundColor: ROOM_COLORS[color] }}
                   />
                   <span className="flex-1 text-sm text-gray-900">
                     {colorNames[color]}
                   </span>
-                  <GripVertical className="w-4 h-4 text-gray-400 cursor-move" />
                 </div>
               ))}
             </div>
