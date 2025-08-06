@@ -1,0 +1,125 @@
+import { useRef } from 'react';
+import { useEdgeConflict } from '@/hooks/use-edge-conflict';
+import { Toolbar } from '@/components/panels/toolbar';
+import { SettingsPanel } from '@/components/panels/settings-panel';
+import { InspectorPanel } from '@/components/panels/inspector-panel';
+import { DrawingCanvas } from '@/components/canvas/drawing-canvas';
+import { ROOM_COLORS } from '@/types/room';
+import { useToast } from '@/hooks/use-toast';
+
+export default function EdgeConflictPage() {
+  const { toast } = useToast();
+  const {
+    rooms,
+    edges,
+    mode,
+    colorPriority,
+    conflictMatrix,
+    selectedTool,
+    selectedColor,
+    selectedRoomId,
+    selectedEdgeId,
+    showGrid,
+    addRoom,
+    deleteRoom,
+    moveRoom,
+    updateRoom,
+    updateEdge,
+    setMode,
+    setColorPriority,
+    setConflictMatrix,
+    setSelectedTool,
+    setSelectedColor,
+    setSelectedRoomId,
+    setSelectedEdgeId,
+    setShowGrid,
+    exportData,
+    importData,
+    getEdgeColor,
+    getRoomAt,
+    getEdgeAt,
+  } = useEdgeConflict();
+
+  const handleImport = async (file: File) => {
+    try {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      importData(data);
+      toast({
+        title: "Import successful",
+        description: "Data has been imported successfully.",
+      });
+    } catch (error) {
+      toast({
+        title: "Import failed",
+        description: "Please check the file format and try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const selectedRoom = selectedRoomId ? rooms.find(r => r.id === selectedRoomId) : undefined;
+  const selectedEdge = selectedEdgeId ? edges.find(e => e.id === selectedEdgeId) : undefined;
+
+  return (
+    <div className="h-screen flex flex-col bg-gray-50">
+      <Toolbar
+        selectedTool={selectedTool}
+        showGrid={showGrid}
+        onToolChange={setSelectedTool}
+        onToggleGrid={setShowGrid}
+        onExport={exportData}
+        onImport={handleImport}
+      />
+
+      <div className="flex flex-1 overflow-hidden">
+        <SettingsPanel
+          mode={mode}
+          colorPriority={colorPriority}
+          conflictMatrix={conflictMatrix}
+          selectedColor={selectedColor}
+          onModeChange={setMode}
+          onColorPriorityChange={setColorPriority}
+          onConflictMatrixChange={setConflictMatrix}
+          onSelectedColorChange={setSelectedColor}
+        />
+
+        {/* Main Canvas Area */}
+        <div className="flex-1 flex flex-col bg-gray-100">
+          <div className="flex-1 p-4">
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-full relative overflow-hidden">
+              <div className="absolute inset-4">
+                <DrawingCanvas
+                  rooms={rooms}
+                  edges={edges}
+                  selectedTool={selectedTool}
+                  selectedColor={ROOM_COLORS[selectedColor]}
+                  selectedRoomId={selectedRoomId}
+                  selectedEdgeId={selectedEdgeId}
+                  showGrid={showGrid}
+                  onAddRoom={addRoom}
+                  onMoveRoom={moveRoom}
+                  onDeleteRoom={deleteRoom}
+                  onSelectRoom={setSelectedRoomId}
+                  onSelectEdge={setSelectedEdgeId}
+                  getEdgeColor={getEdgeColor}
+                  getRoomAt={getRoomAt}
+                  getEdgeAt={getEdgeAt}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <InspectorPanel
+          selectedRoom={selectedRoom}
+          selectedEdge={selectedEdge}
+          rooms={rooms}
+          onUpdateRoom={updateRoom}
+          onUpdateEdge={updateEdge}
+          onDeleteRoom={deleteRoom}
+        />
+      </div>
+    </div>
+  );
+}

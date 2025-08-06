@@ -1,0 +1,139 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: hsl(0, 0%, 100%);
+  --foreground: hsl(20, 14.3%, 4.1%);
+  --muted: hsl(60, 4.8%, 95.9%);
+  --muted-foreground: hsl(25, 5.3%, 44.7%);
+  --popover: hsl(0, 0%, 100%);
+  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --card: hsl(0, 0%, 100%);
+  --card-foreground: hsl(20, 14.3%, 4.1%);
+  --border: hsl(20, 5.9%, 90%);
+  --input: hsl(20, 5.9%, 90%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(60, 4.8%, 95.9%);
+  --secondary-foreground: hsl(24, 9.8%, 10%);
+  --accent: hsl(60, 4.8%, 95.9%);
+  --accent-foreground: hsl(24, 9.8%, 10%);
+  --destructive: hsl(0, 84.2%, 60.2%);
+  --destructive-foreground: hsl(60, 9.1%, 97.8%);
+  --ring: hsl(20, 14.3%, 4.1%);
+  --radius: 0.5rem;
+  
+  /* Room colors for edge conflict prototype */
+  --room-red: hsl(4, 90%, 58%);
+  --room-pink: hsl(340, 82%, 52%);
+  --room-purple: hsl(291, 64%, 42%);
+  --room-deep-purple: hsl(262, 52%, 47%);
+  --room-indigo: hsl(231, 48%, 48%);
+  --room-blue: hsl(207, 90%, 54%);
+  --room-cyan: hsl(187, 100%, 42%);
+  --room-teal: hsl(174, 100%, 29%);
+  --room-green: hsl(122, 39%, 49%);
+  --room-orange: hsl(36, 100%, 50%);
+  
+  /* Grid and canvas colors */
+  --grid-color: hsl(220, 13%, 91%);
+  --canvas-background: hsl(0, 0%, 100%);
+  --selection-color: hsl(207, 90%, 54%);
+  --edge-highlight: hsl(142, 71%, 45%);
+}
+
+.dark {
+  --background: hsl(240, 10%, 3.9%);
+  --foreground: hsl(0, 0%, 98%);
+  --muted: hsl(240, 3.7%, 15.9%);
+  --muted-foreground: hsl(240, 5%, 64.9%);
+  --popover: hsl(240, 10%, 3.9%);
+  --popover-foreground: hsl(0, 0%, 98%);
+  --card: hsl(240, 10%, 3.9%);
+  --card-foreground: hsl(0, 0%, 98%);
+  --border: hsl(240, 3.7%, 15.9%);
+  --input: hsl(240, 3.7%, 15.9%);
+  --primary: hsl(207, 90%, 54%);
+  --primary-foreground: hsl(211, 100%, 99%);
+  --secondary: hsl(240, 3.7%, 15.9%);
+  --secondary-foreground: hsl(0, 0%, 98%);
+  --accent: hsl(240, 3.7%, 15.9%);
+  --accent-foreground: hsl(0, 0%, 98%);
+  --destructive: hsl(0, 62.8%, 30.6%);
+  --destructive-foreground: hsl(0, 0%, 98%);
+  --ring: hsl(240, 4.9%, 83.9%);
+  --radius: 0.5rem;
+  
+  --grid-color: hsl(240, 3.7%, 15.9%);
+  --canvas-background: hsl(240, 10%, 3.9%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+  }
+  
+  .canvas-container {
+    @apply relative w-full h-full overflow-hidden;
+  }
+  
+  .grid-overlay {
+    @apply absolute inset-0 pointer-events-none;
+  }
+  
+  .room-selection {
+    stroke: var(--selection-color);
+    stroke-width: 3;
+    stroke-dasharray: 5,5;
+    fill: none;
+  }
+  
+  .edge-highlight {
+    stroke: var(--edge-highlight);
+    stroke-width: 4;
+    fill: none;
+  }
+  
+  .tool-active {
+    @apply bg-primary text-primary-foreground;
+  }
+  
+  .color-swatch {
+    @apply w-8 h-8 rounded border-2 border-gray-300 hover:border-gray-400 cursor-pointer transition-colors;
+  }
+  
+  .color-swatch.selected {
+    @apply border-primary border-2;
+  }
+}
+
+@layer components {
+  .panel-container {
+    @apply bg-white border-r border-gray-200 flex flex-col overflow-hidden;
+  }
+  
+  .panel-header {
+    @apply p-4 border-b border-gray-200;
+  }
+  
+  .panel-content {
+    @apply flex-1 overflow-y-auto p-4 space-y-6;
+  }
+  
+  .priority-item {
+    @apply flex items-center p-2 bg-gray-50 rounded border cursor-move;
+  }
+  
+  .matrix-cell {
+    @apply p-1;
+  }
+  
+  .matrix-select {
+    @apply w-full text-xs border rounded;
+  }
+}
