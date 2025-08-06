@@ -52,23 +52,32 @@ export class RoomValidation {
     const overlapX = Math.max(0, Math.min(r1.right, r2.right) - Math.max(r1.left, r2.left));
     const overlapY = Math.max(0, Math.min(r1.bottom, r2.bottom) - Math.max(r1.top, r2.top));
 
-    // Allow overlap up to 1 grid unit (12") in any direction
-    const maxOverlap = 1;
+    // Allow overlap up to 1 grid unit (12") for wall sharing
+    const maxWallThickness = 1;
     
-    // Debug logging
-    console.log('Overlap validation:', {
+    // For wall sharing, we allow:
+    // 1. One dimension overlaps by exactly the wall thickness (1 foot)
+    // 2. The other dimension can overlap by any amount (for shared wall length)
+    // OR no overlap at all (rooms just touching)
+    
+    const validWallSharing = (
+      // Horizontal wall sharing: 1-foot overlap in X, any overlap in Y
+      (overlapX === maxWallThickness) ||
+      // Vertical wall sharing: 1-foot overlap in Y, any overlap in X  
+      (overlapY === maxWallThickness)
+    );
+    
+    console.log('Wall sharing validation:', {
       room1: { x: room1.x, y: room1.y, w: room1.width, h: room1.height },
       room2: { x: room2.x, y: room2.y, w: room2.width, h: room2.height },
       overlapX,
       overlapY,
-      maxOverlap,
-      bothValid: overlapX <= maxOverlap && overlapY <= maxOverlap,
-      result: overlapX <= maxOverlap && overlapY <= maxOverlap
+      maxWallThickness,
+      validWallSharing,
+      result: validWallSharing
     });
     
-    // Valid if overlap is within limits in BOTH dimensions
-    // (rooms can overlap by up to 1 foot, but not more than 1 foot in any dimension)
-    return overlapX <= maxOverlap && overlapY <= maxOverlap;
+    return validWallSharing;
   }
 
   /**
