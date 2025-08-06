@@ -119,6 +119,22 @@ export class RoomValidation {
   }
 
   /**
+   * Check if exact arrow key movement is valid (no snapping)
+   */
+  static isValidArrowKeyMove(
+    room: Room,
+    targetX: number,
+    targetY: number,
+    existingRooms: Room[]
+  ): boolean {
+    // Don't allow negative positions
+    if (targetX < 0 || targetY < 0) return false;
+    
+    const testRoom = { ...room, x: targetX, y: targetY };
+    return this.isValidRoomPlacement(testRoom, existingRooms);
+  }
+
+  /**
    * Check if a position is valid for room placement during drag preview
    */
   static isValidPreviewPosition(

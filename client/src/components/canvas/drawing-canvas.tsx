@@ -379,9 +379,10 @@ export function DrawingCanvas({
       const newX = room.x + deltaX;
       const newY = room.y + deltaY;
       
-      // Validate and get nearest valid position
-      const validPosition = RoomValidation.getValidDragPosition(room, newX, newY, rooms);
-      onMoveRoom(selectedRoomId, validPosition.x, validPosition.y);
+      // Only move if exact target position is valid (no snapping for arrow keys)
+      if (RoomValidation.isValidArrowKeyMove(room, newX, newY, rooms)) {
+        onMoveRoom(selectedRoomId, newX, newY);
+      }
     };
 
     window.addEventListener('keydown', handleKeyDown);
