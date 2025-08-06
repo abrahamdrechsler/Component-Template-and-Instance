@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useEffect } from 'react';
 import { useEdgeConflict } from '@/hooks/use-edge-conflict';
 import { Toolbar } from '@/components/panels/toolbar';
 import { SettingsPanel } from '@/components/panels/settings-panel';
@@ -39,6 +39,34 @@ export default function EdgeConflictPage() {
     getRoomAt,
     getEdgeAt,
   } = useEdgeConflict();
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (event: KeyboardEvent) => {
+      // Don't trigger shortcuts if user is typing in an input field
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.contentEditable === 'true') {
+        return;
+      }
+
+      const key = event.key.toLowerCase();
+      
+      switch (key) {
+        case 'r':
+          setSelectedTool('draw');
+          break;
+        case 'm':
+          setSelectedTool('move');
+          break;
+        case 'd':
+          setSelectedTool('delete');
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyPress);
+    return () => window.removeEventListener('keydown', handleKeyPress);
+  }, [setSelectedTool]);
 
   const handleImport = async (file: File) => {
     try {

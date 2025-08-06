@@ -42,27 +42,33 @@ export function Toolbar({
             size="sm"
             onClick={() => onToolChange('draw')}
             className="flex items-center space-x-2"
+            title="Draw Room (R)"
           >
             <Pencil className="w-4 h-4" />
             <span>Draw Room</span>
+            <kbd className="ml-1 px-1 py-0.5 text-xs bg-gray-200 text-gray-600 rounded">R</kbd>
           </Button>
           <Button
             variant={selectedTool === 'move' ? 'default' : 'outline'}
             size="sm"
             onClick={() => onToolChange('move')}
             className="flex items-center space-x-2"
+            title="Move Room (M)"
           >
             <Move className="w-4 h-4" />
             <span>Move Room</span>
+            <kbd className="ml-1 px-1 py-0.5 text-xs bg-gray-200 text-gray-600 rounded">M</kbd>
           </Button>
           <Button
             variant={selectedTool === 'delete' ? 'destructive' : 'outline'}
             size="sm"
             onClick={() => onToolChange('delete')}
             className="flex items-center space-x-2"
+            title="Delete (D)"
           >
             <Trash2 className="w-4 h-4" />
             <span>Delete</span>
+            <kbd className="ml-1 px-1 py-0.5 text-xs bg-gray-200 text-gray-600 rounded">D</kbd>
           </Button>
         </div>
 
