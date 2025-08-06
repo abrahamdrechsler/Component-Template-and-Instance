@@ -68,19 +68,59 @@ export function DrawingCanvas({
 
     // Draw room edges with resolved colors
     edges.forEach(edge => {
+      // Skip edges for room being dragged - we'll draw preview edges instead
+      if (canvasState.isDragging && edge.roomId === selectedRoomId) {
+        return;
+      }
       const color = getEdgeColor(edge);
       CanvasUtils.drawEdge(ctx, edge, gridSize, color);
     });
 
-    // Highlight selected room
+    // Draw preview edges for dragged room
+    if (canvasState.isDragging && selectedRoomId && canvasState.dragStart && mousePos) {
+      const room = rooms.find(r => r.id === selectedRoomId);
+      if (room) {
+        const currentGridPos = CanvasUtils.getGridCoordinates(mousePos, gridSize);
+        const deltaX = currentGridPos.x - canvasState.dragStart.x;
+        const deltaY = currentGridPos.y - canvasState.dragStart.y;
+        
+        const previewRoom = {
+          ...room,
+          x: room.x + deltaX,
+          y: room.y + deltaY,
+        };
+        
+        const previewEdges = CanvasUtils.generateRoomEdges(previewRoom);
+        previewEdges.forEach(edge => {
+          const color = getEdgeColor(edge);
+          ctx.globalAlpha = 0.7; // Make preview semi-transparent
+          CanvasUtils.drawEdge(ctx, edge, gridSize, color);
+          ctx.globalAlpha = 1.0;
+        });
+      }
+    }
+
+    // Highlight selected room and show drag preview
     if (selectedRoomId) {
       const room = rooms.find(r => r.id === selectedRoomId);
       if (room) {
+        let roomX = room.x;
+        let roomY = room.y;
+        
+        // Show drag preview if actively dragging
+        if (canvasState.isDragging && canvasState.dragStart && mousePos) {
+          const currentGridPos = CanvasUtils.getGridCoordinates(mousePos, gridSize);
+          const deltaX = currentGridPos.x - canvasState.dragStart.x;
+          const deltaY = currentGridPos.y - canvasState.dragStart.y;
+          roomX = room.x + deltaX;
+          roomY = room.y + deltaY;
+        }
+        
         ctx.strokeStyle = '#3B82F6';
         ctx.lineWidth = 3;
         ctx.setLineDash([5, 5]);
-        const x = room.x * gridSize;
-        const y = room.y * gridSize;
+        const x = roomX * gridSize;
+        const y = roomY * gridSize;
         const width = room.width * gridSize;
         const height = room.height * gridSize;
         ctx.strokeRect(x, y, width, height);
