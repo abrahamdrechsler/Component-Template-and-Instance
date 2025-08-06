@@ -131,7 +131,9 @@ export class RoomValidation {
     if (targetX < 0 || targetY < 0) return false;
     
     const testRoom = { ...room, x: targetX, y: targetY };
-    return this.isValidRoomPlacement(testRoom, existingRooms);
+    // Filter out the room being moved to avoid checking against itself
+    const otherRooms = existingRooms.filter(r => r.id !== room.id);
+    return this.isValidRoomPlacement(testRoom, otherRooms);
   }
 
   /**
