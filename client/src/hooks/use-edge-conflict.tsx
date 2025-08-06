@@ -43,7 +43,7 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
   const [rooms, setRooms] = useState<Room[]>([]);
   const [edges, setEdges] = useState<Edge[]>([]);
   const [mode, setMode] = useState<EdgeFightingMode>('chronological');
-  const [colorPriority, setColorPriority] = useState<RoomColor[]>([...DEFAULT_COLOR_PRIORITY]);
+  const [colorPriority, setColorPriority] = useState<RoomColor[]>([]);
   const [conflictMatrix, setConflictMatrix] = useState<ConflictMatrixEntry[]>([]);
   const [selectedTool, setSelectedTool] = useState<'draw' | 'move' | 'delete'>('draw');
   const [selectedColor, setSelectedColor] = useState<RoomColor>('blue');
@@ -52,6 +52,28 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
   const [showGrid, setShowGrid] = useState(true);
 
   const nextRoomIdRef = useRef(1);
+
+  // Helper function to update color priority based on used colors
+  const updateColorPriorityForUsedColors = useCallback((roomList: Room[]) => {
+    const usedColorsSet = new Set(roomList.map(room => room.color));
+    const usedColors = Array.from(usedColorsSet);
+    
+    // Keep existing priority order for colors that are still used
+    const newPriority = colorPriority.filter(color => usedColorsSet.has(color));
+    
+    // Add any new colors to the bottom
+    usedColors.forEach(color => {
+      if (!newPriority.includes(color)) {
+        newPriority.push(color);
+      }
+    });
+    
+    // Only update if the priority list changed
+    if (newPriority.length !== colorPriority.length || 
+        !newPriority.every((color, index) => color === colorPriority[index])) {
+      setColorPriority(newPriority);
+    }
+  }, [colorPriority]);
 
   const addRoom = useCallback((x: number, y: number, width: number, height: number) => {
     const roomId = `room-${nextRoomIdRef.current++}`;
@@ -77,6 +99,9 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
     const updatedRooms = [...rooms, newRoom];
     setRooms(updatedRooms);
     
+    // Update color priority based on used colors
+    updateColorPriorityForUsedColors(updatedRooms);
+    
     // Regenerate ALL edges with segmentation based on all rooms
     const allEdges: Edge[] = [];
     for (const room of updatedRooms) {
@@ -84,11 +109,14 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
       allEdges.push(...roomEdges);
     }
     setEdges(allEdges);
-  }, [selectedColor, rooms]);
+  }, [selectedColor, rooms, updateColorPriorityForUsedColors]);
 
   const deleteRoom = useCallback((roomId: string) => {
     const updatedRooms = rooms.filter(room => room.id !== roomId);
     setRooms(updatedRooms);
+    
+    // Update color priority based on remaining used colors
+    updateColorPriorityForUsedColors(updatedRooms);
     
     // Regenerate ALL edges with segmentation based on remaining rooms
     const allEdges: Edge[] = [];
@@ -101,7 +129,7 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
     if (selectedRoomId === roomId) {
       setSelectedRoomId(undefined);
     }
-  }, [selectedRoomId, rooms]);
+  }, [selectedRoomId, rooms, updateColorPriorityForUsedColors]);
 
   const moveRoom = useCallback((roomId: string, x: number, y: number) => {
     const room = rooms.find(r => r.id === roomId);
@@ -127,6 +155,11 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
     );
     setRooms(updatedRooms);
     
+    // Update color priority if color changed
+    if (updates.color !== undefined) {
+      updateColorPriorityForUsedColors(updatedRooms);
+    }
+    
     // Regenerate edges if dimensions or position changed
     if (updates.width !== undefined || updates.height !== undefined || 
         updates.x !== undefined || updates.y !== undefined) {
@@ -138,7 +171,7 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
       }
       setEdges(allEdges);
     }
-  }, [rooms]);
+  }, [rooms, updateColorPriorityForUsedColors]);
 
   const updateEdge = useCallback((edgeId: string, updates: Partial<Edge>) => {
     setEdges(prev => prev.map(edge => 
