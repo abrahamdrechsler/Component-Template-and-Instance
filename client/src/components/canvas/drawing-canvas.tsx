@@ -346,6 +346,48 @@ export function DrawingCanvas({
     draw();
   }, [draw]);
 
+  // Handle keyboard events for arrow key movement
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (!selectedRoomId) return;
+      
+      const room = rooms.find(r => r.id === selectedRoomId);
+      if (!room) return;
+
+      let deltaX = 0;
+      let deltaY = 0;
+
+      switch (event.key) {
+        case 'ArrowUp':
+          deltaY = -1;
+          break;
+        case 'ArrowDown':
+          deltaY = 1;
+          break;
+        case 'ArrowLeft':
+          deltaX = -1;
+          break;
+        case 'ArrowRight':
+          deltaX = 1;
+          break;
+        default:
+          return; // Don't prevent default for other keys
+      }
+
+      event.preventDefault();
+      
+      const newX = room.x + deltaX;
+      const newY = room.y + deltaY;
+      
+      // Validate and get nearest valid position
+      const validPosition = RoomValidation.getValidDragPosition(room, newX, newY, rooms);
+      onMoveRoom(selectedRoomId, validPosition.x, validPosition.y);
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedRoomId, rooms, onMoveRoom]);
+
   return (
     <div className="relative w-full h-full">
       <canvas
