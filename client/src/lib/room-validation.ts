@@ -48,28 +48,15 @@ export class RoomValidation {
       return true; // No overlap is always valid
     }
 
-    // Calculate overlap amounts on each side
-    const overlapLeft = Math.max(0, Math.min(r1.right, r2.right) - Math.max(r1.left, r2.left));
-    const overlapTop = Math.max(0, Math.min(r1.bottom, r2.bottom) - Math.max(r1.top, r2.top));
+    // Calculate overlap amounts
+    const overlapX = Math.max(0, Math.min(r1.right, r2.right) - Math.max(r1.left, r2.left));
+    const overlapY = Math.max(0, Math.min(r1.bottom, r2.bottom) - Math.max(r1.top, r2.top));
 
-    // Check if overlap is within acceptable limits (1 grid unit = 12")
+    // Allow overlap up to 1 grid unit (12") in any direction
     const maxOverlap = 1;
     
-    // For rooms to have valid overlap, they should only overlap by wall thickness
-    // This means overlap should be exactly 1 unit on at most one dimension
-    
-    // If there's overlap in both dimensions, check if it's small enough
-    if (overlapLeft > 0 && overlapTop > 0) {
-      // Only allow overlap if it's wall-thickness on at least one side
-      return overlapLeft <= maxOverlap && overlapTop <= maxOverlap;
-    }
-
-    // If there's only overlap in one dimension, it should be wall thickness
-    if (overlapLeft > maxOverlap || overlapTop > maxOverlap) {
-      return false;
-    }
-
-    return true;
+    // Valid if overlap is within limits
+    return overlapX <= maxOverlap && overlapY <= maxOverlap;
   }
 
   /**
@@ -81,6 +68,12 @@ export class RoomValidation {
     targetY: number, 
     existingRooms: Room[]
   ): { x: number; y: number } {
+    // Check if target position is already valid
+    const testRoom = { ...room, x: targetX, y: targetY };
+    if (this.isValidRoomPlacement(testRoom, existingRooms)) {
+      return { x: targetX, y: targetY };
+    }
+
     // Start from target position and search in expanding grid
     let bestX = targetX;
     let bestY = targetY;
@@ -111,6 +104,18 @@ export class RoomValidation {
     }
 
     return { x: bestX, y: bestY };
+  }
+
+  /**
+   * Get the valid position for a room during drag operations
+   */
+  static getValidDragPosition(
+    room: Room,
+    targetX: number,
+    targetY: number,
+    existingRooms: Room[]
+  ): { x: number; y: number } {
+    return this.getNearestValidPosition(room, targetX, targetY, existingRooms);
   }
 
   /**

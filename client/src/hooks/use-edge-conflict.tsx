@@ -94,12 +94,6 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
     const room = rooms.find(r => r.id === roomId);
     if (!room) return;
 
-    // Validate room movement
-    if (!RoomValidation.isValidRoomMove(room, x, y, rooms)) {
-      // Don't move if position is invalid
-      return;
-    }
-
     setRooms(prev => prev.map(room => 
       room.id === roomId ? { ...room, x, y } : room
     ));

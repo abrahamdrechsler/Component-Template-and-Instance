@@ -84,18 +84,22 @@ export function DrawingCanvas({
         const currentGridPos = CanvasUtils.getGridCoordinates(mousePos, gridSize);
         const deltaX = currentGridPos.x - canvasState.dragStart.x;
         const deltaY = currentGridPos.y - canvasState.dragStart.y;
+        const targetX = room.x + deltaX;
+        const targetY = room.y + deltaY;
+        
+        // Get valid position for preview
+        const validPosition = RoomValidation.getValidDragPosition(room, targetX, targetY, rooms);
         
         const previewRoom = {
           ...room,
-          x: room.x + deltaX,
-          y: room.y + deltaY,
+          x: validPosition.x,
+          y: validPosition.y,
         };
         
         const previewEdges = CanvasUtils.generateRoomEdges(previewRoom);
-        const isValidDragPosition = RoomValidation.isValidPreviewPosition(room, previewRoom.x, previewRoom.y, rooms);
         
         previewEdges.forEach(edge => {
-          const color = isValidDragPosition ? getEdgeColor(edge) : '#FF4444';
+          const color = getEdgeColor(edge);
           ctx.globalAlpha = 0.7; // Make preview semi-transparent
           CanvasUtils.drawEdge(ctx, edge, gridSize, color);
           ctx.globalAlpha = 1.0;
@@ -115,16 +119,16 @@ export function DrawingCanvas({
           const currentGridPos = CanvasUtils.getGridCoordinates(mousePos, gridSize);
           const deltaX = currentGridPos.x - canvasState.dragStart.x;
           const deltaY = currentGridPos.y - canvasState.dragStart.y;
-          roomX = room.x + deltaX;
-          roomY = room.y + deltaY;
+          const targetX = room.x + deltaX;
+          const targetY = room.y + deltaY;
+          
+          // Get valid position (snap to nearest valid location)
+          const validPosition = RoomValidation.getValidDragPosition(room, targetX, targetY, rooms);
+          roomX = validPosition.x;
+          roomY = validPosition.y;
         }
         
-        // Check if current position is valid for drag preview
-        const isValidPosition = canvasState.isDragging 
-          ? RoomValidation.isValidPreviewPosition(room, roomX, roomY, rooms)
-          : true;
-        
-        ctx.strokeStyle = isValidPosition ? '#3B82F6' : '#FF4444';
+        ctx.strokeStyle = '#3B82F6';
         ctx.lineWidth = 3;
         ctx.setLineDash([5, 5]);
         const x = roomX * gridSize;
@@ -168,13 +172,19 @@ export function DrawingCanvas({
         createdAt: Date.now(),
       };
       
-      const isValidPlacement = RoomValidation.isValidRoomPlacement(previewRoom, rooms);
+      // Get valid position (may snap to nearest valid location)
+      const validPosition = RoomValidation.getNearestValidPosition(previewRoom, x, y, rooms);
       
-      // Draw preview rectangle with color based on validity
-      ctx.strokeStyle = isValidPlacement ? selectedColor : '#FF4444';
+      // Draw preview rectangle at valid position
+      ctx.strokeStyle = selectedColor;
       ctx.lineWidth = 2;
       ctx.setLineDash([3, 3]);
-      ctx.strokeRect(x * gridSize, y * gridSize, width * gridSize, height * gridSize);
+      ctx.strokeRect(
+        validPosition.x * gridSize, 
+        validPosition.y * gridSize, 
+        width * gridSize, 
+        height * gridSize
+      );
       ctx.setLineDash([]);
     }
   }, [
@@ -257,7 +267,12 @@ export function DrawingCanvas({
       const deltaY = gridPoint.y - canvasState.dragStart.y;
       const room = rooms.find(r => r.id === selectedRoomId);
       if (room) {
-        onMoveRoom(selectedRoomId, room.x + deltaX, room.y + deltaY);
+        const targetX = room.x + deltaX;
+        const targetY = room.y + deltaY;
+        
+        // Get valid position for final placement
+        const validPosition = RoomValidation.getValidDragPosition(room, targetX, targetY, rooms);
+        onMoveRoom(selectedRoomId, validPosition.x, validPosition.y);
       }
     }
 
