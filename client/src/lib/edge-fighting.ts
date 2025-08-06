@@ -40,10 +40,18 @@ export class EdgeFightingResolver {
   private static findAllRoomsAtEdgeLocation(edge: Edge, rooms: Room[]): Room[] {
     const overlapping: Room[] = [];
     
+    // Get the room that owns this edge
+    const edgeRoom = rooms.find(r => r.id === edge.roomId);
+    if (!edgeRoom) return [];
+    
     for (const room of rooms) {
       // Check if this edge segment intersects with the room's area
       if (this.edgeIntersectsRoom(edge, room)) {
-        overlapping.push(room);
+        // Only include if rooms actually overlap (share interior space)
+        // not just touch at boundaries (tangent)
+        if (room.id === edgeRoom.id || this.roomsActuallyOverlap(edgeRoom, room)) {
+          overlapping.push(room);
+        }
       }
     }
     
@@ -102,11 +110,7 @@ export class EdgeFightingResolver {
       const intersects = (edgeY >= roomBounds.top && edgeY <= roomBounds.bottom) &&
                         (edgeRight > roomBounds.left && edgeLeft < roomBounds.right);
       
-      if (!intersects) return false;
-      
-      // Additional check: ensure the edge is in an overlapping region
-      // by checking if the edge segment itself is within the overlapping area
-      return this.isEdgeInOverlapArea(edge, room);
+      return intersects;
     } else {
       // Vertical edge
       const edgeX = edge.x1;
@@ -117,21 +121,11 @@ export class EdgeFightingResolver {
       const intersects = (edgeX >= roomBounds.left && edgeX <= roomBounds.right) &&
                         (edgeBottom > roomBounds.top && edgeTop < roomBounds.bottom);
       
-      if (!intersects) return false;
-      
-      // Additional check: ensure the edge is in an overlapping region
-      return this.isEdgeInOverlapArea(edge, room);
+      return intersects;
     }
   }
 
-  private static isEdgeInOverlapArea(edge: Edge, room: Room): boolean {
-    // This is a simplified check - we need to determine if the edge segment
-    // is actually in an area where rooms overlap, not just where they touch
-    
-    // For now, we'll use a more permissive approach and rely on the 
-    // priority resolution to handle conflicts correctly
-    return true;
-  }
+
 
   private static roomsActuallyOverlap(room1: Room, room2: Room): boolean {
     // Check if rooms actually overlap (share interior space), not just touch boundaries
