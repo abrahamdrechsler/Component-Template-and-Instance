@@ -67,15 +67,7 @@ export class RoomValidation {
       (overlapY === maxWallThickness)
     );
     
-    console.log('Wall sharing validation:', {
-      room1: { x: room1.x, y: room1.y, w: room1.width, h: room1.height },
-      room2: { x: room2.x, y: room2.y, w: room2.width, h: room2.height },
-      overlapX,
-      overlapY,
-      maxWallThickness,
-      validWallSharing,
-      result: validWallSharing
-    });
+
     
     return validWallSharing;
   }

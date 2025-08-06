@@ -205,8 +205,23 @@ export function DrawingCanvas({
     if (!canvas) return;
 
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
+    const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
     setMousePos(point);
-  }, []);
+
+    // Start dragging when mouse moves after mousedown in move mode
+    if (selectedTool === 'move' && canvasState.dragStart && !canvasState.isDragging && selectedRoomId) {
+      const deltaX = Math.abs(gridPoint.x - canvasState.dragStart.x);
+      const deltaY = Math.abs(gridPoint.y - canvasState.dragStart.y);
+      
+      // Start dragging if mouse moved at least 1 grid unit
+      if (deltaX >= 1 || deltaY >= 1) {
+        setCanvasState(prev => ({
+          ...prev,
+          isDragging: true,
+        }));
+      }
+    }
+  }, [selectedTool, canvasState.dragStart, canvasState.isDragging, selectedRoomId, gridSize]);
 
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -230,7 +245,7 @@ export function DrawingCanvas({
           onSelectRoom(roomToMove.id);
           setCanvasState(prev => ({
             ...prev,
-            isDragging: true,
+            isDragging: false, // Don't start dragging until mouse moves
             dragStart: gridPoint,
           }));
         }
