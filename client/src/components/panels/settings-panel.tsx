@@ -4,8 +4,8 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RoomColor, EdgeFightingMode, ConflictMatrixEntry } from '@shared/schema';
 import { ROOM_COLORS, DEFAULT_COLOR_PRIORITY } from '@/types/room';
-import { GripVertical } from 'lucide-react';
-import { useState } from 'react';
+import { GripVertical, Plus, Trash2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 interface SettingsPanelProps {
   mode: EdgeFightingMode;
@@ -30,6 +30,18 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
+
+  // Initialize conflict matrix with one default row when switching to matrix mode
+  useEffect(() => {
+    if (mode === 'matrix' && conflictMatrix.length === 0 && colorPriority.length >= 2) {
+      const defaultRule: ConflictMatrixEntry = {
+        underneath: colorPriority[0],
+        onTop: colorPriority[1],
+        result: colorPriority[0]
+      };
+      onConflictMatrixChange([defaultRule]);
+    }
+  }, [mode, conflictMatrix.length, colorPriority, onConflictMatrixChange]);
   
   const colorNames = {
     red: 'Red',
@@ -44,30 +56,7 @@ export function SettingsPanel({
     orange: 'Orange',
   };
 
-  const handleMatrixChange = (underneath: RoomColor, onTop: RoomColor, result: RoomColor) => {
-    const existingEntry = conflictMatrix.find(
-      entry => entry.underneath === underneath && entry.onTop === onTop
-    );
 
-    if (existingEntry) {
-      const updatedMatrix = conflictMatrix.map(entry =>
-        entry.underneath === underneath && entry.onTop === onTop
-          ? { ...entry, result }
-          : entry
-      );
-      onConflictMatrixChange(updatedMatrix);
-    } else {
-      const newEntry: ConflictMatrixEntry = { underneath, onTop, result };
-      onConflictMatrixChange([...conflictMatrix, newEntry]);
-    }
-  };
-
-  const getMatrixValue = (underneath: RoomColor, onTop: RoomColor): RoomColor => {
-    const entry = conflictMatrix.find(
-      e => e.underneath === underneath && e.onTop === onTop
-    );
-    return entry?.result || underneath;
-  };
 
   const movePriorityItem = (fromIndex: number, toIndex: number) => {
     const newPriority = [...colorPriority];
@@ -125,6 +114,32 @@ export function SettingsPanel({
 
   const handleColorClick = (index: number) => {
     setSelectedIndex(selectedIndex === index ? null : index);
+  };
+
+  // Get available colors (only those used in rooms)
+  const availableColors = colorPriority; // This already contains only used colors
+
+  const addMatrixRule = () => {
+    if (availableColors.length >= 2) {
+      const newRule: ConflictMatrixEntry = {
+        underneath: availableColors[0],
+        onTop: availableColors[1],
+        result: availableColors[0]
+      };
+      onConflictMatrixChange([...conflictMatrix, newRule]);
+    }
+  };
+
+  const removeMatrixRule = (index: number) => {
+    const updatedMatrix = conflictMatrix.filter((_, i) => i !== index);
+    onConflictMatrixChange(updatedMatrix);
+  };
+
+  const updateMatrixRule = (index: number, field: keyof ConflictMatrixEntry, value: RoomColor) => {
+    const updatedMatrix = conflictMatrix.map((entry, i) => 
+      i === index ? { ...entry, [field]: value } : entry
+    );
+    onConflictMatrixChange(updatedMatrix);
   };
 
   return (
@@ -224,62 +239,106 @@ export function SettingsPanel({
         {mode === 'matrix' && (
           <div>
             <Label className="text-sm font-medium text-gray-700 mb-3 block">
-              Conflict Matrix
+              Conflict Rules
             </Label>
-            <div className="text-xs text-gray-500 mb-3">
-              Rows: underneath color, Columns: on top color
+            <div className="text-xs text-gray-500 mb-4">
+              Define what happens when room colors meet
             </div>
             
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-xs">
-                <thead>
-                  <tr>
-                    <th className="w-8"></th>
-                    {DEFAULT_COLOR_PRIORITY.slice(0, 4).map(color => (
-                      <th key={color} className="w-8 p-1">
-                        <div
-                          className="w-4 h-4 rounded mx-auto"
-                          style={{ backgroundColor: ROOM_COLORS[color] }}
-                        />
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {DEFAULT_COLOR_PRIORITY.slice(0, 4).map(rowColor => (
-                    <tr key={rowColor}>
-                      <td className="p-1">
-                        <div
-                          className="w-4 h-4 rounded"
-                          style={{ backgroundColor: ROOM_COLORS[rowColor] }}
-                        />
-                      </td>
-                      {DEFAULT_COLOR_PRIORITY.slice(0, 4).map(colColor => (
-                        <td key={colColor} className="p-1">
-                          <Select
-                            value={getMatrixValue(rowColor, colColor)}
-                            onValueChange={(value: RoomColor) =>
-                              handleMatrixChange(rowColor, colColor, value)
-                            }
-                          >
-                            <SelectTrigger className="w-full h-6 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value={rowColor}>{colorNames[rowColor]}</SelectItem>
-                              <SelectItem value={colColor}>{colorNames[colColor]}</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            <div className="mt-2 text-xs text-gray-500">
-              Undefined combinations fall back to priority list
-            </div>
+            {availableColors.length < 2 ? (
+              <div className="text-sm text-gray-500 italic">
+                Need at least 2 different room colors to create conflict rules
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {conflictMatrix.map((rule, index) => (
+                  <div key={index} className="flex items-center gap-2 p-3 bg-gray-50 rounded border">
+                    <span className="text-sm text-gray-600">Where</span>
+                    
+                    <Select
+                      value={rule.underneath}
+                      onValueChange={(value: RoomColor) => updateMatrixRule(index, 'underneath', value)}
+                    >
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableColors.map(color => (
+                          <SelectItem key={color} value={color}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded" style={{ backgroundColor: ROOM_COLORS[color] }} />
+                              {colorNames[color]}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <span className="text-sm text-gray-600">meets</span>
+                    
+                    <Select
+                      value={rule.onTop}
+                      onValueChange={(value: RoomColor) => updateMatrixRule(index, 'onTop', value)}
+                    >
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableColors.map(color => (
+                          <SelectItem key={color} value={color}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded" style={{ backgroundColor: ROOM_COLORS[color] }} />
+                              {colorNames[color]}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <span className="text-sm text-gray-600">color it</span>
+                    
+                    <Select
+                      value={rule.result}
+                      onValueChange={(value: RoomColor) => updateMatrixRule(index, 'result', value)}
+                    >
+                      <SelectTrigger className="w-24">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableColors.map(color => (
+                          <SelectItem key={color} value={color}>
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 rounded" style={{ backgroundColor: ROOM_COLORS[color] }} />
+                              {colorNames[color]}
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => removeMatrixRule(index)}
+                      className="p-1 h-8 w-8"
+                    >
+                      <Trash2 className="w-4 h-4 text-gray-400" />
+                    </Button>
+                  </div>
+                ))}
+                
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={addMatrixRule}
+                  className="w-full"
+                  disabled={availableColors.length < 2}
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Rule
+                </Button>
+              </div>
+            )}
           </div>
         )}
 
