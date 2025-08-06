@@ -39,12 +39,14 @@ export class EdgeFightingResolver {
 
   private static findOverlappingRooms(edge: Edge, rooms: Room[]): Room[] {
     const overlapping: Room[] = [];
+    const edgeRoom = rooms.find(r => r.id === edge.roomId);
+    if (!edgeRoom) return overlapping;
     
     for (const room of rooms) {
       if (room.id === edge.roomId) continue;
       
-      // Check if edge overlaps with this room's boundaries
-      if (this.edgeOverlapsRoom(edge, room)) {
+      // Check if the edge's room actually overlaps with this room (not just tangent)
+      if (this.roomsActuallyOverlap(edgeRoom, room)) {
         overlapping.push(room);
       }
     }
@@ -52,48 +54,32 @@ export class EdgeFightingResolver {
     return overlapping;
   }
 
-  private static edgeOverlapsRoom(edge: Edge, room: Room): boolean {
-    // Check if edge intersects with room boundaries
-    const roomEdges = [
-      { x1: room.x, y1: room.y, x2: room.x + room.width, y2: room.y }, // North
-      { x1: room.x, y1: room.y + room.height, x2: room.x + room.width, y2: room.y + room.height }, // South
-      { x1: room.x + room.width, y1: room.y, x2: room.x + room.width, y2: room.y + room.height }, // East
-      { x1: room.x, y1: room.y, x2: room.x, y2: room.y + room.height }, // West
-    ];
+  private static roomsActuallyOverlap(room1: Room, room2: Room): boolean {
+    // Check if rooms actually overlap (share interior space), not just touch boundaries
+    const r1 = {
+      left: room1.x,
+      right: room1.x + room1.width,
+      top: room1.y,
+      bottom: room1.y + room1.height,
+    };
 
-    return roomEdges.some(roomEdge => 
-      this.linesOverlap(edge, roomEdge)
-    );
+    const r2 = {
+      left: room2.x,
+      right: room2.x + room2.width,
+      top: room2.y,
+      bottom: room2.y + room2.height,
+    };
+
+    // Calculate actual overlap area
+    const overlapX = Math.max(0, Math.min(r1.right, r2.right) - Math.max(r1.left, r2.left));
+    const overlapY = Math.max(0, Math.min(r1.bottom, r2.bottom) - Math.max(r1.top, r2.top));
+    
+    // Only consider it an overlap if there's actual shared interior space > 0
+    // This excludes tangent rooms that just touch at boundaries
+    return overlapX > 0 && overlapY > 0;
   }
 
-  private static linesOverlap(line1: any, line2: any): boolean {
-    // Simplified overlap detection - check if lines share any points
-    const tolerance = 0.1;
-    
-    // Check if lines are parallel and overlapping
-    if (line1.x1 === line1.x2 && line2.x1 === line2.x2) {
-      // Vertical lines
-      return Math.abs(line1.x1 - line2.x1) < tolerance &&
-             this.rangesOverlap(line1.y1, line1.y2, line2.y1, line2.y2);
-    }
-    
-    if (line1.y1 === line1.y2 && line2.y1 === line2.y2) {
-      // Horizontal lines
-      return Math.abs(line1.y1 - line2.y1) < tolerance &&
-             this.rangesOverlap(line1.x1, line1.x2, line2.x1, line2.x2);
-    }
-    
-    return false;
-  }
 
-  private static rangesOverlap(a1: number, a2: number, b1: number, b2: number): boolean {
-    const minA = Math.min(a1, a2);
-    const maxA = Math.max(a1, a2);
-    const minB = Math.min(b1, b2);
-    const maxB = Math.max(b1, b2);
-    
-    return maxA > minB && maxB > minA;
-  }
 
   private static resolveChronological(room: Room, overlappingRooms: Room[]): string {
     // Last created room wins
