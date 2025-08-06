@@ -98,13 +98,11 @@ export function DrawingCanvas({
         const targetX = currentGridPos.x - canvasState.dragStartOffset.x;
         const targetY = currentGridPos.y - canvasState.dragStartOffset.y;
         
-        // Get valid position for preview
-        const validPosition = RoomValidation.getValidDragPosition(room, targetX, targetY, rooms);
-        
+        // During drag preview, show smooth position without validation snapping
         const previewRoom = {
           ...room,
-          x: validPosition.x,
-          y: validPosition.y,
+          x: Math.max(0, targetX),
+          y: Math.max(0, targetY),
         };
         
         const previewEdges = CanvasUtils.generateRoomEdges(previewRoom);
@@ -131,10 +129,9 @@ export function DrawingCanvas({
           const targetX = currentGridPos.x - canvasState.dragStartOffset.x;
           const targetY = currentGridPos.y - canvasState.dragStartOffset.y;
           
-          // Get valid position (snap to nearest valid location)
-          const validPosition = RoomValidation.getValidDragPosition(room, targetX, targetY, rooms);
-          roomX = validPosition.x;
-          roomY = validPosition.y;
+          // During drag preview, show position without validation snapping for smooth movement
+          roomX = Math.max(0, targetX);
+          roomY = Math.max(0, targetY);
         }
         
         ctx.strokeStyle = '#3B82F6';
