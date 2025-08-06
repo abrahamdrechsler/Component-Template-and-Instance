@@ -129,12 +129,26 @@ export function DrawingCanvas({
           const targetX = currentGridPos.x - canvasState.dragStartOffset.x;
           const targetY = currentGridPos.y - canvasState.dragStartOffset.y;
           
-          // During drag preview, show position without validation snapping for smooth movement
+          // Show smooth preview position (validation happens only on drop)
           roomX = Math.max(0, targetX);
           roomY = Math.max(0, targetY);
+          
+          // Visual indicator for invalid positions
+          const otherRooms = rooms.filter(r => r.id !== room.id);
+          const isValidPosition = RoomValidation.isValidPreviewPosition(room, roomX, roomY, otherRooms);
+          
+          // Change selection outline color to indicate validity
+          if (!isValidPosition) {
+            ctx.strokeStyle = '#EF4444'; // Red for invalid
+          } else {
+            ctx.strokeStyle = '#3B82F6'; // Blue for valid
+          }
         }
         
-        ctx.strokeStyle = '#3B82F6';
+        // Set stroke color (already set above if dragging, default blue otherwise)
+        if (!canvasState.isDragging) {
+          ctx.strokeStyle = '#3B82F6';
+        }
         ctx.lineWidth = 3;
         ctx.setLineDash([5, 5]);
         const x = roomX * gridSize;
@@ -290,12 +304,21 @@ export function DrawingCanvas({
     if (canvasState.isDragging && canvasState.dragStartOffset && selectedRoomId) {
       const room = rooms.find(r => r.id === selectedRoomId);
       if (room) {
-        const targetX = gridPoint.x - canvasState.dragStartOffset.x;
-        const targetY = gridPoint.y - canvasState.dragStartOffset.y;
+        const targetX = Math.max(0, gridPoint.x - canvasState.dragStartOffset.x);
+        const targetY = Math.max(0, gridPoint.y - canvasState.dragStartOffset.y);
         
-        // Get valid position for final placement
-        const validPosition = RoomValidation.getValidDragPosition(room, targetX, targetY, rooms);
-        onMoveRoom(selectedRoomId, validPosition.x, validPosition.y);
+        // Check if the target position is valid
+        const otherRooms = rooms.filter(r => r.id !== room.id);
+        const isValidMove = RoomValidation.isValidPreviewPosition(room, targetX, targetY, otherRooms);
+        
+        if (isValidMove) {
+          // Move to the target position if valid
+          onMoveRoom(selectedRoomId, targetX, targetY);
+        } else {
+          // Find the nearest valid position if the drop position is invalid
+          const validPosition = RoomValidation.getValidDragPosition(room, targetX, targetY, rooms);
+          onMoveRoom(selectedRoomId, validPosition.x, validPosition.y);
+        }
       }
     }
 
