@@ -30,24 +30,55 @@ export class CanvasUtils {
     }
   }
 
-  static drawRoom(ctx: CanvasRenderingContext2D, room: Room, gridSize: number, color: string) {
-    const x = room.x * gridSize;
-    const y = room.y * gridSize;
-    const width = room.width * gridSize;
-    const height = room.height * gridSize;
-    
-    ctx.strokeStyle = color;
-    ctx.lineWidth = gridSize; // Wall thickness = 1 grid square
-    ctx.strokeRect(x + gridSize / 2, y + gridSize / 2, width - gridSize, height - gridSize);
-  }
+
 
   static drawEdge(ctx: CanvasRenderingContext2D, edge: Edge, gridSize: number, color: string) {
-    ctx.strokeStyle = color;
-    ctx.lineWidth = gridSize;
-    ctx.beginPath();
-    ctx.moveTo(edge.x1 * gridSize, edge.y1 * gridSize);
-    ctx.lineTo(edge.x2 * gridSize, edge.y2 * gridSize);
-    ctx.stroke();
+    ctx.fillStyle = color;
+    
+    // Calculate wall rectangle based on edge orientation and position
+    const x1 = edge.x1 * gridSize;
+    const y1 = edge.y1 * gridSize;
+    const x2 = edge.x2 * gridSize;
+    const y2 = edge.y2 * gridSize;
+    
+    // Determine if this is a horizontal or vertical edge
+    const isHorizontal = y1 === y2;
+    
+    if (isHorizontal) {
+      // Horizontal edge (north/south walls)
+      const wallX = Math.min(x1, x2);
+      const wallWidth = Math.abs(x2 - x1);
+      let wallY, wallHeight;
+      
+      if (edge.side === 'north') {
+        // North wall - extends inward from top boundary
+        wallY = y1;
+        wallHeight = gridSize;
+      } else {
+        // South wall - extends inward from bottom boundary  
+        wallY = y1 - gridSize;
+        wallHeight = gridSize;
+      }
+      
+      ctx.fillRect(wallX, wallY, wallWidth, wallHeight);
+    } else {
+      // Vertical edge (east/west walls)
+      const wallY = Math.min(y1, y2);
+      const wallHeight = Math.abs(y2 - y1);
+      let wallX, wallWidth;
+      
+      if (edge.side === 'west') {
+        // West wall - extends inward from left boundary
+        wallX = x1;
+        wallWidth = gridSize;
+      } else {
+        // East wall - extends inward from right boundary
+        wallX = x1 - gridSize;
+        wallWidth = gridSize;
+      }
+      
+      ctx.fillRect(wallX, wallY, wallWidth, wallHeight);
+    }
   }
 
   static getCanvasCoordinates(event: MouseEvent, canvas: HTMLCanvasElement): Point {
