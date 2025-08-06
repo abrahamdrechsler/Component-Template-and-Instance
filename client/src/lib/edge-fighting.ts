@@ -195,8 +195,30 @@ export class EdgeFightingResolver {
       return ROOM_COLORS[overlappingRooms[0].color];
     }
 
-    // For multiple rooms, use priority resolution as matrix gets complex
-    // Could implement more sophisticated matrix resolution later
+    // For exactly two rooms, check if there's a matrix rule
+    if (overlappingRooms.length === 2) {
+      const [room1, room2] = overlappingRooms;
+      
+      // Check for direct match: room1 underneath × room2 onTop = result
+      let rule = conflictMatrix.find(r => 
+        r.underneath === room1.color && r.onTop === room2.color
+      );
+      
+      if (rule) {
+        return ROOM_COLORS[rule.result];
+      }
+      
+      // Check for reverse match: room2 underneath × room1 onTop = result
+      rule = conflictMatrix.find(r => 
+        r.underneath === room2.color && r.onTop === room1.color
+      );
+      
+      if (rule) {
+        return ROOM_COLORS[rule.result];
+      }
+    }
+
+    // If no matrix rule found or more than 2 rooms, fall back to priority
     return this.resolvePriorityMultiple(overlappingRooms, colorPriority);
   }
 }
