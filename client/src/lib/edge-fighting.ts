@@ -155,17 +155,10 @@ export class EdgeFightingResolver {
 
 
   private static resolveChronologicalMultiple(overlappingRooms: Room[]): string {
-    // Last created room wins (creation order should be preserved regardless of movements)
-    console.log('Chronological resolution for overlapping rooms:', 
-      overlappingRooms.map(r => ({ id: r.id, color: r.color, createdAt: r.createdAt }))
-    );
-    
+    // Last created room wins (creation order preserved regardless of movements)
     const latestRoom = overlappingRooms.reduce((latest, current) => 
       current.createdAt > latest.createdAt ? current : latest
     );
-    
-    console.log('Winner (latest created):', { id: latestRoom.id, color: latestRoom.color, createdAt: latestRoom.createdAt });
-    
     return ROOM_COLORS[latestRoom.color];
   }
 
