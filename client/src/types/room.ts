@@ -13,6 +13,7 @@ export interface CanvasState {
   pan: Point;
   isDragging: boolean;
   dragStart: Point | null;
+  dragStartOffset?: Point;
   isDrawing: boolean;
   drawStart: Point | null;
 }

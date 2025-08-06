@@ -91,14 +91,12 @@ export function DrawingCanvas({
     });
 
     // Draw preview edges for dragged room
-    if (canvasState.isDragging && selectedRoomId && canvasState.dragStart && mousePos) {
+    if (canvasState.isDragging && selectedRoomId && canvasState.dragStartOffset && mousePos) {
       const room = rooms.find(r => r.id === selectedRoomId);
       if (room) {
         const currentGridPos = CanvasUtils.getGridCoordinates(mousePos, gridSize);
-        const deltaX = currentGridPos.x - canvasState.dragStart.x;
-        const deltaY = currentGridPos.y - canvasState.dragStart.y;
-        const targetX = room.x + deltaX;
-        const targetY = room.y + deltaY;
+        const targetX = currentGridPos.x - canvasState.dragStartOffset.x;
+        const targetY = currentGridPos.y - canvasState.dragStartOffset.y;
         
         // Get valid position for preview
         const validPosition = RoomValidation.getValidDragPosition(room, targetX, targetY, rooms);
@@ -128,12 +126,10 @@ export function DrawingCanvas({
         let roomY = room.y;
         
         // Show drag preview if actively dragging
-        if (canvasState.isDragging && canvasState.dragStart && mousePos) {
+        if (canvasState.isDragging && canvasState.dragStartOffset && mousePos) {
           const currentGridPos = CanvasUtils.getGridCoordinates(mousePos, gridSize);
-          const deltaX = currentGridPos.x - canvasState.dragStart.x;
-          const deltaY = currentGridPos.y - canvasState.dragStart.y;
-          const targetX = room.x + deltaX;
-          const targetY = room.y + deltaY;
+          const targetX = currentGridPos.x - canvasState.dragStartOffset.x;
+          const targetY = currentGridPos.y - canvasState.dragStartOffset.y;
           
           // Get valid position (snap to nearest valid location)
           const validPosition = RoomValidation.getValidDragPosition(room, targetX, targetY, rooms);
@@ -260,6 +256,10 @@ export function DrawingCanvas({
             ...prev,
             isDragging: false, // Don't start dragging until mouse moves
             dragStart: gridPoint,
+            dragStartOffset: {
+              x: gridPoint.x - roomToMove.x,
+              y: gridPoint.y - roomToMove.y
+            }
           }));
         }
         break;
@@ -290,13 +290,11 @@ export function DrawingCanvas({
       onAddRoom(x, y, width, height);
     }
 
-    if (canvasState.isDragging && canvasState.dragStart && selectedRoomId) {
-      const deltaX = gridPoint.x - canvasState.dragStart.x;
-      const deltaY = gridPoint.y - canvasState.dragStart.y;
+    if (canvasState.isDragging && canvasState.dragStartOffset && selectedRoomId) {
       const room = rooms.find(r => r.id === selectedRoomId);
       if (room) {
-        const targetX = room.x + deltaX;
-        const targetY = room.y + deltaY;
+        const targetX = gridPoint.x - canvasState.dragStartOffset.x;
+        const targetY = gridPoint.y - canvasState.dragStartOffset.y;
         
         // Get valid position for final placement
         const validPosition = RoomValidation.getValidDragPosition(room, targetX, targetY, rooms);
@@ -310,6 +308,7 @@ export function DrawingCanvas({
       drawStart: null,
       isDragging: false,
       dragStart: null,
+      dragStartOffset: undefined,
     }));
   }, [
     canvasState,
