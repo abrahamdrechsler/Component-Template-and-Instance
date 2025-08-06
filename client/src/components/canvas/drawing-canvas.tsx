@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback, useState } from 'react';
 import { CanvasUtils } from '@/lib/canvas-utils';
 import { Room, Edge } from '@shared/schema';
 import { Point, CanvasState } from '@/types/room';
+import { RoomValidation } from '@/lib/room-validation';
 
 interface DrawingCanvasProps {
   rooms: Room[];
@@ -91,8 +92,10 @@ export function DrawingCanvas({
         };
         
         const previewEdges = CanvasUtils.generateRoomEdges(previewRoom);
+        const isValidDragPosition = RoomValidation.isValidPreviewPosition(room, previewRoom.x, previewRoom.y, rooms);
+        
         previewEdges.forEach(edge => {
-          const color = getEdgeColor(edge);
+          const color = isValidDragPosition ? getEdgeColor(edge) : '#FF4444';
           ctx.globalAlpha = 0.7; // Make preview semi-transparent
           CanvasUtils.drawEdge(ctx, edge, gridSize, color);
           ctx.globalAlpha = 1.0;
@@ -116,7 +119,12 @@ export function DrawingCanvas({
           roomY = room.y + deltaY;
         }
         
-        ctx.strokeStyle = '#3B82F6';
+        // Check if current position is valid for drag preview
+        const isValidPosition = canvasState.isDragging 
+          ? RoomValidation.isValidPreviewPosition(room, roomX, roomY, rooms)
+          : true;
+        
+        ctx.strokeStyle = isValidPosition ? '#3B82F6' : '#FF4444';
         ctx.lineWidth = 3;
         ctx.setLineDash([5, 5]);
         const x = roomX * gridSize;
@@ -143,20 +151,30 @@ export function DrawingCanvas({
 
     // Draw preview when drawing
     if (canvasState.isDrawing && canvasState.drawStart && mousePos) {
-      ctx.strokeStyle = selectedColor;
-      ctx.lineWidth = 2;
-      ctx.setLineDash([3, 3]);
-      
       const snappedStart = CanvasUtils.snapToGrid(canvasState.drawStart, gridSize);
       const snappedEnd = CanvasUtils.snapToGrid(mousePos, gridSize);
       
-      const width = Math.abs(snappedEnd.x - snappedStart.x);
-      const height = Math.abs(snappedEnd.y - snappedStart.y);
-      const x = Math.min(snappedStart.x, snappedEnd.x);
-      const y = Math.min(snappedStart.y, snappedEnd.y);
+      const width = Math.abs(snappedEnd.x - snappedStart.x) / gridSize;
+      const height = Math.abs(snappedEnd.y - snappedStart.y) / gridSize;
+      const x = Math.min(snappedStart.x, snappedEnd.x) / gridSize;
+      const y = Math.min(snappedStart.y, snappedEnd.y) / gridSize;
       
-      // Draw preview rectangle with actual dimensions
-      ctx.strokeRect(x, y, width, height);
+      // Create preview room to check validity
+      const previewRoom: Room = {
+        id: 'preview',
+        name: 'Preview',
+        x, y, width, height,
+        color: 'blue',
+        createdAt: Date.now(),
+      };
+      
+      const isValidPlacement = RoomValidation.isValidRoomPlacement(previewRoom, rooms);
+      
+      // Draw preview rectangle with color based on validity
+      ctx.strokeStyle = isValidPlacement ? selectedColor : '#FF4444';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([3, 3]);
+      ctx.strokeRect(x * gridSize, y * gridSize, width * gridSize, height * gridSize);
       ctx.setLineDash([]);
     }
   }, [

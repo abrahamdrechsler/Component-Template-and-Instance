@@ -3,6 +3,7 @@ import { Room, Edge, ConflictMatrixEntry, RoomColor, EdgeFightingMode } from '@s
 import { DEFAULT_COLOR_PRIORITY, ROOM_COLORS } from '@/types/room';
 import { CanvasUtils } from '@/lib/canvas-utils';
 import { EdgeFightingResolver } from '@/lib/edge-fighting';
+import { RoomValidation } from '@/lib/room-validation';
 
 export interface UseEdgeConflictReturn {
   // State
@@ -65,12 +66,20 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
       createdAt: Date.now(),
     };
 
+    // Validate room placement
+    if (!RoomValidation.isValidRoomPlacement(newRoom, rooms)) {
+      // Find nearest valid position
+      const validPosition = RoomValidation.getNearestValidPosition(newRoom, x, y, rooms);
+      newRoom.x = validPosition.x;
+      newRoom.y = validPosition.y;
+    }
+
     setRooms(prev => [...prev, newRoom]);
     
     // Generate edges for the new room
     const newEdges = CanvasUtils.generateRoomEdges(newRoom);
     setEdges(prev => [...prev, ...newEdges]);
-  }, [selectedColor]);
+  }, [selectedColor, rooms]);
 
   const deleteRoom = useCallback((roomId: string) => {
     setRooms(prev => prev.filter(room => room.id !== roomId));
@@ -82,20 +91,26 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
   }, [selectedRoomId]);
 
   const moveRoom = useCallback((roomId: string, x: number, y: number) => {
+    const room = rooms.find(r => r.id === roomId);
+    if (!room) return;
+
+    // Validate room movement
+    if (!RoomValidation.isValidRoomMove(room, x, y, rooms)) {
+      // Don't move if position is invalid
+      return;
+    }
+
     setRooms(prev => prev.map(room => 
       room.id === roomId ? { ...room, x, y } : room
     ));
     
     // Update edges for the moved room
-    const room = rooms.find(r => r.id === roomId);
-    if (room) {
-      const updatedRoom = { ...room, x, y };
-      const newEdges = CanvasUtils.generateRoomEdges(updatedRoom);
-      setEdges(prev => [
-        ...prev.filter(edge => edge.roomId !== roomId),
-        ...newEdges
-      ]);
-    }
+    const updatedRoom = { ...room, x, y };
+    const newEdges = CanvasUtils.generateRoomEdges(updatedRoom);
+    setEdges(prev => [
+      ...prev.filter(edge => edge.roomId !== roomId),
+      ...newEdges
+    ]);
   }, [rooms]);
 
   const updateRoom = useCallback((roomId: string, updates: Partial<Room>) => {
