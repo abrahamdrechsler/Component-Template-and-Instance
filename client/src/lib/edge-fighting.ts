@@ -62,15 +62,15 @@ export class EdgeFightingResolver {
       bottom: room.y + room.height,
     };
     
-    // Check if the edge segment actually passes through the room interior
+    // Check if the edge segment actually passes through the room interior (not just touching boundary)
     if (edge.side === 'north' || edge.side === 'south') {
       // Horizontal edge
       const edgeY = edge.y1;
       const edgeLeft = Math.min(edge.x1, edge.x2);
       const edgeRight = Math.max(edge.x1, edge.x2);
       
-      // Edge must be within room's vertical bounds and have horizontal overlap
-      return (edgeY >= roomBounds.top && edgeY <= roomBounds.bottom) &&
+      // Edge must be INSIDE room's vertical bounds (not on boundary) and have horizontal overlap
+      return (edgeY > roomBounds.top && edgeY < roomBounds.bottom) &&
              (edgeRight > roomBounds.left && edgeLeft < roomBounds.right);
     } else {
       // Vertical edge
@@ -78,8 +78,8 @@ export class EdgeFightingResolver {
       const edgeTop = Math.min(edge.y1, edge.y2);
       const edgeBottom = Math.max(edge.y1, edge.y2);
       
-      // Edge must be within room's horizontal bounds and have vertical overlap
-      return (edgeX >= roomBounds.left && edgeX <= roomBounds.right) &&
+      // Edge must be INSIDE room's horizontal bounds (not on boundary) and have vertical overlap
+      return (edgeX > roomBounds.left && edgeX < roomBounds.right) &&
              (edgeBottom > roomBounds.top && edgeTop < roomBounds.bottom);
     }
   }
