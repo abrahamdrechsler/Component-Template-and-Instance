@@ -55,12 +55,16 @@ export class RoomValidation {
     // Allow overlap up to 1 grid unit (12") for wall sharing
     const maxWallThickness = 1;
     
-    // For valid wall sharing, EXACTLY one dimension should overlap by 1 foot
-    // Both dimensions overlapping by more than 1 foot = invalid (too much overlap)
+    // Valid overlap rules:
+    // 1. No overlap at all (rooms just touching or separate)
+    // 2. Exactly 1-foot overlap in one dimension (wall sharing)
+    // 3. Maximum 1-foot overlap in both dimensions (corner sharing)
     const validWallSharing = (
-      // Horizontal wall sharing: exactly 1-foot overlap in X, no restriction on Y
+      // No overlap is always valid
+      (overlapX === 0 || overlapY === 0) ||
+      // Horizontal wall sharing: exactly 1-foot overlap in X, any Y overlap ≤ 1
       (overlapX === maxWallThickness && overlapY <= maxWallThickness) ||
-      // Vertical wall sharing: exactly 1-foot overlap in Y, no restriction on X  
+      // Vertical wall sharing: exactly 1-foot overlap in Y, any X overlap ≤ 1  
       (overlapY === maxWallThickness && overlapX <= maxWallThickness)
     );
     
