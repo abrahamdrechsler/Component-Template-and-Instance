@@ -55,6 +55,16 @@ export class RoomValidation {
     // Allow overlap up to 1 grid unit (12") in any direction
     const maxOverlap = 1;
     
+    // Debug logging
+    console.log('Overlap check:', {
+      room1: { x: room1.x, y: room1.y, w: room1.width, h: room1.height },
+      room2: { x: room2.x, y: room2.y, w: room2.width, h: room2.height },
+      overlapX,
+      overlapY,
+      maxOverlap,
+      valid: overlapX <= maxOverlap && overlapY <= maxOverlap
+    });
+    
     // Valid if overlap is within limits
     return overlapX <= maxOverlap && overlapY <= maxOverlap;
   }
