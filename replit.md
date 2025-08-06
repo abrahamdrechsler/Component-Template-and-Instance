@@ -4,6 +4,13 @@
 
 This is a browser-based prototype built to simulate edge-fighting behavior between overlapping room geometries. The application allows users to draw rectangular rooms on a grid-based canvas and test different visual edge priority resolution methods when rooms overlap. The tool provides three conflict resolution modes: chronological order (last drawn wins), user-defined priority lists, and customizable conflict matrices.
 
+## Recent Changes (August 2025)
+
+- **Simplified Conflict Matrix UI**: Redesigned matrix interface with clean "Color × Color = Result" format using only visual color swatches for compact, intuitive rule creation
+- **Fixed Matrix Resolution Logic**: Corrected conflict matrix functionality to properly apply user-defined rules for edge color resolution when rooms overlap
+- **Enhanced Drag Behavior**: Implemented smooth, constrained room dragging where preview shows only valid positions and final placement matches preview exactly (no snapping or jumping)
+- **Visual Validation**: Added real-time validation during room placement with clear visual feedback
+
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
