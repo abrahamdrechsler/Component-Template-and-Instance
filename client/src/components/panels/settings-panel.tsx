@@ -250,80 +250,95 @@ export function SettingsPanel({
                 Need at least 2 different room colors to create conflict rules
               </div>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {conflictMatrix.map((rule, index) => (
-                  <div key={index} className="flex items-center gap-2 p-3 bg-gray-50 rounded border">
-                    <span className="text-sm text-gray-600">Where</span>
+                  <div key={index} className="bg-gray-50 rounded border p-2">
+                    {/* Row 1: Where X meets Y */}
+                    <div className="flex items-center gap-1 mb-2">
+                      <span className="text-xs text-gray-600">Where</span>
+                      
+                      <Select
+                        value={rule.underneath}
+                        onValueChange={(value: RoomColor) => updateMatrixRule(index, 'underneath', value)}
+                      >
+                        <SelectTrigger className="h-7 min-w-0 flex-1">
+                          <div className="flex items-center gap-1 truncate">
+                            <div className="w-3 h-3 rounded flex-shrink-0" style={{ backgroundColor: ROOM_COLORS[rule.underneath] }} />
+                            <span className="text-xs truncate">{colorNames[rule.underneath]}</span>
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableColors.map(color => (
+                            <SelectItem key={color} value={color}>
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded" style={{ backgroundColor: ROOM_COLORS[color] }} />
+                                {colorNames[color]}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      
+                      <span className="text-xs text-gray-600">meets</span>
+                      
+                      <Select
+                        value={rule.onTop}
+                        onValueChange={(value: RoomColor) => updateMatrixRule(index, 'onTop', value)}
+                      >
+                        <SelectTrigger className="h-7 min-w-0 flex-1">
+                          <div className="flex items-center gap-1 truncate">
+                            <div className="w-3 h-3 rounded flex-shrink-0" style={{ backgroundColor: ROOM_COLORS[rule.onTop] }} />
+                            <span className="text-xs truncate">{colorNames[rule.onTop]}</span>
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableColors.map(color => (
+                            <SelectItem key={color} value={color}>
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded" style={{ backgroundColor: ROOM_COLORS[color] }} />
+                                {colorNames[color]}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeMatrixRule(index)}
+                        className="p-1 h-7 w-7 flex-shrink-0"
+                      >
+                        <Trash2 className="w-3 h-3 text-gray-400" />
+                      </Button>
+                    </div>
                     
-                    <Select
-                      value={rule.underneath}
-                      onValueChange={(value: RoomColor) => updateMatrixRule(index, 'underneath', value)}
-                    >
-                      <SelectTrigger className="w-24">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableColors.map(color => (
-                          <SelectItem key={color} value={color}>
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded" style={{ backgroundColor: ROOM_COLORS[color] }} />
-                              {colorNames[color]}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    
-                    <span className="text-sm text-gray-600">meets</span>
-                    
-                    <Select
-                      value={rule.onTop}
-                      onValueChange={(value: RoomColor) => updateMatrixRule(index, 'onTop', value)}
-                    >
-                      <SelectTrigger className="w-24">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableColors.map(color => (
-                          <SelectItem key={color} value={color}>
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded" style={{ backgroundColor: ROOM_COLORS[color] }} />
-                              {colorNames[color]}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    
-                    <span className="text-sm text-gray-600">color it</span>
-                    
-                    <Select
-                      value={rule.result}
-                      onValueChange={(value: RoomColor) => updateMatrixRule(index, 'result', value)}
-                    >
-                      <SelectTrigger className="w-24">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {availableColors.map(color => (
-                          <SelectItem key={color} value={color}>
-                            <div className="flex items-center gap-2">
-                              <div className="w-3 h-3 rounded" style={{ backgroundColor: ROOM_COLORS[color] }} />
-                              {colorNames[color]}
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => removeMatrixRule(index)}
-                      className="p-1 h-8 w-8"
-                    >
-                      <Trash2 className="w-4 h-4 text-gray-400" />
-                    </Button>
+                    {/* Row 2: Color it Z */}
+                    <div className="flex items-center gap-1">
+                      <span className="text-xs text-gray-600">→ Color it</span>
+                      
+                      <Select
+                        value={rule.result}
+                        onValueChange={(value: RoomColor) => updateMatrixRule(index, 'result', value)}
+                      >
+                        <SelectTrigger className="h-7 min-w-0 flex-1">
+                          <div className="flex items-center gap-1 truncate">
+                            <div className="w-3 h-3 rounded flex-shrink-0" style={{ backgroundColor: ROOM_COLORS[rule.result] }} />
+                            <span className="text-xs truncate">{colorNames[rule.result]}</span>
+                          </div>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableColors.map(color => (
+                            <SelectItem key={color} value={color}>
+                              <div className="flex items-center gap-2">
+                                <div className="w-3 h-3 rounded" style={{ backgroundColor: ROOM_COLORS[color] }} />
+                                {colorNames[color]}
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 ))}
                 
@@ -331,7 +346,7 @@ export function SettingsPanel({
                   variant="outline"
                   size="sm"
                   onClick={addMatrixRule}
-                  className="w-full"
+                  className="w-full h-8"
                   disabled={availableColors.length < 2}
                 >
                   <Plus className="w-4 h-4 mr-2" />
