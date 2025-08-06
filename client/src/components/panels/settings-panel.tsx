@@ -29,6 +29,7 @@ export function SettingsPanel({
   onSelectedColorChange,
 }: SettingsPanelProps) {
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   
   const colorNames = {
     red: 'Red',
@@ -98,6 +99,34 @@ export function SettingsPanel({
     setDraggedIndex(null);
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent, index: number) => {
+    switch (e.key) {
+      case 'ArrowUp':
+        e.preventDefault();
+        if (index > 0) {
+          movePriorityItem(index, index - 1);
+          setSelectedIndex(index - 1);
+        }
+        break;
+      case 'ArrowDown':
+        e.preventDefault();
+        if (index < colorPriority.length - 1) {
+          movePriorityItem(index, index + 1);
+          setSelectedIndex(index + 1);
+        }
+        break;
+      case 'Enter':
+      case ' ':
+        e.preventDefault();
+        setSelectedIndex(selectedIndex === index ? null : index);
+        break;
+    }
+  };
+
+  const handleColorClick = (index: number) => {
+    setSelectedIndex(selectedIndex === index ? null : index);
+  };
+
   return (
     <div className="w-80 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
       <div className="p-4 border-b border-gray-200">
@@ -150,15 +179,22 @@ export function SettingsPanel({
                 <div
                   key={color}
                   draggable
+                  tabIndex={0}
+                  onClick={() => handleColorClick(index)}
                   onDragStart={(e) => handleDragStart(e, index)}
                   onDragOver={handleDragOver}
                   onDrop={(e) => handleDrop(e, index)}
                   onDragEnd={handleDragEnd}
-                  className={`flex items-center p-2 rounded border cursor-move transition-colors ${
+                  onKeyDown={(e) => handleKeyDown(e, index)}
+                  className={`flex items-center p-2 rounded border cursor-move transition-colors focus:outline-none ${
                     draggedIndex === index
                       ? 'bg-blue-100 border-blue-300 opacity-50'
-                      : 'bg-gray-50 hover:bg-gray-100'
+                      : selectedIndex === index
+                      ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-200'
+                      : 'bg-gray-50 hover:bg-gray-100 border-gray-200'
                   }`}
+                  role="button"
+                  aria-label={`${colorNames[color]} priority item. Use arrow keys to move up or down.`}
                 >
                   <GripVertical className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
                   <div
@@ -168,9 +204,19 @@ export function SettingsPanel({
                   <span className="flex-1 text-sm text-gray-900">
                     {colorNames[color]}
                   </span>
+                  {selectedIndex === index && (
+                    <span className="text-xs text-blue-600 ml-2">
+                      ↑↓ to move
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
+            {colorPriority.length > 0 && (
+              <div className="text-xs text-gray-500 mt-2">
+                Click to select, then use ↑↓ arrow keys to reorder, or drag and drop
+              </div>
+            )}
           </div>
         )}
 
