@@ -15,8 +15,8 @@ This Edge Conflict Prototype is a client-side only application perfect for stati
 ### For Replit Static Deployment:
 
 1. **Deployment Type**: Static
-2. **Public Directory**: `dist/public`
-3. **Build Command**: `vite build`
+2. **Public Directory**: `dist`
+3. **Build Command**: `vite build && node fix-deploy.js`
 4. **Primary domain**: Choose your desired subdomain (e.g., `edge-conflict-demo`)
 
 ### Build Output Location
@@ -58,8 +58,8 @@ dist/public/
 1. In your Replit workspace, click "Deploy"
 2. Select "Static" deployment option
 3. Configure:
-   - **Public directory**: `dist/public`
-   - **Build command**: `vite build`
+   - **Public directory**: `dist`
+   - **Build command**: `vite build && node fix-deploy.js`
    - **Primary domain**: Your chosen subdomain
 4. Click "Deploy"
 
