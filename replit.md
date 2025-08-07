@@ -11,7 +11,8 @@ This is a browser-based prototype built to simulate edge-fighting behavior betwe
 - **Enhanced Drag Behavior**: Implemented smooth, constrained room dragging where preview shows only valid positions and final placement matches preview exactly (no snapping or jumping)
 - **Fixed Chronological Mode**: Preserved creation order in chronological edge fighting mode - rooms maintain their original priority regardless of later movements or color changes
 - **Improved Tangent Room Handling**: Distinguished between truly overlapping rooms (sharing interior space) vs tangent rooms that only touch at boundaries - edge fighting only applies to actual overlaps
-- **Visual Validation**: Added real-time validation during room placement with clear visual feedback
+- **Optimized Color Palette**: Reduced to 6 highly distinct colors (Sky Blue, Coral Red, Golden Yellow, Mint Green, Lavender Purple, Slate Gray) arranged in single horizontal row
+- **Static Deployment Ready**: Configured for Replit static deployment with optimized build process (~400KB total bundle size)
 
 ## User Preferences
 
