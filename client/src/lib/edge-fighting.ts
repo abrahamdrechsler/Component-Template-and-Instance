@@ -15,7 +15,7 @@ export class EdgeFightingResolver {
     }
 
     const room = rooms.find(r => r.id === edge.roomId);
-    if (!room) return ROOM_COLORS.blue;
+    if (!room) return ROOM_COLORS.skyBlue;
 
     // Find ALL rooms that overlap with this edge's area
     const overlappingRooms = this.findAllRoomsAtEdgeLocation(edge, rooms);
@@ -173,7 +173,7 @@ export class EdgeFightingResolver {
     }
     
     // Fallback to first room's color if no priority found
-    return ROOM_COLORS[overlappingRooms[0]?.color] || ROOM_COLORS.blue;
+    return ROOM_COLORS[overlappingRooms[0]?.color] || ROOM_COLORS.skyBlue;
   }
 
   private static resolveMatrixMultiple(
@@ -182,7 +182,7 @@ export class EdgeFightingResolver {
     colorPriority: RoomColor[]
   ): string {
     if (overlappingRooms.length === 0) {
-      return ROOM_COLORS.blue;
+      return ROOM_COLORS.skyBlue;
     }
     
     if (overlappingRooms.length === 1) {

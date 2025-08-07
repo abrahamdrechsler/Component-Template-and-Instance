@@ -46,7 +46,7 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
   const [colorPriority, setColorPriority] = useState<RoomColor[]>([]);
   const [conflictMatrix, setConflictMatrix] = useState<ConflictMatrixEntry[]>([]);
   const [selectedTool, setSelectedTool] = useState<'draw' | 'move' | 'delete'>('draw');
-  const [selectedColor, setSelectedColor] = useState<RoomColor>('blue');
+  const [selectedColor, setSelectedColor] = useState<RoomColor>('skyBlue');
   const [selectedRoomId, setSelectedRoomId] = useState<string | undefined>();
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | undefined>();
   const [showGrid, setShowGrid] = useState(true);

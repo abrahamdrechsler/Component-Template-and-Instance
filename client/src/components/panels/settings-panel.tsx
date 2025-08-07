@@ -44,12 +44,12 @@ export function SettingsPanel({
   }, [mode, conflictMatrix.length, colorPriority, onConflictMatrixChange]);
   
   const colorNames = {
-    red: 'Red',
-    yellow: 'Yellow',
-    blue: 'Blue',
-    green: 'Green',
-    purple: 'Purple',
-    pink: 'Pink',
+    skyBlue: 'Sky Blue',
+    coralRed: 'Coral Red',
+    goldenYellow: 'Golden Yellow',
+    mintGreen: 'Mint Green',
+    lavenderPurple: 'Lavender Purple',
+    slateGray: 'Slate Gray',
   };
 
 

@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // Room color options - 6 visually distinct colors
 export const roomColorSchema = z.enum([
-  'red', 'yellow', 'blue', 'green', 'purple', 'pink'
+  'skyBlue', 'coralRed', 'goldenYellow', 'mintGreen', 'lavenderPurple', 'slateGray'
 ]);
 
 // Edge fighting modes

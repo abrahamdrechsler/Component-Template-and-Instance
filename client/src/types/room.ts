@@ -26,14 +26,14 @@ export interface EdgeConflict {
 }
 
 export const ROOM_COLORS = {
-  red: '#E53E3E',     // Bright red - highly visible
-  yellow: '#F6E05E',  // Bright yellow - highly visible
-  blue: '#3182CE',    // Bright blue - highly visible
-  green: '#38A169',   // Bright green - highly visible
-  purple: '#9F7AEA',  // Bright purple - highly visible
-  pink: '#ED64A6',    // Bright pink - highly visible
+  skyBlue: '#4FC3F7',          // Sky Blue
+  coralRed: '#FF6B6B',         // Coral Red
+  goldenYellow: '#FFD54F',     // Golden Yellow
+  mintGreen: '#81C784',        // Mint Green
+  lavenderPurple: '#BA68C8',   // Lavender Purple
+  slateGray: '#546E7A',        // Slate Gray
 } as const;
 
 export const DEFAULT_COLOR_PRIORITY = [
-  'red', 'yellow', 'blue', 'green', 'purple', 'pink'
+  'skyBlue', 'coralRed', 'goldenYellow', 'mintGreen', 'lavenderPurple', 'slateGray'
 ] as const;
