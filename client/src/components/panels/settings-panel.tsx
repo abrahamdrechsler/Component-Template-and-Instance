@@ -45,15 +45,11 @@ export function SettingsPanel({
   
   const colorNames = {
     red: 'Red',
-    pink: 'Pink',
-    purple: 'Purple',
-    deepPurple: 'Deep Purple',
-    indigo: 'Indigo',
+    yellow: 'Yellow',
     blue: 'Blue',
-    cyan: 'Cyan',
-    teal: 'Teal',
     green: 'Green',
-    orange: 'Orange',
+    purple: 'Purple',
+    pink: 'Pink',
   };
 
 
@@ -336,7 +332,7 @@ export function SettingsPanel({
         {/* Room Colors Palette */}
         <div>
           <Label className="text-sm font-medium text-gray-700 mb-3 block">Room Colors</Label>
-          <div className="grid grid-cols-5 gap-2">
+          <div className="grid grid-cols-6 gap-2">
             {Object.entries(ROOM_COLORS).map(([colorKey, colorValue]) => (
               <Button
                 key={colorKey}
