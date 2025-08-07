@@ -25,16 +25,12 @@ export function InspectorPanel({
   onDeleteRoom,
 }: InspectorPanelProps) {
   const colorNames = {
-    red: 'Red',
-    pink: 'Pink',
-    purple: 'Purple',
-    deepPurple: 'Deep Purple',
-    indigo: 'Indigo',
-    blue: 'Blue',
-    cyan: 'Cyan',
-    teal: 'Teal',
-    green: 'Green',
-    orange: 'Orange',
+    skyBlue: 'Sky Blue',
+    coralRed: 'Coral Red',
+    goldenYellow: 'Golden Yellow',
+    mintGreen: 'Mint Green',
+    lavenderPurple: 'Lavender Purple',
+    slateGray: 'Slate Gray',
   };
 
   const handleRoomUpdate = (field: keyof Room, value: any) => {
