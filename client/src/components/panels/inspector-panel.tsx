@@ -11,6 +11,7 @@ interface InspectorPanelProps {
   selectedRoom?: Room;
   selectedEdge?: Edge;
   rooms: Room[];
+  edgeAuthoring: boolean;
   onUpdateRoom: (roomId: string, updates: Partial<Room>) => void;
   onUpdateEdge: (edgeId: string, updates: Partial<Edge>) => void;
   onDeleteRoom: (roomId: string) => void;
@@ -20,6 +21,7 @@ export function InspectorPanel({
   selectedRoom,
   selectedEdge,
   rooms,
+  edgeAuthoring,
   onUpdateRoom,
   onUpdateEdge,
   onDeleteRoom,
@@ -208,49 +210,51 @@ export function InspectorPanel({
             </div>
           </div>
 
-          <div>
-            <Label className="text-sm font-medium text-gray-700 mb-2 block">Edge Color Override</Label>
-            <RadioGroup
-              value={selectedEdge.colorOverride ? 'override' : 'inherit'}
-              onValueChange={handleEdgeColorModeChange}
-              className="space-y-3"
-            >
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="inherit" id="inherit" />
-                <Label htmlFor="inherit" className="text-sm">Inherit from room</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <RadioGroupItem value="override" id="override" />
-                <Label htmlFor="override" className="text-sm">Custom color</Label>
-              </div>
-            </RadioGroup>
-            
-            {selectedEdge.colorOverride && (
-              <div className="mt-3">
+          {edgeAuthoring && (
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">Edge Color Override</Label>
+              <RadioGroup
+                value={selectedEdge.colorOverride ? 'override' : 'inherit'}
+                onValueChange={handleEdgeColorModeChange}
+                className="space-y-3"
+              >
                 <div className="flex items-center space-x-2">
-                  <div
-                    className="w-8 h-8 rounded border border-gray-300"
-                    style={{ backgroundColor: ROOM_COLORS[selectedEdge.colorOverride] }}
-                  />
-                  <Select
-                    value={selectedEdge.colorOverride}
-                    onValueChange={handleEdgeColorChange}
-                  >
-                    <SelectTrigger className="flex-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(colorNames).map(([colorKey, colorName]) => (
-                        <SelectItem key={colorKey} value={colorKey}>
-                          {colorName}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <RadioGroupItem value="inherit" id="inherit" />
+                  <Label htmlFor="inherit" className="text-sm">Inherit from room</Label>
                 </div>
-              </div>
-            )}
-          </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="override" id="override" />
+                  <Label htmlFor="override" className="text-sm">Custom color</Label>
+                </div>
+              </RadioGroup>
+              
+              {selectedEdge.colorOverride && (
+                <div className="mt-3">
+                  <div className="flex items-center space-x-2">
+                    <div
+                      className="w-8 h-8 rounded border border-gray-300"
+                      style={{ backgroundColor: ROOM_COLORS[selectedEdge.colorOverride] }}
+                    />
+                    <Select
+                      value={selectedEdge.colorOverride}
+                      onValueChange={handleEdgeColorChange}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(colorNames).map(([colorKey, colorName]) => (
+                          <SelectItem key={colorKey} value={colorKey}>
+                            {colorName}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           <div>
             <Label className="text-sm font-medium text-gray-700 mb-2 block">Conflict Information</Label>

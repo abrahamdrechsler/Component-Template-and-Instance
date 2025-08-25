@@ -20,6 +20,7 @@ export default function EdgeConflictPage() {
     selectedRoomId,
     selectedEdgeId,
     showGrid,
+    edgeAuthoring,
     addRoom,
     deleteRoom,
     moveRoom,
@@ -33,6 +34,7 @@ export default function EdgeConflictPage() {
     setSelectedRoomId,
     setSelectedEdgeId,
     setShowGrid,
+    setEdgeAuthoring,
     exportData,
     importData,
     getEdgeColor,
@@ -94,8 +96,10 @@ export default function EdgeConflictPage() {
       <Toolbar
         selectedTool={selectedTool}
         showGrid={showGrid}
+        edgeAuthoring={edgeAuthoring}
         onToolChange={setSelectedTool}
         onToggleGrid={setShowGrid}
+        onToggleEdgeAuthoring={setEdgeAuthoring}
         onExport={exportData}
         onImport={handleImport}
       />
@@ -143,6 +147,7 @@ export default function EdgeConflictPage() {
           selectedRoom={selectedRoom}
           selectedEdge={selectedEdge}
           rooms={rooms}
+          edgeAuthoring={edgeAuthoring}
           onUpdateRoom={updateRoom}
           onUpdateEdge={updateEdge}
           onDeleteRoom={deleteRoom}
