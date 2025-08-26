@@ -129,6 +129,7 @@ export default function EdgeConflictPage() {
                   selectedRoomId={selectedRoomId}
                   selectedEdgeId={selectedEdgeId}
                   showGrid={showGrid}
+                  edgeAuthoring={edgeAuthoring}
                   onAddRoom={addRoom}
                   onMoveRoom={moveRoom}
                   onDeleteRoom={deleteRoom}

@@ -317,4 +317,63 @@ export class CanvasUtils {
     const tolerance = 0.001;
     return Math.abs(p1.x - p2.x) < tolerance && Math.abs(p1.y - p2.y) < tolerance;
   }
+
+  /**
+   * Calculate the center point for an edge selection dot
+   */
+  static getEdgeDotPosition(edge: Edge, gridSize: number): Point {
+    const centerX = (edge.x1 + edge.x2) / 2;
+    const centerY = (edge.y1 + edge.y2) / 2;
+    
+    // Move dot slightly inward from the edge center
+    let dotX = centerX * gridSize;
+    let dotY = centerY * gridSize;
+    
+    const inset = gridSize * 0.3; // Move 30% of grid size inward
+    
+    switch (edge.side) {
+      case 'north':
+        dotY += inset; // Move down from north edge
+        break;
+      case 'south':
+        dotY -= inset; // Move up from south edge
+        break;
+      case 'east':
+        dotX -= inset; // Move left from east edge
+        break;
+      case 'west':
+        dotX += inset; // Move right from west edge
+        break;
+    }
+    
+    return { x: dotX, y: dotY };
+  }
+
+  /**
+   * Check if a point is near an edge dot
+   */
+  static isPointNearEdgeDot(point: Point, dotPosition: Point, gridSize: number): boolean {
+    const threshold = gridSize * 0.25; // 25% of grid size
+    const distance = Math.sqrt(
+      Math.pow(point.x - dotPosition.x, 2) + Math.pow(point.y - dotPosition.y, 2)
+    );
+    return distance <= threshold;
+  }
+
+  /**
+   * Draw an edge selection dot
+   */
+  static drawEdgeDot(ctx: CanvasRenderingContext2D, position: Point, gridSize: number, isHovered: boolean = false) {
+    const radius = gridSize * 0.15;
+    
+    ctx.fillStyle = isHovered ? '#3B82F6' : '#000000';
+    ctx.beginPath();
+    ctx.arc(position.x, position.y, radius, 0, 2 * Math.PI);
+    ctx.fill();
+    
+    // Add white border for visibility
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
 }

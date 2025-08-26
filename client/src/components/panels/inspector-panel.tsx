@@ -41,18 +41,16 @@ export function InspectorPanel({
     }
   };
 
-  const handleEdgeColorModeChange = (mode: string) => {
-    if (selectedEdge) {
-      if (mode === 'inherit') {
-        onUpdateEdge(selectedEdge.id, { colorOverride: undefined });
-      }
-      // If override mode, keep current colorOverride or set to room color
-    }
-  };
-
   const handleEdgeColorChange = (color: RoomColor) => {
     if (selectedEdge) {
-      onUpdateEdge(selectedEdge.id, { colorOverride: color });
+      const room = rooms.find(r => r.id === selectedEdge.roomId);
+      if (room && color === room.color) {
+        // If same as room color, clear override to inherit
+        onUpdateEdge(selectedEdge.id, { colorOverride: undefined });
+      } else {
+        // Set color override
+        onUpdateEdge(selectedEdge.id, { colorOverride: color });
+      }
     }
   };
 
@@ -210,57 +208,28 @@ export function InspectorPanel({
             </div>
           </div>
 
-          {edgeAuthoring && (
-            <div>
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Edge Color Override</Label>
-              <RadioGroup
-                value={selectedEdge.colorOverride ? 'override' : 'inherit'}
-                onValueChange={handleEdgeColorModeChange}
-                className="space-y-3"
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="inherit" id="inherit" />
-                  <Label htmlFor="inherit" className="text-sm">Inherit from room</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="override" id="override" />
-                  <Label htmlFor="override" className="text-sm">Custom color</Label>
-                </div>
-              </RadioGroup>
-              
-              {selectedEdge.colorOverride && (
-                <div className="mt-3">
-                  <div className="flex items-center space-x-2">
-                    <div
-                      className="w-8 h-8 rounded border border-gray-300"
-                      style={{ backgroundColor: ROOM_COLORS[selectedEdge.colorOverride] }}
-                    />
-                    <Select
-                      value={selectedEdge.colorOverride}
-                      onValueChange={handleEdgeColorChange}
-                    >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.entries(colorNames).map(([colorKey, colorName]) => (
-                          <SelectItem key={colorKey} value={colorKey}>
-                            {colorName}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
           <div>
-            <Label className="text-sm font-medium text-gray-700 mb-2 block">Conflict Information</Label>
-            <div className="text-sm text-gray-600 space-y-1">
-              <div>Status: <span className="text-yellow-600">Normal</span></div>
-              <div>Resolution: <span>No conflicts</span></div>
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">Edge Color</Label>
+            <div className="flex items-center space-x-2">
+              <div
+                className="w-8 h-8 rounded border border-gray-300"
+                style={{ backgroundColor: selectedEdge.colorOverride ? ROOM_COLORS[selectedEdge.colorOverride] : ROOM_COLORS[rooms.find(r => r.id === selectedEdge.roomId)?.color || 'skyBlue'] }}
+              />
+              <Select
+                value={selectedEdge.colorOverride || rooms.find(r => r.id === selectedEdge.roomId)?.color || 'skyBlue'}
+                onValueChange={handleEdgeColorChange}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(colorNames).map(([colorKey, colorName]) => (
+                    <SelectItem key={colorKey} value={colorKey}>
+                      {colorName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
         </div>

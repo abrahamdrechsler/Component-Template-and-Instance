@@ -12,6 +12,7 @@ interface DrawingCanvasProps {
   selectedRoomId?: string;
   selectedEdgeId?: string;
   showGrid: boolean;
+  edgeAuthoring: boolean;
   onAddRoom: (x: number, y: number, width: number, height: number) => void;
   onMoveRoom: (roomId: string, x: number, y: number) => void;
   onDeleteRoom: (roomId: string) => void;
@@ -30,6 +31,7 @@ export function DrawingCanvas({
   selectedRoomId,
   selectedEdgeId,
   showGrid,
+  edgeAuthoring,
   onAddRoom,
   onMoveRoom,
   onDeleteRoom,
@@ -49,6 +51,7 @@ export function DrawingCanvas({
     drawStart: null,
   });
   const [mousePos, setMousePos] = useState<Point | null>(null);
+  const [hoveredDot, setHoveredDot] = useState<string | null>(null);
 
   const gridSize = 20; // 20px = 1ft
 
@@ -165,6 +168,19 @@ export function DrawingCanvas({
       }
     }
 
+    // Draw edge selection dots for selected room when edge authoring is enabled
+    if (edgeAuthoring && selectedRoomId) {
+      const room = rooms.find(r => r.id === selectedRoomId);
+      if (room) {
+        const roomEdges = edges.filter(e => e.roomId === selectedRoomId);
+        roomEdges.forEach(edge => {
+          const dotPosition = CanvasUtils.getEdgeDotPosition(edge, gridSize);
+          const isHovered = hoveredDot === edge.id;
+          CanvasUtils.drawEdgeDot(ctx, dotPosition, gridSize, isHovered);
+        });
+      }
+    }
+
     // Draw preview when drawing
     if (canvasState.isDrawing && canvasState.drawStart && mousePos) {
       const snappedStart = CanvasUtils.snapToGrid(canvasState.drawStart, gridSize);
@@ -180,7 +196,7 @@ export function DrawingCanvas({
         id: 'preview',
         name: 'Preview',
         x, y, width, height,
-        color: 'blue',
+        color: 'skyBlue',
         createdAt: Date.now(),
       };
       
@@ -220,6 +236,27 @@ export function DrawingCanvas({
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
     setMousePos(point);
 
+    // Check for edge dot hover when edge authoring is enabled and room is selected
+    if (edgeAuthoring && selectedRoomId) {
+      const room = rooms.find(r => r.id === selectedRoomId);
+      if (room) {
+        const roomEdges = edges.filter(e => e.roomId === selectedRoomId);
+        let foundHover = null;
+        
+        for (const edge of roomEdges) {
+          const dotPosition = CanvasUtils.getEdgeDotPosition(edge, gridSize);
+          if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
+            foundHover = edge.id;
+            break;
+          }
+        }
+        
+        setHoveredDot(foundHover);
+      }
+    } else {
+      setHoveredDot(null);
+    }
+
     // Start dragging when mouse moves after mousedown in move mode
     if (selectedTool === 'move' && canvasState.dragStart && !canvasState.isDragging && selectedRoomId) {
       const deltaX = Math.abs(gridPoint.x - canvasState.dragStart.x);
@@ -233,7 +270,7 @@ export function DrawingCanvas({
         }));
       }
     }
-  }, [selectedTool, canvasState.dragStart, canvasState.isDragging, selectedRoomId, gridSize]);
+  }, [selectedTool, canvasState.dragStart, canvasState.isDragging, selectedRoomId, gridSize, edgeAuthoring, rooms, edges]);
 
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -333,7 +370,23 @@ export function DrawingCanvas({
       const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
       const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
 
-      // Check for edge selection first
+      // Check for edge dot click first when edge authoring is enabled and room is selected
+      if (edgeAuthoring && selectedRoomId) {
+        const room = rooms.find(r => r.id === selectedRoomId);
+        if (room) {
+          const roomEdges = edges.filter(e => e.roomId === selectedRoomId);
+          
+          for (const edge of roomEdges) {
+            const dotPosition = CanvasUtils.getEdgeDotPosition(edge, gridSize);
+            if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
+              onSelectEdge(edge.id);
+              return;
+            }
+          }
+        }
+      }
+
+      // Check for edge selection
       const edge = getEdgeAt(gridPoint.x, gridPoint.y);
       if (edge) {
         onSelectEdge(edge.id);
@@ -351,7 +404,7 @@ export function DrawingCanvas({
         onSelectEdge(undefined);
       }
     }
-  }, [selectedTool, getRoomAt, getEdgeAt, onSelectRoom, onSelectEdge, gridSize]);
+  }, [selectedTool, getRoomAt, getEdgeAt, onSelectRoom, onSelectEdge, gridSize, edgeAuthoring, selectedRoomId, rooms, edges]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -430,7 +483,8 @@ export function DrawingCanvas({
         className={`border border-gray-300 outline-none ${
           selectedTool === 'draw' ? 'cursor-crosshair' :
           selectedTool === 'move' ? 'cursor-grab' :
-          'cursor-pointer'
+          hoveredDot ? 'cursor-pointer' :
+          'cursor-default'
         }`}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
