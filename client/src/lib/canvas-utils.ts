@@ -319,30 +319,30 @@ export class CanvasUtils {
   }
 
   /**
-   * Calculate the center point for an edge selection dot
+   * Calculate the center point for an edge selection dot positioned on the inside face
    */
   static getEdgeDotPosition(edge: Edge, gridSize: number): Point {
     const centerX = (edge.x1 + edge.x2) / 2;
     const centerY = (edge.y1 + edge.y2) / 2;
     
-    // Move dot slightly inward from the edge center
+    // Position dot on the inside face of the room (not inside the wall)
     let dotX = centerX * gridSize;
     let dotY = centerY * gridSize;
     
-    const inset = gridSize * 0.3; // Move 30% of grid size inward
+    const inset = gridSize * 0.6; // Move further inward to be on room interior side
     
     switch (edge.side) {
       case 'north':
-        dotY += inset; // Move down from north edge
+        dotY += inset; // Move down into room interior from north wall
         break;
       case 'south':
-        dotY -= inset; // Move up from south edge
+        dotY -= inset; // Move up into room interior from south wall
         break;
       case 'east':
-        dotX -= inset; // Move left from east edge
+        dotX -= inset; // Move left into room interior from east wall
         break;
       case 'west':
-        dotX += inset; // Move right from west edge
+        dotX += inset; // Move right into room interior from west wall
         break;
     }
     

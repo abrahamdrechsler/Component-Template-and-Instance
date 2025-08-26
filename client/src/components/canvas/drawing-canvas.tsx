@@ -172,8 +172,17 @@ export function DrawingCanvas({
     if (edgeAuthoring && selectedRoomId) {
       const room = rooms.find(r => r.id === selectedRoomId);
       if (room) {
+        // Get one representative edge per side to show one dot per side
         const roomEdges = edges.filter(e => e.roomId === selectedRoomId);
+        const edgesBySide = new Map<string, Edge>();
+        
         roomEdges.forEach(edge => {
+          if (!edgesBySide.has(edge.side)) {
+            edgesBySide.set(edge.side, edge);
+          }
+        });
+        
+        edgesBySide.forEach((edge, side) => {
           const dotPosition = CanvasUtils.getEdgeDotPosition(edge, gridSize);
           const isHovered = hoveredDot === edge.id;
           CanvasUtils.drawEdgeDot(ctx, dotPosition, gridSize, isHovered);
@@ -241,9 +250,16 @@ export function DrawingCanvas({
       const room = rooms.find(r => r.id === selectedRoomId);
       if (room) {
         const roomEdges = edges.filter(e => e.roomId === selectedRoomId);
-        let foundHover = null;
+        const edgesBySide = new Map<string, Edge>();
         
-        for (const edge of roomEdges) {
+        roomEdges.forEach(edge => {
+          if (!edgesBySide.has(edge.side)) {
+            edgesBySide.set(edge.side, edge);
+          }
+        });
+        
+        let foundHover = null;
+        for (const [side, edge] of edgesBySide) {
           const dotPosition = CanvasUtils.getEdgeDotPosition(edge, gridSize);
           if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
             foundHover = edge.id;
@@ -375,8 +391,15 @@ export function DrawingCanvas({
         const room = rooms.find(r => r.id === selectedRoomId);
         if (room) {
           const roomEdges = edges.filter(e => e.roomId === selectedRoomId);
+          const edgesBySide = new Map<string, Edge>();
           
-          for (const edge of roomEdges) {
+          roomEdges.forEach(edge => {
+            if (!edgesBySide.has(edge.side)) {
+              edgesBySide.set(edge.side, edge);
+            }
+          });
+          
+          for (const [side, edge] of edgesBySide) {
             const dotPosition = CanvasUtils.getEdgeDotPosition(edge, gridSize);
             if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
               onSelectEdge(edge.id);
