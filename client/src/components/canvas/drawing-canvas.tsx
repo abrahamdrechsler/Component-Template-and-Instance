@@ -182,8 +182,8 @@ export function DrawingCanvas({
           }
         });
         
-        edgesBySide.forEach((edge, side) => {
-          const dotPosition = CanvasUtils.getEdgeDotPosition(edge, gridSize);
+        Array.from(edgesBySide.entries()).forEach(([side, edge]) => {
+          const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
           const isHovered = hoveredDot === edge.id;
           CanvasUtils.drawEdgeDot(ctx, dotPosition, gridSize, isHovered);
         });
@@ -259,8 +259,8 @@ export function DrawingCanvas({
         });
         
         let foundHover = null;
-        for (const [side, edge] of edgesBySide) {
-          const dotPosition = CanvasUtils.getEdgeDotPosition(edge, gridSize);
+        for (const [side, edge] of Array.from(edgesBySide.entries())) {
+          const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
           if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
             foundHover = edge.id;
             break;
@@ -399,8 +399,8 @@ export function DrawingCanvas({
             }
           });
           
-          for (const [side, edge] of edgesBySide) {
-            const dotPosition = CanvasUtils.getEdgeDotPosition(edge, gridSize);
+          for (const [side, edge] of Array.from(edgesBySide.entries())) {
+            const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
             if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
               onSelectEdge(edge.id);
               return;

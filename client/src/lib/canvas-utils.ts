@@ -321,28 +321,31 @@ export class CanvasUtils {
   /**
    * Calculate the center point for an edge selection dot positioned on the inside face
    */
-  static getEdgeDotPosition(edge: Edge, gridSize: number): Point {
-    const centerX = (edge.x1 + edge.x2) / 2;
-    const centerY = (edge.y1 + edge.y2) / 2;
+  static getEdgeDotPosition(room: Room, side: 'north' | 'south' | 'east' | 'west', gridSize: number): Point {
+    // Calculate the true center of each room edge
+    let dotX: number;
+    let dotY: number;
     
-    // Position dot on the inside face of the room (not inside the wall)
-    let dotX = centerX * gridSize;
-    let dotY = centerY * gridSize;
+    const roomCenterX = room.x + room.width / 2;
+    const roomCenterY = room.y + room.height / 2;
+    const insetFromEdge = 0.4; // Distance from edge into room interior
     
-    const inset = gridSize * 0.6; // Move further inward to be on room interior side
-    
-    switch (edge.side) {
+    switch (side) {
       case 'north':
-        dotY += inset; // Move down into room interior from north wall
+        dotX = roomCenterX * gridSize;
+        dotY = (room.y + insetFromEdge) * gridSize;
         break;
       case 'south':
-        dotY -= inset; // Move up into room interior from south wall
+        dotX = roomCenterX * gridSize;
+        dotY = (room.y + room.height - insetFromEdge) * gridSize;
         break;
       case 'east':
-        dotX -= inset; // Move left into room interior from east wall
+        dotX = (room.x + room.width - insetFromEdge) * gridSize;
+        dotY = roomCenterY * gridSize;
         break;
       case 'west':
-        dotX += inset; // Move right into room interior from west wall
+        dotX = (room.x + insetFromEdge) * gridSize;
+        dotY = roomCenterY * gridSize;
         break;
     }
     
