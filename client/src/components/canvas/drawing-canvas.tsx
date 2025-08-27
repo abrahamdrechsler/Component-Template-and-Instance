@@ -169,7 +169,8 @@ export function DrawingCanvas({
     }
 
     // Draw edge selection dots for selected room when edge authoring is enabled
-    if (edgeAuthoring && selectedRoomId) {
+    // Hide dots during drag operations to avoid visual confusion
+    if (edgeAuthoring && selectedRoomId && !canvasState.isDragging) {
       const room = rooms.find(r => r.id === selectedRoomId);
       if (room) {
         // Get one representative edge per side to show one dot per side
