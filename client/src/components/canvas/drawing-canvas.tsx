@@ -247,7 +247,8 @@ export function DrawingCanvas({
     setMousePos(point);
 
     // Check for edge dot hover when edge authoring is enabled and room is selected
-    if (edgeAuthoring && selectedRoomId) {
+    // Only check hover when not dragging to avoid interference
+    if (edgeAuthoring && selectedRoomId && !canvasState.isDragging) {
       const room = rooms.find(r => r.id === selectedRoomId);
       if (room) {
         const roomEdges = edges.filter(e => e.roomId === selectedRoomId);
@@ -263,6 +264,7 @@ export function DrawingCanvas({
         for (const [side, edge] of Array.from(edgesBySide.entries())) {
           const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
           if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
+            console.log('Hovering over edge dot:', edge.id, 'side:', side);
             foundHover = edge.id;
             break;
           }
@@ -388,7 +390,8 @@ export function DrawingCanvas({
       const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
 
       // Check for edge dot click first when edge authoring is enabled and room is selected
-      if (edgeAuthoring && selectedRoomId) {
+      // Only allow edge dot clicks when not dragging
+      if (edgeAuthoring && selectedRoomId && !canvasState.isDragging) {
         const room = rooms.find(r => r.id === selectedRoomId);
         if (room) {
           const roomEdges = edges.filter(e => e.roomId === selectedRoomId);
@@ -403,6 +406,7 @@ export function DrawingCanvas({
           for (const [side, edge] of Array.from(edgesBySide.entries())) {
             const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
             if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
+              console.log('Edge dot clicked:', edge.id, 'side:', side);
               onSelectEdge(edge.id);
               return;
             }

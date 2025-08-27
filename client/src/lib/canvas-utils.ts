@@ -356,11 +356,15 @@ export class CanvasUtils {
    * Check if a point is near an edge dot
    */
   static isPointNearEdgeDot(point: Point, dotPosition: Point, gridSize: number): boolean {
-    const threshold = gridSize * 0.25; // 25% of grid size
+    const threshold = gridSize * 0.4; // 40% of grid size for easier clicking
     const distance = Math.sqrt(
       Math.pow(point.x - dotPosition.x, 2) + Math.pow(point.y - dotPosition.y, 2)
     );
-    return distance <= threshold;
+    const isNear = distance <= threshold;
+    if (isNear) {
+      console.log('Point near dot:', { point, dotPosition, distance, threshold });
+    }
+    return isNear;
   }
 
   /**
