@@ -7,11 +7,25 @@ export class EdgeFightingResolver {
     rooms: Room[],
     mode: 'chronological' | 'priority' | 'matrix',
     colorPriority: RoomColor[],
-    conflictMatrix: ConflictMatrixEntry[]
+    conflictMatrix: ConflictMatrixEntry[],
+    allEdges?: Edge[]
   ): string {
     // If edge has color override, use it
     if (edge.colorOverride) {
       return ROOM_COLORS[edge.colorOverride];
+    }
+    
+    // Check if any other edge segment of the same wall has a color override
+    // This ensures that setting a color override on one segment applies to the entire wall
+    if (allEdges) {
+      const wallOverride = allEdges.find(e => 
+        e.roomId === edge.roomId && 
+        e.side === edge.side && 
+        e.colorOverride
+      );
+      if (wallOverride && wallOverride.colorOverride) {
+        return ROOM_COLORS[wallOverride.colorOverride];
+      }
     }
 
     const room = rooms.find(r => r.id === edge.roomId);

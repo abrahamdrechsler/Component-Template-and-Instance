@@ -226,9 +226,9 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
 
   const getEdgeColor = useCallback((edge: Edge): string => {
     return EdgeFightingResolver.resolveEdgeColor(
-      edge, rooms, mode, colorPriority, conflictMatrix
+      edge, rooms, mode, colorPriority, conflictMatrix, edges
     );
-  }, [rooms, mode, colorPriority, conflictMatrix]);
+  }, [rooms, edges, mode, colorPriority, conflictMatrix]);
 
   const getRoomAt = useCallback((x: number, y: number): Room | undefined => {
     return rooms.find(room => CanvasUtils.isPointInRoom({ x, y }, room));
