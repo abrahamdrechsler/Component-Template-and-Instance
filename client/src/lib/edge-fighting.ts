@@ -10,56 +10,91 @@ export class EdgeFightingResolver {
     conflictMatrix: ConflictMatrixEntry[],
     allEdges?: Edge[]
   ): string {
-    const room = rooms.find(r => r.id === edge.roomId);
-    if (!room) return ROOM_COLORS.skyBlue;
+    if (!allEdges) return ROOM_COLORS.skyBlue;
 
-    // Find ALL rooms that overlap with this edge's area
-    const overlappingRooms = this.findAllRoomsAtEdgeLocation(edge, rooms);
+    // Step 1: Find all edges that occupy the same location as this edge
+    const overlappingEdges = this.findOverlappingEdges(edge, allEdges);
     
-    // Check if this wall has an edge color override
-    let edgeOverrideColor: RoomColor | undefined;
-    if (edge.colorOverride) {
-      edgeOverrideColor = edge.colorOverride;
-    } else if (allEdges) {
-      const wallOverride = allEdges.find(e => 
-        e.roomId === edge.roomId && 
-        e.side === edge.side && 
-        e.colorOverride
-      );
-      if (wallOverride && wallOverride.colorOverride) {
-        edgeOverrideColor = wallOverride.colorOverride;
+    // Step 2: Determine the color assignment for each overlapping edge
+    const edgeColors = overlappingEdges.map(e => {
+      const room = rooms.find(r => r.id === e.roomId);
+      if (!room) return null;
+      
+      // Get edge's color: override if present, otherwise room color
+      let edgeColor: RoomColor;
+      if (e.colorOverride) {
+        edgeColor = e.colorOverride;
+      } else {
+        // Check if any other segment of the same wall has an override
+        const wallOverride = allEdges.find(we => 
+          we.roomId === e.roomId && 
+          we.side === e.side && 
+          we.colorOverride
+        );
+        edgeColor = wallOverride?.colorOverride || room.color;
+      }
+      
+      return {
+        color: edgeColor,
+        createdAt: room.createdAt,
+        roomId: room.id
+      };
+    }).filter(Boolean) as { color: RoomColor, createdAt: number, roomId: string }[];
+    
+    // Step 3: If no overlapping edges or only one edge, return its color
+    if (edgeColors.length <= 1) {
+      const room = rooms.find(r => r.id === edge.roomId);
+      if (!room) return ROOM_COLORS.skyBlue;
+      
+      const thisEdgeColor = edge.colorOverride || 
+        allEdges.find(e => e.roomId === edge.roomId && e.side === edge.side && e.colorOverride)?.colorOverride ||
+        room.color;
+      
+      return ROOM_COLORS[thisEdgeColor];
+    }
+
+    // Step 4: Resolve conflict between all competing edge colors
+    switch (mode) {
+      case 'chronological':
+        return this.resolveChronologicalWithColors(edgeColors);
+      case 'priority':
+        return this.resolvePriorityWithColors(edgeColors, colorPriority);
+      case 'matrix':
+        return this.resolveMatrixWithColors(edgeColors, conflictMatrix, colorPriority);
+      default:
+        return ROOM_COLORS[edgeColors[0]?.color] || ROOM_COLORS.skyBlue;
+    }
+  }
+
+  private static findOverlappingEdges(edge: Edge, allEdges: Edge[]): Edge[] {
+    const overlapping: Edge[] = [];
+    
+    for (const otherEdge of allEdges) {
+      if (this.edgesOverlap(edge, otherEdge)) {
+        overlapping.push(otherEdge);
       }
     }
     
-    // If no overlapping rooms and no edge override, use room color
-    if (overlappingRooms.length <= 1 && !edgeOverrideColor) {
-      return ROOM_COLORS[room.color];
-    }
-    
-    // If no overlapping rooms but has edge override, use edge override
-    if (overlappingRooms.length <= 1 && edgeOverrideColor) {
-      return ROOM_COLORS[edgeOverrideColor];
-    }
+    return overlapping;
+  }
 
-    // Create a list of competing colors (room colors + edge override if present)
-    const competingColors = overlappingRooms.map(r => ({ color: r.color, createdAt: r.createdAt }));
+  private static edgesOverlap(edge1: Edge, edge2: Edge): boolean {
+    // Check if two edges occupy the same space
+    const e1Left = Math.min(edge1.x1, edge1.x2);
+    const e1Right = Math.max(edge1.x1, edge1.x2);
+    const e1Top = Math.min(edge1.y1, edge1.y2);
+    const e1Bottom = Math.max(edge1.y1, edge1.y2);
     
-    // If edge has override, add it to the competition with the owning room's timestamp
-    if (edgeOverrideColor) {
-      competingColors.push({ color: edgeOverrideColor, createdAt: room.createdAt });
-    }
-
-    // Resolve conflict based on mode with ALL competing colors
-    switch (mode) {
-      case 'chronological':
-        return this.resolveChronologicalWithColors(competingColors);
-      case 'priority':
-        return this.resolvePriorityWithColors(competingColors, colorPriority);
-      case 'matrix':
-        return this.resolveMatrixWithColors(competingColors, conflictMatrix, colorPriority);
-      default:
-        return ROOM_COLORS[room.color];
-    }
+    const e2Left = Math.min(edge2.x1, edge2.x2);
+    const e2Right = Math.max(edge2.x1, edge2.x2);
+    const e2Top = Math.min(edge2.y1, edge2.y2);
+    const e2Bottom = Math.max(edge2.y1, edge2.y2);
+    
+    // Check if edges overlap in both x and y dimensions
+    const xOverlap = e1Right > e2Left && e1Left < e2Right;
+    const yOverlap = e1Bottom > e2Top && e1Top < e2Bottom;
+    
+    return xOverlap && yOverlap;
   }
 
   private static findAllRoomsAtEdgeLocation(edge: Edge, rooms: Room[]): Room[] {
