@@ -406,6 +406,7 @@ export function DrawingCanvas({
             const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
             if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
               onSelectEdge(edge.id);
+              onSelectRoom(undefined); // Clear room selection when edge is selected
               return;
             }
           }
