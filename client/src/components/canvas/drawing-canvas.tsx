@@ -264,7 +264,6 @@ export function DrawingCanvas({
         for (const [side, edge] of Array.from(edgesBySide.entries())) {
           const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
           if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
-            console.log('Hovering over edge dot:', edge.id, 'side:', side);
             foundHover = edge.id;
             break;
           }
@@ -406,7 +405,6 @@ export function DrawingCanvas({
           for (const [side, edge] of Array.from(edgesBySide.entries())) {
             const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
             if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
-              console.log('Edge dot clicked:', edge.id, 'side:', side);
               onSelectEdge(edge.id);
               return;
             }

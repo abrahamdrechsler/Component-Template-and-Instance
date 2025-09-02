@@ -328,23 +328,24 @@ export class CanvasUtils {
     
     const roomCenterX = room.x + room.width / 2;
     const roomCenterY = room.y + room.height / 2;
-    const insetFromEdge = 0.4; // Distance from edge into room interior
+    const wallThickness = 0.1; // Wall thickness in grid units
+    const insetFromWall = 0.3; // Additional distance inside the room from inner wall face
     
     switch (side) {
       case 'north':
         dotX = roomCenterX * gridSize;
-        dotY = (room.y + insetFromEdge) * gridSize;
+        dotY = (room.y + wallThickness + insetFromWall) * gridSize;
         break;
       case 'south':
         dotX = roomCenterX * gridSize;
-        dotY = (room.y + room.height - insetFromEdge) * gridSize;
+        dotY = (room.y + room.height - wallThickness - insetFromWall) * gridSize;
         break;
       case 'east':
-        dotX = (room.x + room.width - insetFromEdge) * gridSize;
+        dotX = (room.x + room.width - wallThickness - insetFromWall) * gridSize;
         dotY = roomCenterY * gridSize;
         break;
       case 'west':
-        dotX = (room.x + insetFromEdge) * gridSize;
+        dotX = (room.x + wallThickness + insetFromWall) * gridSize;
         dotY = roomCenterY * gridSize;
         break;
     }
@@ -360,18 +361,14 @@ export class CanvasUtils {
     const distance = Math.sqrt(
       Math.pow(point.x - dotPosition.x, 2) + Math.pow(point.y - dotPosition.y, 2)
     );
-    const isNear = distance <= threshold;
-    if (isNear) {
-      console.log('Point near dot:', { point, dotPosition, distance, threshold });
-    }
-    return isNear;
+    return distance <= threshold;
   }
 
   /**
    * Draw an edge selection dot
    */
   static drawEdgeDot(ctx: CanvasRenderingContext2D, position: Point, gridSize: number, isHovered: boolean = false) {
-    const radius = gridSize * 0.15;
+    const radius = gridSize * 0.45; // 3x bigger than original (was 0.15)
     
     ctx.fillStyle = isHovered ? '#3B82F6' : '#000000';
     ctx.beginPath();
