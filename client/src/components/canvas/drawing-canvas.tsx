@@ -111,7 +111,19 @@ export function DrawingCanvas({
           y: constrainedPos.y,
         };
         
+        // Generate preview edges with preserved custom properties
         const previewEdges = CanvasUtils.generateRoomEdges(previewRoom);
+        
+        // Apply existing edge overrides (colors, names) to preview edges
+        const originalRoomEdges = edges.filter(e => e.roomId === selectedRoomId);
+        previewEdges.forEach(previewEdge => {
+          // Find matching original edge by side
+          const originalEdge = originalRoomEdges.find(e => e.side === previewEdge.side);
+          if (originalEdge) {
+            if (originalEdge.colorOverride) previewEdge.colorOverride = originalEdge.colorOverride;
+            if (originalEdge.name) previewEdge.name = originalEdge.name;
+          }
+        });
         
         previewEdges.forEach(edge => {
           const color = getEdgeColor(edge);
