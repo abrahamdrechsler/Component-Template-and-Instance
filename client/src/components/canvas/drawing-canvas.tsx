@@ -381,39 +381,39 @@ export function DrawingCanvas({
   ]);
 
   const handleClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
-    console.log('Canvas clicked, selectedTool:', selectedTool, 'edgeAuthoring:', edgeAuthoring, 'selectedRoomId:', selectedRoomId);
-    if (selectedTool !== 'draw' && selectedTool !== 'move' && selectedTool !== 'delete') {
-      const canvas = canvasRef.current;
-      if (!canvas) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-      const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
-      const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
+    const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
+    const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
 
-      // Check for edge dot click first when edge authoring is enabled and room is selected
-      // Only allow edge dot clicks when not dragging
-      if (edgeAuthoring && selectedRoomId && !canvasState.isDragging) {
-        const room = rooms.find(r => r.id === selectedRoomId);
-        if (room) {
-          const roomEdges = edges.filter(e => e.roomId === selectedRoomId);
-          const edgesBySide = new Map<string, Edge>();
-          
-          roomEdges.forEach(edge => {
-            if (!edgesBySide.has(edge.side)) {
-              edgesBySide.set(edge.side, edge);
-            }
-          });
-          
-          for (const [side, edge] of Array.from(edgesBySide.entries())) {
-            const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
-            if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
-              console.log('Edge dot clicked! Selecting edge:', edge.id);
-              onSelectEdge(edge.id);
-              onSelectRoom(undefined); // Clear room selection when edge is selected
-              return;
-            }
+    // Check for edge dot click first when edge authoring is enabled and room is selected
+    // Allow edge dot clicks regardless of selected tool
+    if (edgeAuthoring && selectedRoomId && !canvasState.isDragging) {
+      const room = rooms.find(r => r.id === selectedRoomId);
+      if (room) {
+        const roomEdges = edges.filter(e => e.roomId === selectedRoomId);
+        const edgesBySide = new Map<string, Edge>();
+        
+        roomEdges.forEach(edge => {
+          if (!edgesBySide.has(edge.side)) {
+            edgesBySide.set(edge.side, edge);
+          }
+        });
+        
+        for (const [side, edge] of Array.from(edgesBySide.entries())) {
+          const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
+          if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
+            onSelectEdge(edge.id);
+            onSelectRoom(undefined); // Clear room selection when edge is selected
+            return;
           }
         }
       }
+    }
+    
+    // Only do other click actions if not in draw/move/delete tools
+    if (selectedTool !== 'draw' && selectedTool !== 'move' && selectedTool !== 'delete') {
 
       // Check for edge selection
       const edge = getEdgeAt(gridPoint.x, gridPoint.y);
