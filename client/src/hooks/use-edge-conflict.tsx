@@ -143,14 +143,35 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
     );
     setRooms(updatedRooms);
     
+    // Preserve existing edge properties (colorOverride, name) when regenerating
+    const existingEdgeProps = new Map<string, { colorOverride?: RoomColor; name?: string }>();
+    edges.forEach(edge => {
+      const key = `${edge.roomId}-${edge.side}`;
+      if (edge.colorOverride || edge.name) {
+        existingEdgeProps.set(key, {
+          colorOverride: edge.colorOverride,
+          name: edge.name
+        });
+      }
+    });
+    
     // Regenerate ALL edges with segmentation based on all rooms (including moved room)
     const allEdges: Edge[] = [];
     for (const room of updatedRooms) {
       const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, updatedRooms);
+      // Restore preserved properties
+      roomEdges.forEach(edge => {
+        const key = `${edge.roomId}-${edge.side}`;
+        const preserved = existingEdgeProps.get(key);
+        if (preserved) {
+          if (preserved.colorOverride) edge.colorOverride = preserved.colorOverride;
+          if (preserved.name) edge.name = preserved.name;
+        }
+      });
       allEdges.push(...roomEdges);
     }
     setEdges(allEdges);
-  }, [rooms]);
+  }, [rooms, edges]);
 
   const updateRoom = useCallback((roomId: string, updates: Partial<Room>) => {
     const updatedRooms = rooms.map(room => 
@@ -166,15 +187,36 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
     // Regenerate edges if dimensions or position changed
     if (updates.width !== undefined || updates.height !== undefined || 
         updates.x !== undefined || updates.y !== undefined) {
+      // Preserve existing edge properties (colorOverride, name) when regenerating
+      const existingEdgeProps = new Map<string, { colorOverride?: RoomColor; name?: string }>();
+      edges.forEach(edge => {
+        const key = `${edge.roomId}-${edge.side}`;
+        if (edge.colorOverride || edge.name) {
+          existingEdgeProps.set(key, {
+            colorOverride: edge.colorOverride,
+            name: edge.name
+          });
+        }
+      });
+      
       // Regenerate ALL edges with segmentation based on all rooms
       const allEdges: Edge[] = [];
       for (const room of updatedRooms) {
         const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, updatedRooms);
+        // Restore preserved properties
+        roomEdges.forEach(edge => {
+          const key = `${edge.roomId}-${edge.side}`;
+          const preserved = existingEdgeProps.get(key);
+          if (preserved) {
+            if (preserved.colorOverride) edge.colorOverride = preserved.colorOverride;
+            if (preserved.name) edge.name = preserved.name;
+          }
+        });
         allEdges.push(...roomEdges);
       }
       setEdges(allEdges);
     }
-  }, [rooms, updateColorPriorityForUsedColors]);
+  }, [rooms, edges, updateColorPriorityForUsedColors]);
 
   const updateEdge = useCallback((edgeId: string, updates: Partial<Edge>) => {
     setEdges(prev => prev.map(edge => 
