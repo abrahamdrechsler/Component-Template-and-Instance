@@ -329,7 +329,7 @@ export class CanvasUtils {
     const roomCenterX = room.x + room.width / 2;
     const roomCenterY = room.y + room.height / 2;
     const wallThickness = 0.1; // Wall thickness in grid units
-    const insetFromWall = 0.3; // Additional distance inside the room from inner wall face
+    const insetFromWall = 0.05; // Very small distance inside the room from inner wall face
     
     switch (side) {
       case 'north':
