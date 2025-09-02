@@ -155,16 +155,18 @@ export function DrawingCanvas({
       }
     }
 
-    // Highlight selected edge
+    // Highlight selected edge with dashed blue line
     if (selectedEdgeId) {
       const edge = edges.find(e => e.id === selectedEdgeId);
       if (edge) {
-        ctx.strokeStyle = '#10B981';
-        ctx.lineWidth = gridSize + 4;
+        ctx.strokeStyle = '#3B82F6';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([5, 5]);
         ctx.beginPath();
         ctx.moveTo(edge.x1 * gridSize, edge.y1 * gridSize);
         ctx.lineTo(edge.x2 * gridSize, edge.y2 * gridSize);
         ctx.stroke();
+        ctx.setLineDash([]);
       }
     }
 
