@@ -381,6 +381,7 @@ export function DrawingCanvas({
   ]);
 
   const handleClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    console.log('Canvas clicked, selectedTool:', selectedTool, 'edgeAuthoring:', edgeAuthoring, 'selectedRoomId:', selectedRoomId);
     if (selectedTool !== 'draw' && selectedTool !== 'move' && selectedTool !== 'delete') {
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -405,6 +406,7 @@ export function DrawingCanvas({
           for (const [side, edge] of Array.from(edgesBySide.entries())) {
             const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
             if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
+              console.log('Edge dot clicked! Selecting edge:', edge.id);
               onSelectEdge(edge.id);
               onSelectRoom(undefined); // Clear room selection when edge is selected
               return;

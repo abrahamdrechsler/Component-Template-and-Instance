@@ -78,7 +78,9 @@ export function InspectorPanel({
   return (
     <div className="w-72 bg-white border-l border-gray-200 flex flex-col">
       <div className="p-4 border-b border-gray-200">
-        <h2 className="text-base font-semibold text-gray-900">Inspector</h2>
+        <h2 className="text-base font-semibold text-gray-900">
+          {selectedEdge ? 'Edge' : selectedRoom ? 'Room' : 'Inspector'}
+        </h2>
       </div>
 
       {/* Room Inspector */}
@@ -194,18 +196,15 @@ export function InspectorPanel({
       {selectedEdge && (
         <div className="flex-1 p-4 space-y-4">
           <div>
-            <Label className="text-sm font-medium text-gray-700 mb-2 block">Edge Properties</Label>
-            <div className="text-sm text-gray-600 space-y-1">
-              <div>
-                Room: <span>{rooms.find(r => r.id === selectedEdge.roomId)?.name || 'Unknown'}</span>
-              </div>
-              <div>Side: <span>{getEdgeSideName(selectedEdge.side)}</span></div>
-              <div>
-                Length: <span>
-                  {Math.abs(selectedEdge.x2 - selectedEdge.x1) || Math.abs(selectedEdge.y2 - selectedEdge.y1)} ft
-                </span>
-              </div>
-            </div>
+            <Label htmlFor="edge-name" className="text-sm font-medium text-gray-700 mb-2 block">
+              Edge Name
+            </Label>
+            <Input
+              id="edge-name"
+              value={selectedEdge.name || `${rooms.find(r => r.id === selectedEdge.roomId)?.name || 'Room'} - ${getEdgeSideName(selectedEdge.side)}`}
+              onChange={(e) => onUpdateEdge(selectedEdge.id, { name: e.target.value })}
+              className="text-sm"
+            />
           </div>
 
           <div>

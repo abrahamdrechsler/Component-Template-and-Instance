@@ -32,6 +32,7 @@ export const edgeSchema = z.object({
   x2: z.number(),
   y2: z.number(),
   colorOverride: roomColorSchema.optional(),
+  name: z.string().optional(),
 });
 
 // Conflict matrix entry
