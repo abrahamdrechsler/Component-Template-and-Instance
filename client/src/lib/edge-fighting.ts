@@ -10,42 +10,53 @@ export class EdgeFightingResolver {
     conflictMatrix: ConflictMatrixEntry[],
     allEdges?: Edge[]
   ): string {
-    // If edge has color override, use it
-    if (edge.colorOverride) {
-      return ROOM_COLORS[edge.colorOverride];
-    }
-    
-    // Check if any other edge segment of the same wall has a color override
-    // This ensures that setting a color override on one segment applies to the entire wall
-    if (allEdges) {
-      const wallOverride = allEdges.find(e => 
-        e.roomId === edge.roomId && 
-        e.side === edge.side && 
-        e.colorOverride
-      );
-      if (wallOverride && wallOverride.colorOverride) {
-        return ROOM_COLORS[wallOverride.colorOverride];
-      }
-    }
-
     const room = rooms.find(r => r.id === edge.roomId);
     if (!room) return ROOM_COLORS.skyBlue;
 
     // Find ALL rooms that overlap with this edge's area
     const overlappingRooms = this.findAllRoomsAtEdgeLocation(edge, rooms);
     
-    if (overlappingRooms.length <= 1) {
+    // Check if this wall has an edge color override
+    let edgeOverrideColor: RoomColor | undefined;
+    if (edge.colorOverride) {
+      edgeOverrideColor = edge.colorOverride;
+    } else if (allEdges) {
+      const wallOverride = allEdges.find(e => 
+        e.roomId === edge.roomId && 
+        e.side === edge.side && 
+        e.colorOverride
+      );
+      if (wallOverride && wallOverride.colorOverride) {
+        edgeOverrideColor = wallOverride.colorOverride;
+      }
+    }
+    
+    // If no overlapping rooms and no edge override, use room color
+    if (overlappingRooms.length <= 1 && !edgeOverrideColor) {
       return ROOM_COLORS[room.color];
     }
+    
+    // If no overlapping rooms but has edge override, use edge override
+    if (overlappingRooms.length <= 1 && edgeOverrideColor) {
+      return ROOM_COLORS[edgeOverrideColor];
+    }
 
-    // Resolve conflict based on mode with ALL overlapping rooms
+    // Create a list of competing colors (room colors + edge override if present)
+    const competingColors = overlappingRooms.map(r => ({ color: r.color, createdAt: r.createdAt }));
+    
+    // If edge has override, add it to the competition with the owning room's timestamp
+    if (edgeOverrideColor) {
+      competingColors.push({ color: edgeOverrideColor, createdAt: room.createdAt });
+    }
+
+    // Resolve conflict based on mode with ALL competing colors
     switch (mode) {
       case 'chronological':
-        return this.resolveChronologicalMultiple(overlappingRooms);
+        return this.resolveChronologicalWithColors(competingColors);
       case 'priority':
-        return this.resolvePriorityMultiple(overlappingRooms, colorPriority);
+        return this.resolvePriorityWithColors(competingColors, colorPriority);
       case 'matrix':
-        return this.resolveMatrixMultiple(overlappingRooms, conflictMatrix, colorPriority);
+        return this.resolveMatrixWithColors(competingColors, conflictMatrix, colorPriority);
       default:
         return ROOM_COLORS[room.color];
     }
@@ -228,5 +239,68 @@ export class EdgeFightingResolver {
 
     // If no matrix rule found or more than 2 rooms, fall back to priority
     return this.resolvePriorityMultiple(overlappingRooms, colorPriority);
+  }
+
+  // New helper functions for color-based resolution
+  private static resolveChronologicalWithColors(colorData: { color: RoomColor, createdAt: number }[]): string {
+    // Last created color wins
+    const latestColor = colorData.reduce((latest, current) => 
+      current.createdAt > latest.createdAt ? current : latest
+    );
+    return ROOM_COLORS[latestColor.color];
+  }
+
+  private static resolvePriorityWithColors(colorData: { color: RoomColor, createdAt: number }[], colorPriority: RoomColor[]): string {
+    const allColors = colorData.map(c => c.color);
+    
+    // Find highest priority color among all competing colors
+    for (const color of colorPriority) {
+      if (allColors.includes(color)) {
+        return ROOM_COLORS[color];
+      }
+    }
+    
+    // Fallback to first color if no priority found
+    return ROOM_COLORS[colorData[0]?.color] || ROOM_COLORS.skyBlue;
+  }
+
+  private static resolveMatrixWithColors(
+    colorData: { color: RoomColor, createdAt: number }[], 
+    conflictMatrix: ConflictMatrixEntry[],
+    colorPriority: RoomColor[]
+  ): string {
+    if (colorData.length === 0) {
+      return ROOM_COLORS.skyBlue;
+    }
+    
+    if (colorData.length === 1) {
+      return ROOM_COLORS[colorData[0].color];
+    }
+
+    // For exactly two colors, check if there's a matrix rule
+    if (colorData.length === 2) {
+      const [color1, color2] = colorData;
+      
+      // Check for direct match: color1 underneath × color2 onTop = result
+      let rule = conflictMatrix.find(r => 
+        r.underneath === color1.color && r.onTop === color2.color
+      );
+      
+      if (rule) {
+        return ROOM_COLORS[rule.result];
+      }
+      
+      // Check for reverse match: color2 underneath × color1 onTop = result
+      rule = conflictMatrix.find(r => 
+        r.underneath === color2.color && r.onTop === color1.color
+      );
+      
+      if (rule) {
+        return ROOM_COLORS[rule.result];
+      }
+    }
+
+    // If no matrix rule found or more than 2 colors, fall back to priority
+    return this.resolvePriorityWithColors(colorData, colorPriority);
   }
 }
