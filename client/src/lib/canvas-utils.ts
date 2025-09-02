@@ -328,24 +328,25 @@ export class CanvasUtils {
     
     const roomCenterX = room.x + room.width / 2;
     const roomCenterY = room.y + room.height / 2;
+    // Position dots in the center of the wall thickness (blue area)
     const wallThickness = 0.1; // Wall thickness in grid units
-    const insetFromWall = 0.05; // Very small distance inside the room from inner wall face
+    const wallCenter = wallThickness / 2; // Center of the wall
     
     switch (side) {
       case 'north':
         dotX = roomCenterX * gridSize;
-        dotY = (room.y + wallThickness + insetFromWall) * gridSize;
+        dotY = (room.y + wallCenter) * gridSize;
         break;
       case 'south':
         dotX = roomCenterX * gridSize;
-        dotY = (room.y + room.height - wallThickness - insetFromWall) * gridSize;
+        dotY = (room.y + room.height - wallCenter) * gridSize;
         break;
       case 'east':
-        dotX = (room.x + room.width - wallThickness - insetFromWall) * gridSize;
+        dotX = (room.x + room.width - wallCenter) * gridSize;
         dotY = roomCenterY * gridSize;
         break;
       case 'west':
-        dotX = (room.x + wallThickness + insetFromWall) * gridSize;
+        dotX = (room.x + wallCenter) * gridSize;
         dotY = roomCenterY * gridSize;
         break;
     }
