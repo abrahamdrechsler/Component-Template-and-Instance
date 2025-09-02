@@ -215,26 +215,39 @@ export function DrawingCanvas({
       }
     }
 
-    // Draw edge selection dots for selected room when edge authoring is enabled
+    // Draw edge selection dots when edge authoring is enabled
+    // Show dots for selected room OR for the room that owns the selected edge
     // Hide dots during drag operations to avoid visual confusion
-    if (edgeAuthoring && selectedRoomId && !canvasState.isDragging) {
-      const room = rooms.find(r => r.id === selectedRoomId);
-      if (room) {
-        // Get one representative edge per side to show one dot per side
-        const roomEdges = edges.filter(e => e.roomId === selectedRoomId);
-        const edgesBySide = new Map<string, Edge>();
-        
-        roomEdges.forEach(edge => {
-          if (!edgesBySide.has(edge.side)) {
-            edgesBySide.set(edge.side, edge);
-          }
-        });
-        
-        Array.from(edgesBySide.entries()).forEach(([side, edge]) => {
-          const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
-          const isHovered = hoveredDot === edge.id;
-          CanvasUtils.drawEdgeDot(ctx, dotPosition, gridSize, isHovered);
-        });
+    if (edgeAuthoring && !canvasState.isDragging) {
+      let targetRoomId = selectedRoomId;
+      
+      // If no room selected but edge is selected, show dots for the edge's room
+      if (!targetRoomId && selectedEdgeId) {
+        const selectedEdge = edges.find(e => e.id === selectedEdgeId);
+        if (selectedEdge) {
+          targetRoomId = selectedEdge.roomId;
+        }
+      }
+      
+      if (targetRoomId) {
+        const room = rooms.find(r => r.id === targetRoomId);
+        if (room) {
+          // Get one representative edge per side to show one dot per side
+          const roomEdges = edges.filter(e => e.roomId === targetRoomId);
+          const edgesBySide = new Map<string, Edge>();
+          
+          roomEdges.forEach(edge => {
+            if (!edgesBySide.has(edge.side)) {
+              edgesBySide.set(edge.side, edge);
+            }
+          });
+          
+          Array.from(edgesBySide.entries()).forEach(([side, edge]) => {
+            const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
+            const isHovered = hoveredDot === edge.id;
+            CanvasUtils.drawEdgeDot(ctx, dotPosition, gridSize, isHovered);
+          });
+        }
       }
     }
 
@@ -293,30 +306,46 @@ export function DrawingCanvas({
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
     setMousePos(point);
 
-    // Check for edge dot hover when edge authoring is enabled and room is selected
+    // Check for edge dot hover when edge authoring is enabled
     // Only check hover when not dragging to avoid interference
-    if (edgeAuthoring && selectedRoomId && !canvasState.isDragging) {
-      const room = rooms.find(r => r.id === selectedRoomId);
-      if (room) {
-        const roomEdges = edges.filter(e => e.roomId === selectedRoomId);
-        const edgesBySide = new Map<string, Edge>();
-        
-        roomEdges.forEach(edge => {
-          if (!edgesBySide.has(edge.side)) {
-            edgesBySide.set(edge.side, edge);
-          }
-        });
-        
-        let foundHover = null;
-        for (const [side, edge] of Array.from(edgesBySide.entries())) {
-          const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
-          if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
-            foundHover = edge.id;
-            break;
-          }
+    if (edgeAuthoring && !canvasState.isDragging) {
+      let targetRoomId = selectedRoomId;
+      
+      // If no room selected but edge is selected, check hover for the edge's room
+      if (!targetRoomId && selectedEdgeId) {
+        const selectedEdge = edges.find(e => e.id === selectedEdgeId);
+        if (selectedEdge) {
+          targetRoomId = selectedEdge.roomId;
         }
-        
-        setHoveredDot(foundHover);
+      }
+      
+      if (targetRoomId) {
+        const room = rooms.find(r => r.id === targetRoomId);
+        if (room) {
+          const roomEdges = edges.filter(e => e.roomId === targetRoomId);
+          const edgesBySide = new Map<string, Edge>();
+          
+          roomEdges.forEach(edge => {
+            if (!edgesBySide.has(edge.side)) {
+              edgesBySide.set(edge.side, edge);
+            }
+          });
+          
+          let foundHover = null;
+          for (const [side, edge] of Array.from(edgesBySide.entries())) {
+            const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
+            if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
+              foundHover = edge.id;
+              break;
+            }
+          }
+          
+          setHoveredDot(foundHover);
+        } else {
+          setHoveredDot(null);
+        }
+      } else {
+        setHoveredDot(null);
       }
     } else {
       setHoveredDot(null);
@@ -434,26 +463,38 @@ export function DrawingCanvas({
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
 
-    // Check for edge dot click first when edge authoring is enabled and room is selected
+    // Check for edge dot click first when edge authoring is enabled
     // Allow edge dot clicks regardless of selected tool
-    if (edgeAuthoring && selectedRoomId && !canvasState.isDragging) {
-      const room = rooms.find(r => r.id === selectedRoomId);
-      if (room) {
-        const roomEdges = edges.filter(e => e.roomId === selectedRoomId);
-        const edgesBySide = new Map<string, Edge>();
-        
-        roomEdges.forEach(edge => {
-          if (!edgesBySide.has(edge.side)) {
-            edgesBySide.set(edge.side, edge);
-          }
-        });
-        
-        for (const [side, edge] of Array.from(edgesBySide.entries())) {
-          const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
-          if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
-            onSelectEdge(edge.id);
-            onSelectRoom(undefined); // Clear room selection when edge is selected
-            return;
+    if (edgeAuthoring && !canvasState.isDragging) {
+      let targetRoomId = selectedRoomId;
+      
+      // If no room selected but edge is selected, allow clicks for the edge's room
+      if (!targetRoomId && selectedEdgeId) {
+        const selectedEdge = edges.find(e => e.id === selectedEdgeId);
+        if (selectedEdge) {
+          targetRoomId = selectedEdge.roomId;
+        }
+      }
+      
+      if (targetRoomId) {
+        const room = rooms.find(r => r.id === targetRoomId);
+        if (room) {
+          const roomEdges = edges.filter(e => e.roomId === targetRoomId);
+          const edgesBySide = new Map<string, Edge>();
+          
+          roomEdges.forEach(edge => {
+            if (!edgesBySide.has(edge.side)) {
+              edgesBySide.set(edge.side, edge);
+            }
+          });
+          
+          for (const [side, edge] of Array.from(edgesBySide.entries())) {
+            const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
+            if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
+              onSelectEdge(edge.id);
+              onSelectRoom(undefined); // Clear room selection when edge is selected
+              return;
+            }
           }
         }
       }
@@ -480,7 +521,7 @@ export function DrawingCanvas({
         onSelectEdge(undefined);
       }
     }
-  }, [selectedTool, getRoomAt, getEdgeAt, onSelectRoom, onSelectEdge, gridSize, edgeAuthoring, selectedRoomId, rooms, edges]);
+  }, [selectedTool, getRoomAt, getEdgeAt, onSelectRoom, onSelectEdge, gridSize, edgeAuthoring, selectedRoomId, selectedEdgeId, rooms, edges]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
