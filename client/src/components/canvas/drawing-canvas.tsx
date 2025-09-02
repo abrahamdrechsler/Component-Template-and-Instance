@@ -155,18 +155,51 @@ export function DrawingCanvas({
       }
     }
 
-    // Highlight selected edge with dashed blue line
+    // Highlight selected edge with dashed blue line - show full room wall
     if (selectedEdgeId) {
       const edge = edges.find(e => e.id === selectedEdgeId);
       if (edge) {
-        ctx.strokeStyle = '#3B82F6';
-        ctx.lineWidth = 3;
-        ctx.setLineDash([5, 5]);
-        ctx.beginPath();
-        ctx.moveTo(edge.x1 * gridSize, edge.y1 * gridSize);
-        ctx.lineTo(edge.x2 * gridSize, edge.y2 * gridSize);
-        ctx.stroke();
-        ctx.setLineDash([]);
+        const room = rooms.find(r => r.id === edge.roomId);
+        if (room) {
+          ctx.strokeStyle = '#3B82F6';
+          ctx.lineWidth = 3;
+          ctx.setLineDash([5, 5]);
+          ctx.beginPath();
+          
+          // Draw the full wall of the room based on the edge side
+          let startX, startY, endX, endY;
+          switch (edge.side) {
+            case 'north':
+              startX = room.x * gridSize;
+              startY = room.y * gridSize;
+              endX = (room.x + room.width) * gridSize;
+              endY = room.y * gridSize;
+              break;
+            case 'south':
+              startX = room.x * gridSize;
+              startY = (room.y + room.height) * gridSize;
+              endX = (room.x + room.width) * gridSize;
+              endY = (room.y + room.height) * gridSize;
+              break;
+            case 'east':
+              startX = (room.x + room.width) * gridSize;
+              startY = room.y * gridSize;
+              endX = (room.x + room.width) * gridSize;
+              endY = (room.y + room.height) * gridSize;
+              break;
+            case 'west':
+              startX = room.x * gridSize;
+              startY = room.y * gridSize;
+              endX = room.x * gridSize;
+              endY = (room.y + room.height) * gridSize;
+              break;
+          }
+          
+          ctx.moveTo(startX, startY);
+          ctx.lineTo(endX, endY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
       }
     }
 
