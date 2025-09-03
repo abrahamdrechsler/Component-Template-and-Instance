@@ -12,37 +12,37 @@ export class EdgeFightingResolver {
   ): string {
     if (!allEdges) return ROOM_COLORS.skyBlue;
 
-    // Step 1: Find all rooms that this edge passes through
+    // Step 1: Check if this edge has an explicit color override - if so, it takes absolute priority
+    if (edge.colorOverride) {
+      return ROOM_COLORS[edge.colorOverride];
+    }
+    
+    // Step 2: Check if any edge from the same room and side has an override
+    const edgeWithOverride = allEdges.find(e => 
+      e.roomId === edge.roomId && e.side === edge.side && e.colorOverride
+    );
+    if (edgeWithOverride?.colorOverride) {
+      return ROOM_COLORS[edgeWithOverride.colorOverride];
+    }
+
+    // Step 3: Find all rooms that this edge passes through
     const overlappingRooms = this.findRoomsOverlappingEdge(edge, rooms);
     
-    // Step 2: For each overlapping room, determine what color should represent it at this edge location
+    // Step 4: For each overlapping room, determine what color should represent it at this edge location
     const competingColors = overlappingRooms.map((room: Room) => {
-      let color: RoomColor;
-      
-      if (room.id === edge.roomId) {
-        // This is the room that owns the edge - check for edge override first
-        color = edge.colorOverride || 
-          allEdges.find(e => e.roomId === edge.roomId && e.side === edge.side && e.colorOverride)?.colorOverride ||
-          room.color;
-      } else {
-        // This is another room that the edge passes through - use room color
-        // (other rooms' edge overrides don't affect this edge)
-        color = room.color;
-      }
-      
       return {
-        color,
+        color: room.color,
         createdAt: room.createdAt,
         roomId: room.id
       };
     });
     
-    // Step 3: If only one room contributes color, return it
+    // Step 5: If only one room contributes color, return it
     if (competingColors.length <= 1) {
       return ROOM_COLORS[competingColors[0]?.color || 'skyBlue'] || ROOM_COLORS.skyBlue;
     }
 
-    // Step 4: Resolve conflict between all competing colors
+    // Step 6: Resolve conflict between all competing colors
     switch (mode) {
       case 'chronological':
         return this.resolveChronologicalWithColors(competingColors);
