@@ -12,7 +12,6 @@ interface DrawingCanvasProps {
   selectedRoomId?: string;
   selectedEdgeId?: string;
   showGrid: boolean;
-  edgeAuthoring: boolean;
   cornerPriorities: Record<string, 'horizontal' | 'vertical'>;
   onAddRoom: (x: number, y: number, width: number, height: number) => void;
   onMoveRoom: (roomId: string, x: number, y: number) => void;
@@ -33,7 +32,6 @@ export function DrawingCanvas({
   selectedRoomId,
   selectedEdgeId,
   showGrid,
-  edgeAuthoring,
   cornerPriorities,
   onAddRoom,
   onMoveRoom,
@@ -220,10 +218,10 @@ export function DrawingCanvas({
       }
     }
 
-    // Draw edge selection dots when edge authoring is enabled
+    // Draw edge selection dots (always enabled)
     // Show dots for selected room OR for the room that owns the selected edge
     // Hide dots during drag operations to avoid visual confusion
-    if (edgeAuthoring && !canvasState.isDragging) {
+    if (!canvasState.isDragging) {
       let targetRoomId = selectedRoomId;
       
       // If no room selected but edge is selected, show dots for the edge's room
@@ -256,8 +254,8 @@ export function DrawingCanvas({
       }
     }
 
-    // Draw corner hover preview when edge authoring is enabled
-    if (edgeAuthoring && hoveredCorner) {
+    // Draw corner hover preview
+    if (hoveredCorner) {
       ctx.strokeStyle = '#3B82F6'; // Blue color
       ctx.lineWidth = 2;
       ctx.setLineDash([]);
@@ -324,9 +322,9 @@ export function DrawingCanvas({
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
     setMousePos(point);
 
-    // Check for corner hover when edge authoring is enabled
+    // Check for corner hover
     // Only check hover when not dragging to avoid interference
-    if (edgeAuthoring && !canvasState.isDragging) {
+    if (!canvasState.isDragging) {
       // Check for corner hover first
       let foundCornerHover: {x: number, y: number} | null = null;
       
@@ -359,9 +357,9 @@ export function DrawingCanvas({
       setHoveredCorner(null);
     }
 
-    // Check for edge dot hover when edge authoring is enabled
+    // Check for edge dot hover
     // Only check hover when not dragging to avoid interference
-    if (edgeAuthoring && !canvasState.isDragging) {
+    if (!canvasState.isDragging) {
       let targetRoomId = selectedRoomId;
       
       // If no room selected but edge is selected, check hover for the edge's room
@@ -417,7 +415,7 @@ export function DrawingCanvas({
         }));
       }
     }
-  }, [selectedTool, canvasState.dragStart, canvasState.isDragging, selectedRoomId, gridSize, edgeAuthoring, rooms, edges]);
+  }, [selectedTool, canvasState.dragStart, canvasState.isDragging, selectedRoomId, gridSize, true, rooms, edges]);
 
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -516,9 +514,9 @@ export function DrawingCanvas({
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
 
-    // Check for edge dot click first when edge authoring is enabled
+    // Check for edge dot click first
     // Allow edge dot clicks regardless of selected tool
-    if (edgeAuthoring && !canvasState.isDragging) {
+    if (!canvasState.isDragging) {
       let targetRoomId = selectedRoomId;
       
       // If no room selected but edge is selected, allow clicks for the edge's room
@@ -553,8 +551,8 @@ export function DrawingCanvas({
       }
     }
     
-    // Check for corner click when edge authoring is enabled
-    if (edgeAuthoring) {
+    // Check for corner click
+    if (true) {
       // Check if this grid position is a corner of any room
       const cornerRoom = rooms.find(room => 
         (gridPoint.x === room.x && gridPoint.y === room.y) || // top-left
@@ -586,7 +584,7 @@ export function DrawingCanvas({
         onSelectEdge(undefined);
       }
     }
-  }, [selectedTool, getRoomAt, getEdgeAt, onSelectRoom, onSelectEdge, onToggleCornerPriority, gridSize, edgeAuthoring, selectedRoomId, selectedEdgeId, rooms, edges]);
+  }, [selectedTool, getRoomAt, getEdgeAt, onSelectRoom, onSelectEdge, onToggleCornerPriority, gridSize, true, selectedRoomId, selectedEdgeId, rooms, edges]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

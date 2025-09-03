@@ -18,7 +18,6 @@ export interface UseEdgeConflictReturn {
   selectedRoomId: string | undefined;
   selectedEdgeId: string | undefined;
   showGrid: boolean;
-  edgeAuthoring: boolean;
   
   // Actions
   addRoom: (x: number, y: number, width: number, height: number) => void;
@@ -34,7 +33,6 @@ export interface UseEdgeConflictReturn {
   setSelectedRoomId: (roomId: string | undefined) => void;
   setSelectedEdgeId: (edgeId: string | undefined) => void;
   setShowGrid: (show: boolean) => void;
-  setEdgeAuthoring: (enabled: boolean) => void;
   toggleCornerPriority: (x: number, y: number) => void;
   exportData: () => void;
   importData: (data: any) => void;
@@ -54,7 +52,6 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
   const [selectedRoomId, setSelectedRoomId] = useState<string | undefined>();
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | undefined>();
   const [showGrid, setShowGrid] = useState(true);
-  const [edgeAuthoring, setEdgeAuthoring] = useState(false);
   const [cornerPriorities, setCornerPriorities] = useState<Record<string, CornerPriority>>({});
 
   const nextRoomIdRef = useRef(1);
@@ -338,7 +335,6 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
     selectedRoomId,
     selectedEdgeId,
     showGrid,
-    edgeAuthoring,
     addRoom,
     deleteRoom,
     moveRoom,
@@ -352,7 +348,6 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
     setSelectedRoomId,
     setSelectedEdgeId,
     setShowGrid,
-    setEdgeAuthoring,
     toggleCornerPriority,
     exportData,
     importData,

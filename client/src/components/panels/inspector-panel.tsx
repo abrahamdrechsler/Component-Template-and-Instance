@@ -11,7 +11,6 @@ interface InspectorPanelProps {
   selectedRoom?: Room;
   selectedEdge?: Edge;
   rooms: Room[];
-  edgeAuthoring: boolean;
   onUpdateRoom: (roomId: string, updates: Partial<Room>) => void;
   onUpdateEdge: (edgeId: string, updates: Partial<Edge>) => void;
   onDeleteRoom: (roomId: string) => void;
@@ -21,7 +20,6 @@ export function InspectorPanel({
   selectedRoom,
   selectedEdge,
   rooms,
-  edgeAuthoring,
   onUpdateRoom,
   onUpdateEdge,
   onDeleteRoom,

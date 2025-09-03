@@ -5,10 +5,8 @@ import { Pencil, Move, Trash2, Download, Upload } from 'lucide-react';
 interface ToolbarProps {
   selectedTool: 'draw' | 'move' | 'delete';
   showGrid: boolean;
-  edgeAuthoring: boolean;
   onToolChange: (tool: 'draw' | 'move' | 'delete') => void;
   onToggleGrid: (show: boolean) => void;
-  onToggleEdgeAuthoring: (enabled: boolean) => void;
   onExport: () => void;
   onImport: (file: File) => void;
 }
@@ -16,10 +14,8 @@ interface ToolbarProps {
 export function Toolbar({
   selectedTool,
   showGrid,
-  edgeAuthoring,
   onToolChange,
   onToggleGrid,
-  onToggleEdgeAuthoring,
   onExport,
   onImport,
 }: ToolbarProps) {
@@ -110,16 +106,6 @@ export function Toolbar({
           <kbd className="px-1 py-0.5 bg-gray-200 text-gray-600 rounded">Del</kbd> to delete selected room
         </div>
         <div className="flex items-center space-x-4">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="edge-authoring"
-              checked={edgeAuthoring}
-              onCheckedChange={onToggleEdgeAuthoring}
-            />
-            <label htmlFor="edge-authoring" className="text-sm text-gray-600 whitespace-nowrap">
-              Edge Authoring
-            </label>
-          </div>
           <div className="flex items-center space-x-2">
             <Checkbox
               id="show-grid"
