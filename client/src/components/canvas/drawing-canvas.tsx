@@ -334,9 +334,9 @@ export function DrawingCanvas({
         // Check each corner of the room
         const corners = [
           {x: room.x, y: room.y}, // top-left
-          {x: room.x + room.width, y: room.y}, // top-right
-          {x: room.x, y: room.y + room.height}, // bottom-left
-          {x: room.x + room.width, y: room.y + room.height}, // bottom-right
+          {x: room.x + room.width - 1, y: room.y}, // top-right (room interior)
+          {x: room.x, y: room.y + room.height - 1}, // bottom-left (room interior)
+          {x: room.x + room.width - 1, y: room.y + room.height - 1}, // bottom-right (room interior)
         ];
         
         for (const corner of corners) {
@@ -355,11 +355,6 @@ export function DrawingCanvas({
       }
       
       setHoveredCorner(foundCornerHover);
-      
-      // Debug logging for corner detection
-      if (foundCornerHover) {
-        console.log('Corner hover detected:', foundCornerHover);
-      }
     } else {
       setHoveredCorner(null);
     }
@@ -562,13 +557,12 @@ export function DrawingCanvas({
     // Check if this grid position is a corner of any room
     const cornerRoom = rooms.find(room => 
       (gridPoint.x === room.x && gridPoint.y === room.y) || // top-left
-      (gridPoint.x === room.x + room.width && gridPoint.y === room.y) || // top-right
-      (gridPoint.x === room.x && gridPoint.y === room.y + room.height) || // bottom-left
-      (gridPoint.x === room.x + room.width && gridPoint.y === room.y + room.height) // bottom-right
+      (gridPoint.x === room.x + room.width - 1 && gridPoint.y === room.y) || // top-right
+      (gridPoint.x === room.x && gridPoint.y === room.y + room.height - 1) || // bottom-left
+      (gridPoint.x === room.x + room.width - 1 && gridPoint.y === room.y + room.height - 1) // bottom-right
     );
     
     if (cornerRoom) {
-      console.log('Corner click detected at:', gridPoint.x, gridPoint.y);
       onToggleCornerPriority(gridPoint.x, gridPoint.y);
       return;
     }
