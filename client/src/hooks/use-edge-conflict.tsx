@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { Room, Edge, ConflictMatrixEntry, RoomColor, EdgeFightingMode } from '@shared/schema';
+import { Room, Edge, ConflictMatrixEntry, RoomColor, EdgeFightingMode, CornerPriority } from '@shared/schema';
 import { DEFAULT_COLOR_PRIORITY, ROOM_COLORS } from '@/types/room';
 import { CanvasUtils } from '@/lib/canvas-utils';
 import { EdgeFightingResolver } from '@/lib/edge-fighting';
@@ -12,6 +12,7 @@ export interface UseEdgeConflictReturn {
   mode: EdgeFightingMode;
   colorPriority: RoomColor[];
   conflictMatrix: ConflictMatrixEntry[];
+  cornerPriorities: Record<string, CornerPriority>;
   selectedTool: 'draw' | 'move' | 'delete';
   selectedColor: RoomColor;
   selectedRoomId: string | undefined;
@@ -34,6 +35,7 @@ export interface UseEdgeConflictReturn {
   setSelectedEdgeId: (edgeId: string | undefined) => void;
   setShowGrid: (show: boolean) => void;
   setEdgeAuthoring: (enabled: boolean) => void;
+  toggleCornerPriority: (x: number, y: number) => void;
   exportData: () => void;
   importData: (data: any) => void;
   getEdgeColor: (edge: Edge) => string;
@@ -53,6 +55,7 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | undefined>();
   const [showGrid, setShowGrid] = useState(true);
   const [edgeAuthoring, setEdgeAuthoring] = useState(false);
+  const [cornerPriorities, setCornerPriorities] = useState<Record<string, CornerPriority>>({});
 
   const nextRoomIdRef = useRef(1);
 
@@ -305,12 +308,31 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
     }
   }, []);
 
+  const toggleCornerPriority = useCallback((x: number, y: number) => {
+    const cornerKey = `x${x}_y${y}`;
+    setCornerPriorities(prev => {
+      const current = prev[cornerKey];
+      if (current === 'horizontal') {
+        return { ...prev, [cornerKey]: 'vertical' };
+      } else if (current === 'vertical') {
+        return { ...prev, [cornerKey]: 'horizontal' };
+      } else {
+        // No explicit priority set, use default (geometric rule)
+        // Top-left and bottom-right corners default to horizontal
+        // Top-right and bottom-left corners default to vertical
+        // For now, just toggle to vertical as first override
+        return { ...prev, [cornerKey]: 'vertical' };
+      }
+    });
+  }, []);
+
   return {
     rooms,
     edges,
     mode,
     colorPriority,
     conflictMatrix,
+    cornerPriorities,
     selectedTool,
     selectedColor,
     selectedRoomId,
@@ -331,6 +353,7 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
     setSelectedEdgeId,
     setShowGrid,
     setEdgeAuthoring,
+    toggleCornerPriority,
     exportData,
     importData,
     getEdgeColor,

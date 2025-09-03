@@ -368,9 +368,10 @@ export class CanvasUtils {
   /**
    * Draw an edge selection dot
    */
-  static drawEdgeDot(ctx: CanvasRenderingContext2D, position: Point, gridSize: number, isHovered: boolean = false) {
+  static drawEdgeDot(ctx: CanvasRenderingContext2D, position: Point, gridSize: number, isHovered: boolean = false, side?: 'north' | 'south' | 'east' | 'west') {
     const radius = gridSize * 0.45; // 3x bigger than original (was 0.15)
     
+    // Draw circle background
     ctx.fillStyle = isHovered ? '#3B82F6' : '#000000';
     ctx.beginPath();
     ctx.arc(position.x, position.y, radius, 0, 2 * Math.PI);
@@ -380,5 +381,92 @@ export class CanvasUtils {
     ctx.strokeStyle = '#FFFFFF';
     ctx.lineWidth = 2;
     ctx.stroke();
+    
+    // Draw number instead of just a dot
+    if (side) {
+      const edgeNumber = this.getEdgeNumber(side);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = `bold ${Math.floor(gridSize * 0.6)}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(edgeNumber.toString(), position.x, position.y);
+    }
+  }
+
+  static getEdgeNumber(side: 'north' | 'south' | 'east' | 'west'): number {
+    // 1 = south, 2 = east, 3 = north, 4 = west
+    switch (side) {
+      case 'south': return 1;
+      case 'east': return 2;
+      case 'north': return 3;
+      case 'west': return 4;
+    }
+  }
+
+  static getDefaultCornerPriority(cornerX: number, cornerY: number, room: Room): 'horizontal' | 'vertical' {
+    // Option 1: Geometric ownership
+    // Top-left and bottom-right corners: horizontal wins (north/south edges)
+    // Top-right and bottom-left corners: vertical wins (east/west edges)
+    
+    const isTopLeft = cornerX === room.x && cornerY === room.y;
+    const isBottomRight = cornerX === room.x + room.width && cornerY === room.y + room.height;
+    const isTopRight = cornerX === room.x + room.width && cornerY === room.y;
+    const isBottomLeft = cornerX === room.x && cornerY === room.y + room.height;
+    
+    if (isTopLeft || isBottomRight) {
+      return 'horizontal'; // north/south edges win
+    } else if (isTopRight || isBottomLeft) {
+      return 'vertical'; // east/west edges win
+    }
+    
+    // Fallback to horizontal
+    return 'horizontal';
+  }
+
+  static shouldRenderEdgeAtCorner(
+    edge: any,
+    cornerX: number,
+    cornerY: number,
+    room: Room,
+    cornerPriorities: Record<string, 'horizontal' | 'vertical'>
+  ): boolean {
+    // Check if this edge affects this corner
+    const edgeAffectsCorner = this.edgeAffectsCorner(edge, cornerX, cornerY, room);
+    if (!edgeAffectsCorner) return true; // Not a corner, render normally
+    
+    const cornerKey = `x${cornerX}_y${cornerY}`;
+    const priority = cornerPriorities[cornerKey] || this.getDefaultCornerPriority(cornerX, cornerY, room);
+    
+    const isHorizontalEdge = edge.side === 'north' || edge.side === 'south';
+    const isVerticalEdge = edge.side === 'east' || edge.side === 'west';
+    
+    if (priority === 'horizontal') {
+      return isHorizontalEdge; // Only render horizontal edges at this corner
+    } else {
+      return isVerticalEdge; // Only render vertical edges at this corner
+    }
+  }
+
+  static edgeAffectsCorner(edge: any, cornerX: number, cornerY: number, room: Room): boolean {
+    // Check if this edge includes the corner point in its rendering area
+    const isTopLeft = cornerX === room.x && cornerY === room.y;
+    const isTopRight = cornerX === room.x + room.width && cornerY === room.y;
+    const isBottomLeft = cornerX === room.x && cornerY === room.y + room.height;
+    const isBottomRight = cornerX === room.x + room.width && cornerY === room.y + room.height;
+    
+    if (edge.side === 'north' && cornerY === room.y) {
+      return (isTopLeft || isTopRight);
+    }
+    if (edge.side === 'south' && cornerY === room.y + room.height) {
+      return (isBottomLeft || isBottomRight);
+    }
+    if (edge.side === 'west' && cornerX === room.x) {
+      return (isTopLeft || isBottomLeft);
+    }
+    if (edge.side === 'east' && cornerX === room.x + room.width) {
+      return (isTopRight || isBottomRight);
+    }
+    
+    return false;
   }
 }

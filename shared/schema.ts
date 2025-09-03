@@ -42,6 +42,9 @@ export const conflictMatrixEntrySchema = z.object({
   result: roomColorSchema,
 });
 
+// Corner priority schema
+export const cornerPrioritySchema = z.enum(['horizontal', 'vertical']);
+
 // Application state schema
 export const appStateSchema = z.object({
   rooms: z.array(roomSchema),
@@ -49,6 +52,7 @@ export const appStateSchema = z.object({
   mode: edgeFightingModeSchema,
   colorPriority: z.array(roomColorSchema),
   conflictMatrix: z.array(conflictMatrixEntrySchema),
+  cornerPriorities: z.record(z.string(), cornerPrioritySchema),
   selectedTool: z.enum(['draw', 'move', 'delete']),
   selectedColor: roomColorSchema,
   selectedRoomId: z.string().optional(),
@@ -62,3 +66,4 @@ export type ConflictMatrixEntry = z.infer<typeof conflictMatrixEntrySchema>;
 export type AppState = z.infer<typeof appStateSchema>;
 export type RoomColor = z.infer<typeof roomColorSchema>;
 export type EdgeFightingMode = z.infer<typeof edgeFightingModeSchema>;
+export type CornerPriority = z.infer<typeof cornerPrioritySchema>;

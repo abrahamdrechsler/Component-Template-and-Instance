@@ -18,6 +18,7 @@ interface DrawingCanvasProps {
   onDeleteRoom: (roomId: string) => void;
   onSelectRoom: (roomId: string | undefined) => void;
   onSelectEdge: (edgeId: string | undefined) => void;
+  onToggleCornerPriority: (x: number, y: number) => void;
   getEdgeColor: (edge: Edge) => string;
   getRoomAt: (x: number, y: number) => Room | undefined;
   getEdgeAt: (x: number, y: number) => Edge | undefined;
@@ -37,6 +38,7 @@ export function DrawingCanvas({
   onDeleteRoom,
   onSelectRoom,
   onSelectEdge,
+  onToggleCornerPriority,
   getEdgeColor,
   getRoomAt,
   getEdgeAt,
@@ -245,7 +247,7 @@ export function DrawingCanvas({
           Array.from(edgesBySide.entries()).forEach(([side, edge]) => {
             const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
             const isHovered = hoveredDot === edge.id;
-            CanvasUtils.drawEdgeDot(ctx, dotPosition, gridSize, isHovered);
+            CanvasUtils.drawEdgeDot(ctx, dotPosition, gridSize, isHovered, side as any);
           });
         }
       }
@@ -500,8 +502,20 @@ export function DrawingCanvas({
       }
     }
     
-    // Only do other click actions if not in draw/move/delete tools
+    // Check for corner click - only when not in draw/move/delete tools
     if (selectedTool !== 'draw' && selectedTool !== 'move' && selectedTool !== 'delete') {
+      // Check if this grid position is a corner of any room
+      const cornerRoom = rooms.find(room => 
+        (gridPoint.x === room.x && gridPoint.y === room.y) || // top-left
+        (gridPoint.x === room.x + room.width && gridPoint.y === room.y) || // top-right
+        (gridPoint.x === room.x && gridPoint.y === room.y + room.height) || // bottom-left
+        (gridPoint.x === room.x + room.width && gridPoint.y === room.y + room.height) // bottom-right
+      );
+      
+      if (cornerRoom) {
+        onToggleCornerPriority(gridPoint.x, gridPoint.y);
+        return;
+      }
 
       // Check for edge selection
       const edge = getEdgeAt(gridPoint.x, gridPoint.y);
@@ -521,7 +535,7 @@ export function DrawingCanvas({
         onSelectEdge(undefined);
       }
     }
-  }, [selectedTool, getRoomAt, getEdgeAt, onSelectRoom, onSelectEdge, gridSize, edgeAuthoring, selectedRoomId, selectedEdgeId, rooms, edges]);
+  }, [selectedTool, getRoomAt, getEdgeAt, onSelectRoom, onSelectEdge, onToggleCornerPriority, gridSize, edgeAuthoring, selectedRoomId, selectedEdgeId, rooms, edges]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

@@ -35,6 +35,7 @@ export default function EdgeConflictPage() {
     setSelectedEdgeId,
     setShowGrid,
     setEdgeAuthoring,
+    toggleCornerPriority,
     exportData,
     importData,
     getEdgeColor,
@@ -135,6 +136,7 @@ export default function EdgeConflictPage() {
                   onDeleteRoom={deleteRoom}
                   onSelectRoom={setSelectedRoomId}
                   onSelectEdge={setSelectedEdgeId}
+                  onToggleCornerPriority={toggleCornerPriority}
                   getEdgeColor={getEdgeColor}
                   getRoomAt={getRoomAt}
                   getEdgeAt={getEdgeAt}
