@@ -58,9 +58,17 @@ export class EdgeFightingResolver {
   private static findRoomsOverlappingEdge(edge: Edge, rooms: Room[]): Room[] {
     const overlapping: Room[] = [];
     
+    // Get the room that owns this edge
+    const edgeRoom = rooms.find(r => r.id === edge.roomId);
+    if (!edgeRoom) return [];
+    
     for (const room of rooms) {
       if (this.edgeIntersectsRoom(edge, room)) {
-        overlapping.push(room);
+        // Only include if this is the edge's own room OR if rooms actually overlap (share interior space)
+        // Don't include rooms that are just tangent (touching at boundaries)
+        if (room.id === edgeRoom.id || this.roomsActuallyOverlap(edgeRoom, room)) {
+          overlapping.push(room);
+        }
       }
     }
     
