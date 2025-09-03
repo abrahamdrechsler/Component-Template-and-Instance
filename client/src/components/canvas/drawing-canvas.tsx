@@ -13,6 +13,7 @@ interface DrawingCanvasProps {
   selectedEdgeId?: string;
   showGrid: boolean;
   edgeAuthoring: boolean;
+  cornerPriorities: Record<string, 'horizontal' | 'vertical'>;
   onAddRoom: (x: number, y: number, width: number, height: number) => void;
   onMoveRoom: (roomId: string, x: number, y: number) => void;
   onDeleteRoom: (roomId: string) => void;
@@ -33,6 +34,7 @@ export function DrawingCanvas({
   selectedEdgeId,
   showGrid,
   edgeAuthoring,
+  cornerPriorities,
   onAddRoom,
   onMoveRoom,
   onDeleteRoom,
@@ -92,7 +94,7 @@ export function DrawingCanvas({
         return;
       }
       const color = getEdgeColor(edge);
-      CanvasUtils.drawEdge(ctx, edge, gridSize, color);
+      CanvasUtils.drawEdge(ctx, edge, gridSize, color, cornerPriorities);
     });
 
     // Draw preview edges for dragged room
@@ -130,7 +132,7 @@ export function DrawingCanvas({
         previewEdges.forEach(edge => {
           const color = getEdgeColor(edge);
           ctx.globalAlpha = 0.7; // Make preview semi-transparent
-          CanvasUtils.drawEdge(ctx, edge, gridSize, color);
+          CanvasUtils.drawEdge(ctx, edge, gridSize, color, cornerPriorities);
           ctx.globalAlpha = 1.0;
         });
       }
