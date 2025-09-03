@@ -54,6 +54,16 @@ export class EdgeFightingResolver {
     }
 
     // Step 4: Resolve conflict between all competing edge colors
+    // Debug logging to help diagnose issues
+    if (edgeColors.length > 1) {
+      console.log('Edge conflict detected:', {
+        edgeId: edge.id,
+        competingColors: edgeColors.map(ec => ec.color),
+        mode,
+        colorPriority
+      });
+    }
+    
     switch (mode) {
       case 'chronological':
         return this.resolveChronologicalWithColors(edgeColors);
@@ -72,6 +82,12 @@ export class EdgeFightingResolver {
     for (const otherEdge of allEdges) {
       if (this.edgesOverlap(edge, otherEdge)) {
         overlapping.push(otherEdge);
+        console.log('Found overlapping edges:', {
+          edge1: edge.id,
+          edge2: otherEdge.id,
+          edge1Coords: [edge.x1, edge.y1, edge.x2, edge.y2],
+          edge2Coords: [otherEdge.x1, otherEdge.y1, otherEdge.x2, otherEdge.y2]
+        });
       }
     }
     
@@ -91,10 +107,15 @@ export class EdgeFightingResolver {
     const e2Bottom = Math.max(edge2.y1, edge2.y2);
     
     // Check if edges overlap in both x and y dimensions
+    // For a meaningful overlap, edges need to share some common space
     const xOverlap = e1Right > e2Left && e1Left < e2Right;
     const yOverlap = e1Bottom > e2Top && e1Top < e2Bottom;
     
-    return xOverlap && yOverlap;
+    // Also check if they actually intersect meaningfully (not just touch at a point)
+    const xIntersection = Math.min(e1Right, e2Right) - Math.max(e1Left, e2Left);
+    const yIntersection = Math.min(e1Bottom, e2Bottom) - Math.max(e1Top, e2Top);
+    
+    return xOverlap && yOverlap && xIntersection > 0 && yIntersection > 0;
   }
 
   private static findAllRoomsAtEdgeLocation(edge: Edge, rooms: Room[]): Room[] {
