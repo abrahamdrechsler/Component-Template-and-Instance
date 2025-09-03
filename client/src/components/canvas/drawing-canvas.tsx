@@ -310,6 +310,8 @@ export function DrawingCanvas({
     showGrid,
     canvasState,
     mousePos,
+    hoveredDot,
+    hoveredCorner,
     getEdgeColor,
     gridSize,
   ]);
@@ -353,6 +355,11 @@ export function DrawingCanvas({
       }
       
       setHoveredCorner(foundCornerHover);
+      
+      // Debug logging for corner detection
+      if (foundCornerHover) {
+        console.log('Corner hover detected:', foundCornerHover);
+      }
     } else {
       setHoveredCorner(null);
     }
@@ -552,39 +559,38 @@ export function DrawingCanvas({
     }
     
     // Check for corner click
-    if (true) {
-      // Check if this grid position is a corner of any room
-      const cornerRoom = rooms.find(room => 
-        (gridPoint.x === room.x && gridPoint.y === room.y) || // top-left
-        (gridPoint.x === room.x + room.width && gridPoint.y === room.y) || // top-right
-        (gridPoint.x === room.x && gridPoint.y === room.y + room.height) || // bottom-left
-        (gridPoint.x === room.x + room.width && gridPoint.y === room.y + room.height) // bottom-right
-      );
-      
-      if (cornerRoom) {
-        onToggleCornerPriority(gridPoint.x, gridPoint.y);
-        return;
-      }
-
-      // Check for edge selection
-      const edge = getEdgeAt(gridPoint.x, gridPoint.y);
-      if (edge) {
-        onSelectEdge(edge.id);
-        onSelectRoom(undefined);
-        return;
-      }
-
-      // Then check for room selection
-      const room = getRoomAt(gridPoint.x, gridPoint.y);
-      if (room) {
-        onSelectRoom(room.id);
-        onSelectEdge(undefined);
-      } else {
-        onSelectRoom(undefined);
-        onSelectEdge(undefined);
-      }
+    // Check if this grid position is a corner of any room
+    const cornerRoom = rooms.find(room => 
+      (gridPoint.x === room.x && gridPoint.y === room.y) || // top-left
+      (gridPoint.x === room.x + room.width && gridPoint.y === room.y) || // top-right
+      (gridPoint.x === room.x && gridPoint.y === room.y + room.height) || // bottom-left
+      (gridPoint.x === room.x + room.width && gridPoint.y === room.y + room.height) // bottom-right
+    );
+    
+    if (cornerRoom) {
+      console.log('Corner click detected at:', gridPoint.x, gridPoint.y);
+      onToggleCornerPriority(gridPoint.x, gridPoint.y);
+      return;
     }
-  }, [selectedTool, getRoomAt, getEdgeAt, onSelectRoom, onSelectEdge, onToggleCornerPriority, gridSize, true, selectedRoomId, selectedEdgeId, rooms, edges]);
+
+    // Check for edge selection
+    const edge = getEdgeAt(gridPoint.x, gridPoint.y);
+    if (edge) {
+      onSelectEdge(edge.id);
+      onSelectRoom(undefined);
+      return;
+    }
+
+    // Then check for room selection
+    const room = getRoomAt(gridPoint.x, gridPoint.y);
+    if (room) {
+      onSelectRoom(room.id);
+      onSelectEdge(undefined);
+    } else {
+      onSelectRoom(undefined);
+      onSelectEdge(undefined);
+    }
+  }, [selectedTool, getRoomAt, getEdgeAt, onSelectRoom, onSelectEdge, onToggleCornerPriority, gridSize, selectedRoomId, selectedEdgeId, rooms, edges]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
