@@ -56,6 +56,7 @@ export function DrawingCanvas({
   });
   const [mousePos, setMousePos] = useState<Point | null>(null);
   const [hoveredDot, setHoveredDot] = useState<string | null>(null);
+  const [hoveredCorner, setHoveredCorner] = useState<{x: number, y: number} | null>(null);
 
   const gridSize = 20; // 20px = 1ft
 
@@ -255,6 +256,19 @@ export function DrawingCanvas({
       }
     }
 
+    // Draw corner hover preview when edge authoring is enabled
+    if (edgeAuthoring && hoveredCorner) {
+      ctx.strokeStyle = '#3B82F6'; // Blue color
+      ctx.lineWidth = 2;
+      ctx.setLineDash([]);
+      
+      const cornerX = hoveredCorner.x * gridSize;
+      const cornerY = hoveredCorner.y * gridSize;
+      
+      // Draw a blue border around the corner cell
+      ctx.strokeRect(cornerX, cornerY, gridSize, gridSize);
+    }
+
     // Draw preview when drawing
     if (canvasState.isDrawing && canvasState.drawStart && mousePos) {
       const snappedStart = CanvasUtils.snapToGrid(canvasState.drawStart, gridSize);
@@ -309,6 +323,41 @@ export function DrawingCanvas({
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
     setMousePos(point);
+
+    // Check for corner hover when edge authoring is enabled
+    // Only check hover when not dragging to avoid interference
+    if (edgeAuthoring && !canvasState.isDragging) {
+      // Check for corner hover first
+      let foundCornerHover: {x: number, y: number} | null = null;
+      
+      for (const room of rooms) {
+        // Check each corner of the room
+        const corners = [
+          {x: room.x, y: room.y}, // top-left
+          {x: room.x + room.width, y: room.y}, // top-right
+          {x: room.x, y: room.y + room.height}, // bottom-left
+          {x: room.x + room.width, y: room.y + room.height}, // bottom-right
+        ];
+        
+        for (const corner of corners) {
+          const cornerPixelX = corner.x * gridSize;
+          const cornerPixelY = corner.y * gridSize;
+          
+          // Check if mouse is within the corner cell (grid square)
+          if (point.x >= cornerPixelX && point.x < cornerPixelX + gridSize &&
+              point.y >= cornerPixelY && point.y < cornerPixelY + gridSize) {
+            foundCornerHover = corner;
+            break;
+          }
+        }
+        
+        if (foundCornerHover) break;
+      }
+      
+      setHoveredCorner(foundCornerHover);
+    } else {
+      setHoveredCorner(null);
+    }
 
     // Check for edge dot hover when edge authoring is enabled
     // Only check hover when not dragging to avoid interference
@@ -504,8 +553,8 @@ export function DrawingCanvas({
       }
     }
     
-    // Check for corner click - only when not in draw/move/delete tools
-    if (selectedTool !== 'draw' && selectedTool !== 'move' && selectedTool !== 'delete') {
+    // Check for corner click when edge authoring is enabled
+    if (edgeAuthoring) {
       // Check if this grid position is a corner of any room
       const cornerRoom = rooms.find(room => 
         (gridPoint.x === room.x && gridPoint.y === room.y) || // top-left

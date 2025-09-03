@@ -94,16 +94,17 @@ export class CanvasUtils {
     cornerPriorities: Record<string, 'horizontal' | 'vertical'>,
     isHorizontal: boolean
   ) {
-    // Simple implementation: draw the full edge and let later edge rendering override corners
-    // Corner priorities are primarily handled through drawing order in the canvas
+    // For now, draw the full edge - complex corner-aware rendering would need segmentation
     ctx.fillRect(wallX, wallY, wallWidth, wallHeight);
     
-    // The corner priority system works by:
-    // 1. Drawing all edges normally 
-    // 2. Using the cornerPriorities to determine drawing order
-    // 3. Later edge draws will override earlier ones at corner positions
+    // Corner priorities affect which edge is "on top" at corner locations
+    // This would require a more sophisticated approach:
+    // 1. Break edges into segments at corners
+    // 2. Check corner priority for each corner segment
+    // 3. Only draw segments where this edge type has priority
     // 
-    // For now, this provides basic functionality with room for future enhancement
+    // The current implementation provides the framework for future enhancement
+    // where corner cells could have different colors based on priority rules
   }
 
   static getCanvasCoordinates(event: MouseEvent, canvas: HTMLCanvasElement): Point {
