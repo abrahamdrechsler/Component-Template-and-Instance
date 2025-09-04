@@ -21,13 +21,21 @@ export class EdgeFightingResolver {
       
       if (room.id === edge.roomId) {
         // This is the room that owns the edge - check for edge override first
-        color = edge.colorOverride || 
-          allEdges.find(e => e.roomId === edge.roomId && e.side === edge.side && e.colorOverride)?.colorOverride ||
-          room.color;
+        const override = edge.colorOverride || 
+          allEdges.find(e => e.roomId === edge.roomId && e.side === edge.side && e.colorOverride)?.colorOverride;
+        color = override || room.color;
+        
       } else {
-        // This is another room that the edge passes through - use room color
-        // (other rooms' edge overrides don't affect this edge)
-        color = room.color;
+        // This is another room that the edge passes through
+        // Check if this room has edge overrides on the side that faces this edge
+        const oppositeSide = edge.side === 'north' ? 'south' : 
+                            edge.side === 'south' ? 'north' : 
+                            edge.side === 'east' ? 'west' : 'east';
+        const roomEdgeOverride = allEdges.find(e => 
+          e.roomId === room.id && e.side === oppositeSide && e.colorOverride
+        )?.colorOverride;
+        
+        color = roomEdgeOverride || room.color;
       }
       
       return {
@@ -302,22 +310,14 @@ export class EdgeFightingResolver {
   private static resolvePriorityWithColors(colorData: { color: RoomColor, createdAt: number }[], colorPriority: RoomColor[]): string {
     const allColors = colorData.map(c => c.color);
     
-    console.log('Priority resolution:', {
-      competingColors: allColors,
-      priorityList: colorPriority,
-      colorData: colorData
-    });
-    
     // Find highest priority color among all competing colors
     for (const color of colorPriority) {
       if (allColors.includes(color)) {
-        console.log('Winner:', color);
         return ROOM_COLORS[color];
       }
     }
     
     // Fallback to first color if no priority found
-    console.log('No priority found, using fallback:', colorData[0]?.color);
     return ROOM_COLORS[colorData[0]?.color] || ROOM_COLORS.skyBlue;
   }
 
