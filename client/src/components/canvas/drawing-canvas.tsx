@@ -360,8 +360,18 @@ export function DrawingCanvas({
         ];
         
         for (const corner of corners) {
-          const cornerPixelX = corner.x * gridSize;
-          const cornerPixelY = corner.y * gridSize;
+          let cornerPixelX = corner.x * gridSize;
+          let cornerPixelY = corner.y * gridSize;
+          
+          // Adjust detection area to match where the preview will be shown
+          // For right edge corners, check one cell left
+          if (corner.x === room.x + room.width) {
+            cornerPixelX -= gridSize;
+          }
+          // For bottom edge corners, check one cell up  
+          if (corner.y === room.y + room.height) {
+            cornerPixelY -= gridSize;
+          }
           
           // Check if mouse is within the corner cell (grid square)
           if (point.x >= cornerPixelX && point.x < cornerPixelX + gridSize &&
