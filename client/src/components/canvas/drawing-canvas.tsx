@@ -426,6 +426,20 @@ export function DrawingCanvas({
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
 
+    // Check for corner click FIRST - regardless of selected tool
+    // Check if this grid position is a corner of any room
+    const cornerRoom = rooms.find(room => 
+      (gridPoint.x === room.x && gridPoint.y === room.y) || // top-left
+      (gridPoint.x === room.x + room.width - 1 && gridPoint.y === room.y) || // top-right
+      (gridPoint.x === room.x && gridPoint.y === room.y + room.height - 1) || // bottom-left
+      (gridPoint.x === room.x + room.width - 1 && gridPoint.y === room.y + room.height - 1) // bottom-right
+    );
+    
+    if (cornerRoom) {
+      onToggleCornerPriority(gridPoint.x, gridPoint.y);
+      return; // Stop processing other events
+    }
+
     switch (selectedTool) {
       case 'draw':
         setCanvasState(prev => ({
@@ -458,7 +472,7 @@ export function DrawingCanvas({
         }
         break;
     }
-  }, [selectedTool, getRoomAt, onSelectRoom, onDeleteRoom, gridSize]);
+  }, [selectedTool, getRoomAt, onSelectRoom, onDeleteRoom, onToggleCornerPriority, gridSize, rooms]);
 
   const handleMouseUp = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -551,20 +565,6 @@ export function DrawingCanvas({
           }
         }
       }
-    }
-    
-    // Check for corner click
-    // Check if this grid position is a corner of any room
-    const cornerRoom = rooms.find(room => 
-      (gridPoint.x === room.x && gridPoint.y === room.y) || // top-left
-      (gridPoint.x === room.x + room.width - 1 && gridPoint.y === room.y) || // top-right
-      (gridPoint.x === room.x && gridPoint.y === room.y + room.height - 1) || // bottom-left
-      (gridPoint.x === room.x + room.width - 1 && gridPoint.y === room.y + room.height - 1) // bottom-right
-    );
-    
-    if (cornerRoom) {
-      onToggleCornerPriority(gridPoint.x, gridPoint.y);
-      return;
     }
 
     // Check for edge selection
