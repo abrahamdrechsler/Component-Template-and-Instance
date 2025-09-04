@@ -457,16 +457,43 @@ export function DrawingCanvas({
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
 
     // Check for corner click FIRST - regardless of selected tool
-    // Check if this grid position is a corner of any room
-    const cornerRoom = rooms.find(room => 
-      (gridPoint.x === room.x && gridPoint.y === room.y) || // top-left
-      (gridPoint.x === room.x + room.width && gridPoint.y === room.y) || // top-right
-      (gridPoint.x === room.x && gridPoint.y === room.y + room.height) || // bottom-left
-      (gridPoint.x === room.x + room.width && gridPoint.y === room.y + room.height) // bottom-right
-    );
+    // Check if this grid position corresponds to a corner (accounting for adjusted positions)
+    let clickedCorner: {x: number, y: number} | null = null;
     
-    if (cornerRoom) {
-      onToggleCornerPriority(gridPoint.x, gridPoint.y);
+    for (const room of rooms) {
+      const corners = [
+        {x: room.x, y: room.y}, // top-left
+        {x: room.x + room.width, y: room.y}, // top-right
+        {x: room.x, y: room.y + room.height}, // bottom-left
+        {x: room.x + room.width, y: room.y + room.height}, // bottom-right
+      ];
+      
+      for (const corner of corners) {
+        let detectionX = corner.x;
+        let detectionY = corner.y;
+        
+        // Adjust detection coordinates to match where the preview appears
+        // For right edge corners, check one cell left
+        if (corner.x === room.x + room.width) {
+          detectionX -= 1;
+        }
+        // For bottom edge corners, check one cell up  
+        if (corner.y === room.y + room.height) {
+          detectionY -= 1;
+        }
+        
+        // Check if click position matches this corner's detection area
+        if (gridPoint.x === detectionX && gridPoint.y === detectionY) {
+          clickedCorner = corner; // Use original corner coordinates for the toggle
+          break;
+        }
+      }
+      
+      if (clickedCorner) break;
+    }
+    
+    if (clickedCorner) {
+      onToggleCornerPriority(clickedCorner.x, clickedCorner.y);
       return; // Stop processing other events
     }
 
