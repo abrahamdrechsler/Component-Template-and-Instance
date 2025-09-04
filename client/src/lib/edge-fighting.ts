@@ -302,14 +302,22 @@ export class EdgeFightingResolver {
   private static resolvePriorityWithColors(colorData: { color: RoomColor, createdAt: number }[], colorPriority: RoomColor[]): string {
     const allColors = colorData.map(c => c.color);
     
+    console.log('Priority resolution:', {
+      competingColors: allColors,
+      priorityList: colorPriority,
+      colorData: colorData
+    });
+    
     // Find highest priority color among all competing colors
     for (const color of colorPriority) {
       if (allColors.includes(color)) {
+        console.log('Winner:', color);
         return ROOM_COLORS[color];
       }
     }
     
     // Fallback to first color if no priority found
+    console.log('No priority found, using fallback:', colorData[0]?.color);
     return ROOM_COLORS[colorData[0]?.color] || ROOM_COLORS.skyBlue;
   }
 
