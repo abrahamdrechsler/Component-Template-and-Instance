@@ -32,7 +32,7 @@ export class CanvasUtils {
 
 
 
-  static drawEdge(ctx: CanvasRenderingContext2D, edge: Edge, gridSize: number, color: string, cornerPriorities: Record<string, 'horizontal' | 'vertical'> = {}) {
+  static drawEdge(ctx: CanvasRenderingContext2D, edge: Edge, gridSize: number, color: string, cornerPriorities: Record<string, 'horizontal' | 'vertical'> = {}, rooms: Room[] = []) {
     ctx.fillStyle = color;
     
     // Calculate wall rectangle based on edge orientation and position
@@ -61,7 +61,7 @@ export class CanvasUtils {
       }
       
       // For horizontal edges, check corner priorities at the endpoints
-      this.drawEdgeWithCornerPriorities(ctx, wallX, wallY, wallWidth, wallHeight, edge, gridSize, cornerPriorities, true);
+      this.drawEdgeWithCornerPriorities(ctx, wallX, wallY, wallWidth, wallHeight, edge, gridSize, cornerPriorities, true, rooms);
     } else {
       // Vertical edge (east/west walls)
       const wallY = Math.min(y1, y2);
@@ -79,7 +79,7 @@ export class CanvasUtils {
       }
       
       // For vertical edges, check corner priorities at the endpoints
-      this.drawEdgeWithCornerPriorities(ctx, wallX, wallY, wallWidth, wallHeight, edge, gridSize, cornerPriorities, false);
+      this.drawEdgeWithCornerPriorities(ctx, wallX, wallY, wallWidth, wallHeight, edge, gridSize, cornerPriorities, false, rooms);
     }
   }
 
@@ -92,19 +92,72 @@ export class CanvasUtils {
     edge: Edge,
     gridSize: number,
     cornerPriorities: Record<string, 'horizontal' | 'vertical'>,
-    isHorizontal: boolean
+    isHorizontal: boolean,
+    rooms: Room[]
   ) {
-    // For now, draw the full edge - complex corner-aware rendering would need segmentation
-    ctx.fillRect(wallX, wallY, wallWidth, wallHeight);
+    // Get the room that owns this edge
+    const room = rooms.find(r => r.id === edge.roomId);
+    if (!room) {
+      // Fallback to drawing the full edge if room not found
+      ctx.fillRect(wallX, wallY, wallWidth, wallHeight);
+      return;
+    }
     
-    // Corner priorities affect which edge is "on top" at corner locations
-    // This would require a more sophisticated approach:
-    // 1. Break edges into segments at corners
-    // 2. Check corner priority for each corner segment
-    // 3. Only draw segments where this edge type has priority
-    // 
-    // The current implementation provides the framework for future enhancement
-    // where corner cells could have different colors based on priority rules
+    if (isHorizontal) {
+      // For horizontal edges, check each grid cell along the edge
+      const startX = Math.min(edge.x1, edge.x2);
+      const endX = Math.max(edge.x1, edge.x2);
+      const y = edge.y1;
+      
+      for (let x = startX; x < endX; x++) {
+        // Check if this segment should be rendered based on corner priorities
+        const segmentX = x * gridSize;
+        const segmentWidth = gridSize;
+        
+        let shouldRender = true;
+        
+        // Check left corner of this segment
+        if (this.edgeAffectsCorner(edge, x, y, room)) {
+          shouldRender = shouldRender && this.shouldRenderEdgeAtCorner(edge, x, y, room, cornerPriorities);
+        }
+        
+        // Check right corner of this segment  
+        if (this.edgeAffectsCorner(edge, x + 1, y, room)) {
+          shouldRender = shouldRender && this.shouldRenderEdgeAtCorner(edge, x + 1, y, room, cornerPriorities);
+        }
+        
+        if (shouldRender) {
+          ctx.fillRect(segmentX, wallY, segmentWidth, wallHeight);
+        }
+      }
+    } else {
+      // For vertical edges, check each grid cell along the edge
+      const startY = Math.min(edge.y1, edge.y2);
+      const endY = Math.max(edge.y1, edge.y2);
+      const x = edge.x1;
+      
+      for (let y = startY; y < endY; y++) {
+        // Check if this segment should be rendered based on corner priorities
+        const segmentY = y * gridSize;
+        const segmentHeight = gridSize;
+        
+        let shouldRender = true;
+        
+        // Check top corner of this segment
+        if (this.edgeAffectsCorner(edge, x, y, room)) {
+          shouldRender = shouldRender && this.shouldRenderEdgeAtCorner(edge, x, y, room, cornerPriorities);
+        }
+        
+        // Check bottom corner of this segment
+        if (this.edgeAffectsCorner(edge, x, y + 1, room)) {
+          shouldRender = shouldRender && this.shouldRenderEdgeAtCorner(edge, x, y + 1, room, cornerPriorities);
+        }
+        
+        if (shouldRender) {
+          ctx.fillRect(wallX, segmentY, wallWidth, segmentHeight);
+        }
+      }
+    }
   }
 
   static getCanvasCoordinates(event: MouseEvent, canvas: HTMLCanvasElement): Point {

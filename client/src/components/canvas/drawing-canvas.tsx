@@ -93,7 +93,7 @@ export function DrawingCanvas({
         return;
       }
       const color = getEdgeColor(edge);
-      CanvasUtils.drawEdge(ctx, edge, gridSize, color, cornerPriorities);
+      CanvasUtils.drawEdge(ctx, edge, gridSize, color, cornerPriorities, rooms);
     });
 
     // Draw preview edges for dragged room
