@@ -260,8 +260,28 @@ export function DrawingCanvas({
       ctx.lineWidth = 2;
       ctx.setLineDash([]);
       
-      const cornerX = hoveredCorner.x * gridSize;
-      const cornerY = hoveredCorner.y * gridSize;
+      // Find which room this corner belongs to and adjust position for boundary corners
+      const owningRoom = rooms.find(room => 
+        (hoveredCorner.x === room.x && hoveredCorner.y === room.y) || // top-left
+        (hoveredCorner.x === room.x + room.width && hoveredCorner.y === room.y) || // top-right
+        (hoveredCorner.x === room.x && hoveredCorner.y === room.y + room.height) || // bottom-left
+        (hoveredCorner.x === room.x + room.width && hoveredCorner.y === room.y + room.height) // bottom-right
+      );
+      
+      let cornerX = hoveredCorner.x * gridSize;
+      let cornerY = hoveredCorner.y * gridSize;
+      
+      // Adjust position for boundary corners to show preview on the interior side
+      if (owningRoom) {
+        // For right edge corners, move preview one cell left
+        if (hoveredCorner.x === owningRoom.x + owningRoom.width) {
+          cornerX -= gridSize;
+        }
+        // For bottom edge corners, move preview one cell up  
+        if (hoveredCorner.y === owningRoom.y + owningRoom.height) {
+          cornerY -= gridSize;
+        }
+      }
       
       // Draw a blue border around the corner cell
       ctx.strokeRect(cornerX, cornerY, gridSize, gridSize);
