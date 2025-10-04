@@ -1,11 +1,13 @@
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Room, ComponentTemplate, Link } from '@shared/schema';
+import { Room, ComponentTemplate, Link, type FileMetadata } from '@shared/schema';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Package, Link as LinkIcon, Plus, Trash2, AlertCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Package, Link as LinkIcon, Plus, Trash2, AlertCircle, Download } from 'lucide-react';
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
 interface ProjectInspectorPanelProps {
   rooms: Room[];
@@ -14,6 +16,7 @@ interface ProjectInspectorPanelProps {
   links: Link[];
   onCreateTemplate: (name: string, roomIds: string[]) => void;
   onDeleteTemplate: (templateId: string) => void;
+  onAddLink: (fileId: string, fileName: string) => void;
   onRemoveLink: (linkId: string) => void;
 }
 
@@ -24,10 +27,17 @@ export function ProjectInspectorPanel({
   links,
   onCreateTemplate,
   onDeleteTemplate,
+  onAddLink,
   onRemoveLink,
 }: ProjectInspectorPanelProps) {
   const [templateName, setTemplateName] = useState('');
   const [showTemplateInput, setShowTemplateInput] = useState(false);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  
+  const { data: publishedFiles = [] } = useQuery<FileMetadata[]>({
+    queryKey: ['/api/files'],
+    enabled: showLinkDialog,
+  });
 
   const handleCreateTemplate = () => {
     if (selectedRoomIds.length === 0) {
@@ -193,11 +203,67 @@ export function ProjectInspectorPanel({
                 <LinkIcon className="w-4 h-4" />
                 Links ({links.length})
               </Label>
+              <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+                <DialogTrigger asChild>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8"
+                    data-testid="button-add-link"
+                  >
+                    <Plus className="w-4 h-4 mr-1" />
+                    Link File
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Link Published File</DialogTitle>
+                    <DialogDescription>
+                      Select a published file to link. You can then import templates from the linked file.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-2 max-h-96 overflow-y-auto">
+                    {publishedFiles.length === 0 ? (
+                      <div className="text-sm text-gray-500 text-center py-8">
+                        No published files available.
+                      </div>
+                    ) : (
+                      publishedFiles.map((file) => {
+                        const isAlreadyLinked = links.some(link => link.linkedFileId === file.id);
+                        return (
+                          <div
+                            key={file.id}
+                            className="flex items-center justify-between p-3 rounded border border-gray-200 hover:bg-gray-50"
+                          >
+                            <div className="flex-1">
+                              <div className="font-medium text-sm">{file.name}</div>
+                              <div className="text-xs text-gray-500">
+                                {file.unitCount} units • {new Date(file.timestamp).toLocaleDateString()}
+                              </div>
+                            </div>
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                onAddLink(file.id, file.name);
+                                setShowLinkDialog(false);
+                              }}
+                              disabled={isAlreadyLinked}
+                              data-testid={`button-link-file-${file.id}`}
+                            >
+                              {isAlreadyLinked ? 'Linked' : 'Link'}
+                            </Button>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
 
             {links.length === 0 ? (
               <div className="text-sm text-gray-500 text-center py-4">
-                No linked files yet.
+                No linked files yet. Click "Link File" to get started.
               </div>
             ) : (
               <div className="space-y-2">

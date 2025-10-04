@@ -43,6 +43,7 @@ export default function EdgeConflictPage() {
     getEdgeAt,
     createTemplate,
     deleteTemplate,
+    addLink,
     removeLink,
   } = useUnitsEditor();
 
@@ -163,6 +164,7 @@ export default function EdgeConflictPage() {
           links={links}
           onCreateTemplate={createTemplate}
           onDeleteTemplate={deleteTemplate}
+          onAddLink={addLink}
           onRemoveLink={removeLink}
         />
 
