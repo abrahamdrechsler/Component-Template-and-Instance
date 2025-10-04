@@ -17,6 +17,7 @@ export interface UseUnitsEditorReturn {
   selectedRoomId: string | undefined;
   selectedEdgeId: string | undefined;
   selectedRoomIds: string[];
+  selectedInstanceId: string | undefined;
   showGrid: boolean;
   fileName: string;
   componentTemplates: ComponentTemplate[];
@@ -36,6 +37,7 @@ export interface UseUnitsEditorReturn {
   setSelectedRoomId: (roomId: string | undefined) => void;
   setSelectedEdgeId: (edgeId: string | undefined) => void;
   setSelectedRoomIds: (roomIds: string[]) => void;
+  setSelectedInstanceId: (instanceId: string | undefined) => void;
   setShowGrid: (show: boolean) => void;
   setFileName: (name: string) => void;
   toggleCornerPriority: (x: number, y: number) => void;
@@ -44,11 +46,13 @@ export interface UseUnitsEditorReturn {
   getEdgeColor: (edge: Edge) => string;
   getRoomAt: (x: number, y: number) => Room | undefined;
   getEdgeAt: (x: number, y: number) => Edge | undefined;
+  getInstanceAt: (x: number, y: number) => ComponentInstance | undefined;
   
   createTemplate: (name: string, roomIds: string[]) => void;
   deleteTemplate: (templateId: string) => void;
   updateTemplate: (templateId: string, updates: Partial<ComponentTemplate>) => void;
   placeInstance: (templateId: string, x: number, y: number) => void;
+  moveInstance: (instanceId: string, x: number, y: number) => void;
   deleteInstance: (instanceId: string) => void;
   addLink: (linkedFileId: string, linkedFileName: string) => void;
   removeLink: (linkId: string) => void;
@@ -67,6 +71,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   const [selectedRoomId, setSelectedRoomId] = useState<string | undefined>();
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | undefined>();
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
+  const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>();
   const [showGrid, setShowGrid] = useState(true);
   const [cornerPriorities, setCornerPriorities] = useState<Record<string, CornerPriority>>({});
   const [fileName, setFileName] = useState('Untitled Project');
@@ -267,6 +272,31 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     });
   }, [edges]);
 
+  const getInstanceAt = useCallback((x: number, y: number): ComponentInstance | undefined => {
+    for (const instance of componentInstances) {
+      const template = componentTemplates.find(t => t.id === instance.templateId);
+      if (template) {
+        const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+        if (templateRooms.length > 0) {
+          const minX = Math.min(...templateRooms.map(r => r.x));
+          const minY = Math.min(...templateRooms.map(r => r.y));
+          const maxX = Math.max(...templateRooms.map(r => r.x + r.width));
+          const maxY = Math.max(...templateRooms.map(r => r.y + r.height));
+          
+          const instanceMinX = instance.x;
+          const instanceMinY = instance.y;
+          const instanceMaxX = instance.x + (maxX - minX);
+          const instanceMaxY = instance.y + (maxY - minY);
+          
+          if (x >= instanceMinX && x <= instanceMaxX && y >= instanceMinY && y <= instanceMaxY) {
+            return instance;
+          }
+        }
+      }
+    }
+    return undefined;
+  }, [componentInstances, componentTemplates, rooms]);
+
   const exportData = useCallback(() => {
     const data = {
       rooms,
@@ -378,6 +408,12 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     setComponentInstances(prev => [...prev, newInstance]);
   }, []);
 
+  const moveInstance = useCallback((instanceId: string, x: number, y: number) => {
+    setComponentInstances(prev => prev.map(instance =>
+      instance.id === instanceId ? { ...instance, x, y } : instance
+    ));
+  }, []);
+
   const deleteInstance = useCallback((instanceId: string) => {
     setComponentInstances(prev => prev.filter(i => i.id !== instanceId));
   }, []);
@@ -424,6 +460,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     selectedRoomId,
     selectedEdgeId,
     selectedRoomIds,
+    selectedInstanceId,
     showGrid,
     fileName,
     componentTemplates,
@@ -442,6 +479,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     setSelectedRoomId,
     setSelectedEdgeId,
     setSelectedRoomIds,
+    setSelectedInstanceId,
     setShowGrid,
     setFileName,
     toggleCornerPriority,
@@ -450,10 +488,12 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     getEdgeColor,
     getRoomAt,
     getEdgeAt,
+    getInstanceAt,
     createTemplate,
     deleteTemplate,
     updateTemplate,
     placeInstance,
+    moveInstance,
     deleteInstance,
     addLink,
     removeLink,
