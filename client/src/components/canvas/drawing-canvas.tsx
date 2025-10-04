@@ -7,10 +7,11 @@ import { RoomValidation } from '@/lib/room-validation';
 interface DrawingCanvasProps {
   rooms: Room[];
   edges: Edge[];
-  selectedTool: 'draw' | 'move' | 'delete';
+  selectedTool: 'draw' | 'move' | 'delete' | 'select';
   selectedColor: string;
   selectedRoomId?: string;
   selectedEdgeId?: string;
+  selectedRoomIds?: string[];
   showGrid: boolean;
   cornerPriorities: Record<string, 'horizontal' | 'vertical'>;
   onAddRoom: (x: number, y: number, width: number, height: number) => void;
@@ -18,6 +19,7 @@ interface DrawingCanvasProps {
   onDeleteRoom: (roomId: string) => void;
   onSelectRoom: (roomId: string | undefined) => void;
   onSelectEdge: (edgeId: string | undefined) => void;
+  onSelectRoomIds?: (roomIds: string[]) => void;
   onToggleCornerPriority: (x: number, y: number) => void;
   getEdgeColor: (edge: Edge) => string;
   getRoomAt: (x: number, y: number) => Room | undefined;

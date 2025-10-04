@@ -1,23 +1,31 @@
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Pencil, Move, Trash2, Download, Upload } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Pencil, Move, Trash2, Download, Upload, MousePointer, Cloud, Database } from 'lucide-react';
+import { Link } from 'wouter';
 
 interface ToolbarProps {
-  selectedTool: 'draw' | 'move' | 'delete';
+  selectedTool: 'draw' | 'move' | 'delete' | 'select';
   showGrid: boolean;
-  onToolChange: (tool: 'draw' | 'move' | 'delete') => void;
+  fileName: string;
+  onToolChange: (tool: 'draw' | 'move' | 'delete' | 'select') => void;
   onToggleGrid: (show: boolean) => void;
+  onFileNameChange: (name: string) => void;
   onExport: () => void;
   onImport: (file: File) => void;
+  onPublish: () => void;
 }
 
 export function Toolbar({
   selectedTool,
   showGrid,
+  fileName,
   onToolChange,
   onToggleGrid,
+  onFileNameChange,
   onExport,
   onImport,
+  onPublish,
 }: ToolbarProps) {
   const handleImportClick = () => {
     const input = document.createElement('input');
@@ -38,11 +46,24 @@ export function Toolbar({
         {/* Drawing Tools */}
         <div className="flex items-center space-x-2 border-r border-gray-200 pr-4">
           <Button
+            variant={selectedTool === 'select' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => onToolChange('select')}
+            className="flex items-center space-x-2"
+            title="Select (S)"
+            data-testid="button-tool-select"
+          >
+            <MousePointer className="w-4 h-4" />
+            <span>Select</span>
+            <kbd className="ml-1 px-1 py-0.5 text-xs bg-gray-200 text-gray-600 rounded">S</kbd>
+          </Button>
+          <Button
             variant={selectedTool === 'draw' ? 'default' : 'outline'}
             size="sm"
             onClick={() => onToolChange('draw')}
             className="flex items-center space-x-2"
             title="Draw Room (R)"
+            data-testid="button-tool-draw"
           >
             <Pencil className="w-4 h-4" />
             <span>Draw Room</span>
@@ -54,6 +75,7 @@ export function Toolbar({
             onClick={() => onToolChange('move')}
             className="flex items-center space-x-2"
             title="Move Room (M)"
+            data-testid="button-tool-move"
           >
             <Move className="w-4 h-4" />
             <span>Move Room</span>
@@ -65,6 +87,7 @@ export function Toolbar({
             onClick={() => onToolChange('delete')}
             className="flex items-center space-x-2"
             title="Delete (D)"
+            data-testid="button-tool-delete"
           >
             <Trash2 className="w-4 h-4" />
             <span>Delete</span>
@@ -73,12 +96,13 @@ export function Toolbar({
         </div>
 
         {/* File Operations */}
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 border-r border-gray-200 pr-4">
           <Button
             variant="outline"
             size="sm"
             onClick={onExport}
             className="flex items-center space-x-2"
+            data-testid="button-export"
           >
             <Download className="w-4 h-4" />
             <span>Export</span>
@@ -88,16 +112,49 @@ export function Toolbar({
             size="sm"
             onClick={handleImportClick}
             className="flex items-center space-x-2"
+            data-testid="button-import"
           >
             <Upload className="w-4 h-4" />
             <span>Import</span>
           </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={onPublish}
+            className="flex items-center space-x-2"
+            data-testid="button-publish"
+          >
+            <Cloud className="w-4 h-4" />
+            <span>Publish</span>
+          </Button>
+        </div>
+
+        {/* Database Link */}
+        <div className="flex items-center space-x-2">
+          <Link href="/database">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center space-x-2"
+              data-testid="button-database"
+            >
+              <Database className="w-4 h-4" />
+              <span>View Database</span>
+            </Button>
+          </Link>
         </div>
       </div>
 
-      {/* Project Title */}
-      <div className="flex-1 text-center">
-        <h1 className="text-lg font-semibold text-gray-900">Edge Conflict Prototype</h1>
+      {/* Project Name */}
+      <div className="flex-1 flex items-center justify-center gap-2">
+        <span className="text-sm text-gray-600">Project:</span>
+        <Input
+          value={fileName}
+          onChange={(e) => onFileNameChange(e.target.value)}
+          className="w-64 h-8 text-center"
+          placeholder="Enter project name"
+          data-testid="input-file-name"
+        />
       </div>
 
       {/* Grid Controls and Shortcuts */}

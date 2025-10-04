@@ -1,37 +1,46 @@
-import { type User, type InsertUser } from "@shared/schema";
+import { type FileMetadata } from "@shared/schema";
 import { randomUUID } from "crypto";
 
-// modify the interface with any CRUD methods
-// you might need
-
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  publishFile(file: Omit<FileMetadata, 'id'>): Promise<FileMetadata>;
+  getPublishedFile(id: string): Promise<FileMetadata | undefined>;
+  getAllPublishedFiles(): Promise<FileMetadata[]>;
+  updatePublishedFile(id: string, updates: Partial<FileMetadata>): Promise<FileMetadata | undefined>;
+  deletePublishedFile(id: string): Promise<boolean>;
 }
 
 export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+  private publishedFiles: Map<string, FileMetadata>;
 
   constructor() {
-    this.users = new Map();
+    this.publishedFiles = new Map();
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
-  }
-
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
+  async publishFile(file: Omit<FileMetadata, 'id'>): Promise<FileMetadata> {
     const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+    const fileMetadata: FileMetadata = { ...file, id };
+    this.publishedFiles.set(id, fileMetadata);
+    return fileMetadata;
+  }
+
+  async getPublishedFile(id: string): Promise<FileMetadata | undefined> {
+    return this.publishedFiles.get(id);
+  }
+
+  async getAllPublishedFiles(): Promise<FileMetadata[]> {
+    return Array.from(this.publishedFiles.values());
+  }
+
+  async updatePublishedFile(id: string, updates: Partial<FileMetadata>): Promise<FileMetadata | undefined> {
+    const existing = this.publishedFiles.get(id);
+    if (!existing) return undefined;
+    const updated = { ...existing, ...updates };
+    this.publishedFiles.set(id, updated);
+    return updated;
+  }
+
+  async deletePublishedFile(id: string): Promise<boolean> {
+    return this.publishedFiles.delete(id);
   }
 }
 

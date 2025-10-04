@@ -1,7 +1,7 @@
 import { useRef, useEffect } from 'react';
-import { useEdgeConflict } from '@/hooks/use-edge-conflict';
+import { useUnitsEditor } from '@/hooks/use-units-editor';
 import { Toolbar } from '@/components/panels/toolbar';
-import { SettingsPanel } from '@/components/panels/settings-panel';
+import { ProjectInspectorPanel } from '@/components/panels/project-inspector-panel';
 import { InspectorPanel } from '@/components/panels/inspector-panel';
 import { DrawingCanvas } from '@/components/canvas/drawing-canvas';
 import { ROOM_COLORS } from '@/types/room';
@@ -12,35 +12,39 @@ export default function EdgeConflictPage() {
   const {
     rooms,
     edges,
-    mode,
-    colorPriority,
-    conflictMatrix,
     selectedTool,
     selectedColor,
     selectedRoomId,
     selectedEdgeId,
+    selectedRoomIds,
     showGrid,
     cornerPriorities,
+    fileName,
+    componentTemplates,
+    componentInstances,
+    links,
     addRoom,
     deleteRoom,
     moveRoom,
     updateRoom,
     updateEdge,
-    setMode,
-    setColorPriority,
-    setConflictMatrix,
     setSelectedTool,
     setSelectedColor,
     setSelectedRoomId,
     setSelectedEdgeId,
+    setSelectedRoomIds,
     setShowGrid,
+    setFileName,
     toggleCornerPriority,
     exportData,
     importData,
     getEdgeColor,
     getRoomAt,
     getEdgeAt,
-  } = useEdgeConflict();
+    createTemplate,
+    deleteTemplate,
+    removeLink,
+  } = useUnitsEditor();
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -54,6 +58,9 @@ export default function EdgeConflictPage() {
       const key = event.key.toLowerCase();
       
       switch (key) {
+        case 's':
+          setSelectedTool('select');
+          break;
         case 'r':
           setSelectedTool('draw');
           break;
@@ -88,6 +95,49 @@ export default function EdgeConflictPage() {
     }
   };
 
+  const handlePublish = async () => {
+    try {
+      const appState = JSON.stringify({
+        rooms,
+        edges,
+        componentTemplates,
+        componentInstances,
+        links,
+      });
+
+      const response = await fetch('/api/files/publish', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: fileName,
+          timestamp: Date.now(),
+          unitCount: componentInstances.length,
+          appState,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to publish file');
+      }
+
+      const publishedFile = await response.json();
+      
+      toast({
+        title: "Published successfully",
+        description: `${fileName} has been published to the database.`,
+      });
+    } catch (error) {
+      console.error('Publish error:', error);
+      toast({
+        title: "Publish failed",
+        description: "Failed to publish file. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const selectedRoom = selectedRoomId ? rooms.find(r => r.id === selectedRoomId) : undefined;
   const selectedEdge = selectedEdgeId ? edges.find(e => e.id === selectedEdgeId) : undefined;
 
@@ -96,22 +146,24 @@ export default function EdgeConflictPage() {
       <Toolbar
         selectedTool={selectedTool}
         showGrid={showGrid}
+        fileName={fileName}
         onToolChange={setSelectedTool}
         onToggleGrid={setShowGrid}
+        onFileNameChange={setFileName}
         onExport={exportData}
         onImport={handleImport}
+        onPublish={handlePublish}
       />
 
       <div className="flex flex-1 overflow-hidden">
-        <SettingsPanel
-          mode={mode}
-          colorPriority={colorPriority}
-          conflictMatrix={conflictMatrix}
-          selectedColor={selectedColor}
-          onModeChange={setMode}
-          onColorPriorityChange={setColorPriority}
-          onConflictMatrixChange={setConflictMatrix}
-          onSelectedColorChange={setSelectedColor}
+        <ProjectInspectorPanel
+          rooms={rooms}
+          selectedRoomIds={selectedRoomIds}
+          componentTemplates={componentTemplates}
+          links={links}
+          onCreateTemplate={createTemplate}
+          onDeleteTemplate={deleteTemplate}
+          onRemoveLink={removeLink}
         />
 
         {/* Main Canvas Area */}
@@ -126,6 +178,7 @@ export default function EdgeConflictPage() {
                   selectedColor={ROOM_COLORS[selectedColor]}
                   selectedRoomId={selectedRoomId}
                   selectedEdgeId={selectedEdgeId}
+                  selectedRoomIds={selectedRoomIds}
                   showGrid={showGrid}
                   cornerPriorities={cornerPriorities}
                   onAddRoom={addRoom}
@@ -133,6 +186,7 @@ export default function EdgeConflictPage() {
                   onDeleteRoom={deleteRoom}
                   onSelectRoom={setSelectedRoomId}
                   onSelectEdge={setSelectedEdgeId}
+                  onSelectRoomIds={setSelectedRoomIds}
                   onToggleCornerPriority={toggleCornerPriority}
                   getEdgeColor={getEdgeColor}
                   getRoomAt={getRoomAt}
