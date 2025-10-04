@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { CanvasUtils } from '@/lib/canvas-utils';
-import { Room, Edge, ComponentTemplate } from '@shared/schema';
+import { Room, Edge, ComponentTemplate, ComponentInstance } from '@shared/schema';
 import { Point, CanvasState } from '@/types/room';
 import { RoomValidation } from '@/lib/room-validation';
 
@@ -15,6 +15,7 @@ interface DrawingCanvasProps {
   showGrid: boolean;
   cornerPriorities: Record<string, 'horizontal' | 'vertical'>;
   componentTemplates: ComponentTemplate[];
+  componentInstances: ComponentInstance[];
   onAddRoom: (x: number, y: number, width: number, height: number) => void;
   onMoveRoom: (roomId: string, x: number, y: number) => void;
   onDeleteRoom: (roomId: string) => void;
@@ -39,6 +40,7 @@ export function DrawingCanvas({
   showGrid,
   cornerPriorities,
   componentTemplates,
+  componentInstances,
   onAddRoom,
   onMoveRoom,
   onDeleteRoom,
@@ -104,6 +106,38 @@ export function DrawingCanvas({
       }
       const color = getEdgeColor(edge);
       CanvasUtils.drawEdge(ctx, edge, gridSize, color, cornerPriorities, rooms);
+    });
+
+    // Draw component instances
+    componentInstances.forEach(instance => {
+      const template = componentTemplates.find(t => t.id === instance.templateId);
+      if (template) {
+        const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+        if (templateRooms.length > 0) {
+          // Calculate bounding box of original template
+          const minX = Math.min(...templateRooms.map(r => r.x));
+          const minY = Math.min(...templateRooms.map(r => r.y));
+          
+          // Draw each room in the template at the instance position
+          templateRooms.forEach(room => {
+            const offsetX = room.x - minX;
+            const offsetY = room.y - minY;
+            const instanceX = (instance.x + offsetX) * gridSize;
+            const instanceY = (instance.y + offsetY) * gridSize;
+            const width = room.width * gridSize;
+            const height = room.height * gridSize;
+            
+            // Draw filled room
+            ctx.fillStyle = room.color;
+            ctx.fillRect(instanceX, instanceY, width, height);
+            
+            // Draw border
+            ctx.strokeStyle = '#000';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(instanceX, instanceY, width, height);
+          });
+        }
+      }
     });
 
     // Draw preview edges for dragged room
@@ -386,6 +420,7 @@ export function DrawingCanvas({
     draggedTemplateId,
     dragPreviewPos,
     componentTemplates,
+    componentInstances,
   ]);
 
   const handleMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -797,18 +832,15 @@ export function DrawingCanvas({
     event.preventDefault();
     event.dataTransfer.dropEffect = 'copy';
     
-    console.log('Drag over canvas', event.dataTransfer.types);
-    
     const canvas = canvasRef.current;
     if (!canvas) return;
     
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
     
-    // Try to get the templateId from dataTransfer
     // During dragover, we can't access getData, so we check types
     if (event.dataTransfer.types.includes('templateid')) {
-      setDraggedTemplateId('temp'); // Set a temp value to show we're dragging
+      setDraggedTemplateId('temp');
       setDragPreviewPos(gridPoint);
     }
   }, [gridSize]);
@@ -816,15 +848,8 @@ export function DrawingCanvas({
   const handleDrop = useCallback((event: React.DragEvent<HTMLCanvasElement>) => {
     event.preventDefault();
     
-    console.log('Drop on canvas');
-    
     const templateId = event.dataTransfer.getData('templateId');
-    console.log('Template ID from drop:', templateId);
-    
-    if (!templateId) {
-      console.log('No template ID found');
-      return;
-    }
+    if (!templateId) return;
     
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -832,7 +857,6 @@ export function DrawingCanvas({
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
     
-    console.log('Placing instance at:', gridPoint);
     onPlaceInstance(templateId, gridPoint.x, gridPoint.y);
     
     setDraggedTemplateId(null);

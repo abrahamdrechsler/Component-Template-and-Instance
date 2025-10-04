@@ -185,6 +185,7 @@ export default function EdgeConflictPage() {
                   showGrid={showGrid}
                   cornerPriorities={cornerPriorities}
                   componentTemplates={componentTemplates}
+                  componentInstances={componentInstances}
                   onAddRoom={addRoom}
                   onMoveRoom={moveRoom}
                   onDeleteRoom={deleteRoom}
