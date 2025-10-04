@@ -12,6 +12,7 @@ interface DrawingCanvasProps {
   selectedRoomId?: string;
   selectedEdgeId?: string;
   selectedRoomIds?: string[];
+  selectedInstanceId?: string;
   showGrid: boolean;
   cornerPriorities: Record<string, 'horizontal' | 'vertical'>;
   componentTemplates: ComponentTemplate[];
@@ -22,11 +23,14 @@ interface DrawingCanvasProps {
   onSelectRoom: (roomId: string | undefined) => void;
   onSelectEdge: (edgeId: string | undefined) => void;
   onSelectRoomIds?: (roomIds: string[]) => void;
+  onSelectInstance: (instanceId: string | undefined) => void;
+  onMoveInstance: (instanceId: string, x: number, y: number) => void;
   onToggleCornerPriority: (x: number, y: number) => void;
   onPlaceInstance: (templateId: string, x: number, y: number) => void;
   getEdgeColor: (edge: Edge) => string;
   getRoomAt: (x: number, y: number) => Room | undefined;
   getEdgeAt: (x: number, y: number) => Edge | undefined;
+  getInstanceAt: (x: number, y: number) => ComponentInstance | undefined;
 }
 
 export function DrawingCanvas({
@@ -37,6 +41,7 @@ export function DrawingCanvas({
   selectedRoomId,
   selectedEdgeId,
   selectedRoomIds = [],
+  selectedInstanceId,
   showGrid,
   cornerPriorities,
   componentTemplates,
@@ -47,11 +52,14 @@ export function DrawingCanvas({
   onSelectRoom,
   onSelectEdge,
   onSelectRoomIds,
+  onSelectInstance,
+  onMoveInstance,
   onToggleCornerPriority,
   onPlaceInstance,
   getEdgeColor,
   getRoomAt,
   getEdgeAt,
+  getInstanceAt,
 }: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvasState, setCanvasState] = useState<CanvasState>({
@@ -618,34 +626,50 @@ export function DrawingCanvas({
         break;
 
       case 'select':
-        const roomToSelect = getRoomAt(gridPoint.x, gridPoint.y);
-        if (roomToSelect) {
-          if (isMultiSelect && onSelectRoomIds) {
-            // Multi-select mode: toggle room in selection
-            if (selectedRoomIds.includes(roomToSelect.id)) {
-              // Remove from selection
-              onSelectRoomIds(selectedRoomIds.filter(id => id !== roomToSelect.id));
-            } else {
-              // Add to selection
-              onSelectRoomIds([...selectedRoomIds, roomToSelect.id]);
-            }
-          } else {
-            // Single select mode
-            onSelectRoom(roomToSelect.id);
-            if (onSelectRoomIds) {
-              onSelectRoomIds([roomToSelect.id]);
-            }
-          }
-        } else {
-          // Clicking empty space clears selection
+        // Check for component instance first
+        const instanceToSelect = getInstanceAt(gridPoint.x, gridPoint.y);
+        if (instanceToSelect) {
+          // Select the instance and clear any room selections
+          onSelectInstance(instanceToSelect.id);
           onSelectRoom(undefined);
           if (onSelectRoomIds) {
             onSelectRoomIds([]);
           }
+        } else {
+          // No instance, check for rooms
+          const roomToSelect = getRoomAt(gridPoint.x, gridPoint.y);
+          if (roomToSelect) {
+            // Clear instance selection when selecting a room
+            onSelectInstance(undefined);
+            
+            if (isMultiSelect && onSelectRoomIds) {
+              // Multi-select mode: toggle room in selection
+              if (selectedRoomIds.includes(roomToSelect.id)) {
+                // Remove from selection
+                onSelectRoomIds(selectedRoomIds.filter(id => id !== roomToSelect.id));
+              } else {
+                // Add to selection
+                onSelectRoomIds([...selectedRoomIds, roomToSelect.id]);
+              }
+            } else {
+              // Single select mode
+              onSelectRoom(roomToSelect.id);
+              if (onSelectRoomIds) {
+                onSelectRoomIds([roomToSelect.id]);
+              }
+            }
+          } else {
+            // Clicking empty space clears all selections
+            onSelectInstance(undefined);
+            onSelectRoom(undefined);
+            if (onSelectRoomIds) {
+              onSelectRoomIds([]);
+            }
+          }
         }
         break;
     }
-  }, [selectedTool, getRoomAt, onSelectRoom, onSelectRoomIds, onDeleteRoom, onToggleCornerPriority, gridSize, rooms, selectedRoomIds]);
+  }, [selectedTool, getRoomAt, getInstanceAt, onSelectRoom, onSelectRoomIds, onSelectInstance, onDeleteRoom, onToggleCornerPriority, gridSize, rooms, selectedRoomIds]);
 
   const handleMouseUp = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;

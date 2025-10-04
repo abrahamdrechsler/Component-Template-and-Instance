@@ -17,6 +17,7 @@ export default function EdgeConflictPage() {
     selectedRoomId,
     selectedEdgeId,
     selectedRoomIds,
+    selectedInstanceId,
     showGrid,
     cornerPriorities,
     fileName,
@@ -33,6 +34,7 @@ export default function EdgeConflictPage() {
     setSelectedRoomId,
     setSelectedEdgeId,
     setSelectedRoomIds,
+    setSelectedInstanceId,
     setShowGrid,
     setFileName,
     toggleCornerPriority,
@@ -41,9 +43,11 @@ export default function EdgeConflictPage() {
     getEdgeColor,
     getRoomAt,
     getEdgeAt,
+    getInstanceAt,
     createTemplate,
     deleteTemplate,
     placeInstance,
+    moveInstance,
     addLink,
     removeLink,
   } = useUnitsEditor();
@@ -182,6 +186,7 @@ export default function EdgeConflictPage() {
                   selectedRoomId={selectedRoomId}
                   selectedEdgeId={selectedEdgeId}
                   selectedRoomIds={selectedRoomIds}
+                  selectedInstanceId={selectedInstanceId}
                   showGrid={showGrid}
                   cornerPriorities={cornerPriorities}
                   componentTemplates={componentTemplates}
@@ -192,11 +197,14 @@ export default function EdgeConflictPage() {
                   onSelectRoom={setSelectedRoomId}
                   onSelectEdge={setSelectedEdgeId}
                   onSelectRoomIds={setSelectedRoomIds}
+                  onSelectInstance={setSelectedInstanceId}
+                  onMoveInstance={moveInstance}
                   onToggleCornerPriority={toggleCornerPriority}
                   onPlaceInstance={placeInstance}
                   getEdgeColor={getEdgeColor}
                   getRoomAt={getRoomAt}
                   getEdgeAt={getEdgeAt}
+                  getInstanceAt={getInstanceAt}
                 />
               </div>
             </div>
