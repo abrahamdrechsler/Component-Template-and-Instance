@@ -161,7 +161,7 @@ export function Toolbar({
       <div className="flex items-center space-x-4">
         {selectedTool === 'select' ? (
           <div className="text-xs text-gray-500 hidden md:block">
-            Hold <kbd className="px-1 py-0.5 bg-gray-200 text-gray-600 rounded">Ctrl</kbd> or <kbd className="px-1 py-0.5 bg-gray-200 text-gray-600 rounded">Cmd</kbd> to multi-select
+            Hold <kbd className="px-1 py-0.5 bg-gray-200 text-gray-600 rounded">Ctrl</kbd>, <kbd className="px-1 py-0.5 bg-gray-200 text-gray-600 rounded">Cmd</kbd>, or <kbd className="px-1 py-0.5 bg-gray-200 text-gray-600 rounded">Shift</kbd> to multi-select
           </div>
         ) : (
           <div className="text-xs text-gray-500 hidden md:block">

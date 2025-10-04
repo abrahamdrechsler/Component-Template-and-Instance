@@ -465,7 +465,7 @@ export function DrawingCanvas({
 
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
-    const isMultiSelect = event.ctrlKey || event.metaKey; // Ctrl on Windows/Linux, Cmd on Mac
+    const isMultiSelect = event.ctrlKey || event.metaKey || event.shiftKey; // Ctrl/Cmd/Shift for multi-select
 
     // Check for corner click FIRST - regardless of selected tool
     // Check if this grid position corresponds to a corner (accounting for adjusted positions)
