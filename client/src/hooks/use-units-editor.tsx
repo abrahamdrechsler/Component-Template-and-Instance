@@ -409,9 +409,15 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   }, []);
 
   const moveInstance = useCallback((instanceId: string, x: number, y: number) => {
-    setComponentInstances(prev => prev.map(instance =>
-      instance.id === instanceId ? { ...instance, x, y } : instance
-    ));
+    setComponentInstances(prev => prev.map(instance => {
+      if (instance.id === instanceId) {
+        // Constrain to grid (no negative coordinates)
+        const constrainedX = Math.max(0, x);
+        const constrainedY = Math.max(0, y);
+        return { ...instance, x: constrainedX, y: constrainedY };
+      }
+      return instance;
+    }));
   }, []);
 
   const deleteInstance = useCallback((instanceId: string) => {

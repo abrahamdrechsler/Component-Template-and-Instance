@@ -48,6 +48,7 @@ export default function EdgeConflictPage() {
     deleteTemplate,
     placeInstance,
     moveInstance,
+    deleteInstance,
     addLink,
     removeLink,
   } = useUnitsEditor();
@@ -146,6 +147,7 @@ export default function EdgeConflictPage() {
 
   const selectedRoom = selectedRoomId ? rooms.find(r => r.id === selectedRoomId) : undefined;
   const selectedEdge = selectedEdgeId ? edges.find(e => e.id === selectedEdgeId) : undefined;
+  const selectedInstance = selectedInstanceId ? componentInstances.find(i => i.id === selectedInstanceId) : undefined;
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -214,10 +216,13 @@ export default function EdgeConflictPage() {
         <InspectorPanel
           selectedRoom={selectedRoom}
           selectedEdge={selectedEdge}
+          selectedInstance={selectedInstance}
           rooms={rooms}
+          componentTemplates={componentTemplates}
           onUpdateRoom={updateRoom}
           onUpdateEdge={updateEdge}
           onDeleteRoom={deleteRoom}
+          onDeleteInstance={deleteInstance}
         />
       </div>
     </div>

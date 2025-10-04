@@ -732,7 +732,12 @@ export function DrawingCanvas({
         if (instance) {
           const targetX = gridPoint.x - canvasState.dragStartOffset.x;
           const targetY = gridPoint.y - canvasState.dragStartOffset.y;
-          onMoveInstance(selectedInstanceId, targetX, targetY);
+          
+          // Apply basic grid constraints (no negative coordinates)
+          const finalX = Math.max(0, targetX);
+          const finalY = Math.max(0, targetY);
+          
+          onMoveInstance(selectedInstanceId, finalX, finalY);
         }
       } else if (selectedRoomId) {
         // Moving a room
