@@ -542,18 +542,30 @@ export function DrawingCanvas({
 
       case 'select':
         const roomToSelect = getRoomAt(gridPoint.x, gridPoint.y);
+        console.log('Select mode:', { 
+          roomToSelect: roomToSelect?.id, 
+          isMultiSelect, 
+          currentSelection: selectedRoomIds,
+          ctrlKey: event.ctrlKey,
+          metaKey: event.metaKey,
+          shiftKey: event.shiftKey
+        });
+        
         if (roomToSelect) {
           if (isMultiSelect && onSelectRoomIds) {
             // Multi-select mode: toggle room in selection
             if (selectedRoomIds.includes(roomToSelect.id)) {
               // Remove from selection
+              console.log('Removing from selection');
               onSelectRoomIds(selectedRoomIds.filter(id => id !== roomToSelect.id));
             } else {
               // Add to selection
+              console.log('Adding to selection');
               onSelectRoomIds([...selectedRoomIds, roomToSelect.id]);
             }
           } else {
             // Single select mode
+            console.log('Single select mode');
             onSelectRoom(roomToSelect.id);
             if (onSelectRoomIds) {
               onSelectRoomIds([roomToSelect.id]);
