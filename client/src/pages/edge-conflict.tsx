@@ -43,6 +43,7 @@ export default function EdgeConflictPage() {
     getEdgeAt,
     createTemplate,
     deleteTemplate,
+    placeInstance,
     addLink,
     removeLink,
   } = useUnitsEditor();
@@ -183,6 +184,7 @@ export default function EdgeConflictPage() {
                   selectedRoomIds={selectedRoomIds}
                   showGrid={showGrid}
                   cornerPriorities={cornerPriorities}
+                  componentTemplates={componentTemplates}
                   onAddRoom={addRoom}
                   onMoveRoom={moveRoom}
                   onDeleteRoom={deleteRoom}
@@ -190,6 +192,7 @@ export default function EdgeConflictPage() {
                   onSelectEdge={setSelectedEdgeId}
                   onSelectRoomIds={setSelectedRoomIds}
                   onToggleCornerPriority={toggleCornerPriority}
+                  onPlaceInstance={placeInstance}
                   getEdgeColor={getEdgeColor}
                   getRoomAt={getRoomAt}
                   getEdgeAt={getEdgeAt}

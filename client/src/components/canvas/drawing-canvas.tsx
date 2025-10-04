@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { CanvasUtils } from '@/lib/canvas-utils';
-import { Room, Edge } from '@shared/schema';
+import { Room, Edge, ComponentTemplate } from '@shared/schema';
 import { Point, CanvasState } from '@/types/room';
 import { RoomValidation } from '@/lib/room-validation';
 
@@ -14,6 +14,7 @@ interface DrawingCanvasProps {
   selectedRoomIds?: string[];
   showGrid: boolean;
   cornerPriorities: Record<string, 'horizontal' | 'vertical'>;
+  componentTemplates: ComponentTemplate[];
   onAddRoom: (x: number, y: number, width: number, height: number) => void;
   onMoveRoom: (roomId: string, x: number, y: number) => void;
   onDeleteRoom: (roomId: string) => void;
@@ -21,6 +22,7 @@ interface DrawingCanvasProps {
   onSelectEdge: (edgeId: string | undefined) => void;
   onSelectRoomIds?: (roomIds: string[]) => void;
   onToggleCornerPriority: (x: number, y: number) => void;
+  onPlaceInstance: (templateId: string, x: number, y: number) => void;
   getEdgeColor: (edge: Edge) => string;
   getRoomAt: (x: number, y: number) => Room | undefined;
   getEdgeAt: (x: number, y: number) => Edge | undefined;
@@ -36,6 +38,7 @@ export function DrawingCanvas({
   selectedRoomIds = [],
   showGrid,
   cornerPriorities,
+  componentTemplates,
   onAddRoom,
   onMoveRoom,
   onDeleteRoom,
@@ -43,6 +46,7 @@ export function DrawingCanvas({
   onSelectEdge,
   onSelectRoomIds,
   onToggleCornerPriority,
+  onPlaceInstance,
   getEdgeColor,
   getRoomAt,
   getEdgeAt,
@@ -59,6 +63,8 @@ export function DrawingCanvas({
   const [mousePos, setMousePos] = useState<Point | null>(null);
   const [hoveredDot, setHoveredDot] = useState<string | null>(null);
   const [hoveredCorner, setHoveredCorner] = useState<{x: number, y: number} | null>(null);
+  const [draggedTemplateId, setDraggedTemplateId] = useState<string | null>(null);
+  const [dragPreviewPos, setDragPreviewPos] = useState<Point | null>(null);
 
   const gridSize = 20; // 20px = 1ft
 
@@ -329,6 +335,39 @@ export function DrawingCanvas({
       );
       ctx.setLineDash([]);
     }
+
+    // Draw template instance preview when dragging
+    if (draggedTemplateId && dragPreviewPos) {
+      const template = componentTemplates.find(t => t.id === draggedTemplateId);
+      if (template) {
+        const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+        if (templateRooms.length > 0) {
+          // Calculate bounding box of template
+          const minX = Math.min(...templateRooms.map(r => r.x));
+          const minY = Math.min(...templateRooms.map(r => r.y));
+          
+          // Draw each room in the template at the preview position
+          templateRooms.forEach(room => {
+            const offsetX = room.x - minX;
+            const offsetY = room.y - minY;
+            const previewX = (dragPreviewPos.x + offsetX) * gridSize;
+            const previewY = (dragPreviewPos.y + offsetY) * gridSize;
+            const width = room.width * gridSize;
+            const height = room.height * gridSize;
+            
+            // Draw semi-transparent preview
+            ctx.fillStyle = room.color + '40'; // Add transparency
+            ctx.fillRect(previewX, previewY, width, height);
+            
+            ctx.strokeStyle = room.color;
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(previewX, previewY, width, height);
+            ctx.setLineDash([]);
+          });
+        }
+      }
+    }
   }, [
     rooms,
     edges,
@@ -344,6 +383,9 @@ export function DrawingCanvas({
     hoveredCorner,
     getEdgeColor,
     gridSize,
+    draggedTemplateId,
+    dragPreviewPos,
+    componentTemplates,
   ]);
 
   const handleMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -751,6 +793,49 @@ export function DrawingCanvas({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [selectedRoomId, rooms, onMoveRoom]);
 
+  const handleDragOver = useCallback((event: React.DragEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'copy';
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
+    const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
+    
+    const templateId = event.dataTransfer.types.includes('templateid') 
+      ? draggedTemplateId 
+      : null;
+      
+    if (templateId || event.dataTransfer.types.length > 0) {
+      setDraggedTemplateId(templateId);
+      setDragPreviewPos(gridPoint);
+    }
+  }, [gridSize, draggedTemplateId]);
+
+  const handleDrop = useCallback((event: React.DragEvent<HTMLCanvasElement>) => {
+    event.preventDefault();
+    
+    const templateId = event.dataTransfer.getData('templateId');
+    if (!templateId) return;
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
+    const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
+    
+    onPlaceInstance(templateId, gridPoint.x, gridPoint.y);
+    
+    setDraggedTemplateId(null);
+    setDragPreviewPos(null);
+  }, [gridSize, onPlaceInstance]);
+
+  const handleDragLeave = useCallback(() => {
+    setDraggedTemplateId(null);
+    setDragPreviewPos(null);
+  }, []);
+
   return (
     <div className="relative w-full h-full">
       <canvas
@@ -760,12 +845,16 @@ export function DrawingCanvas({
           selectedTool === 'draw' ? 'cursor-crosshair' :
           selectedTool === 'move' ? 'cursor-grab' :
           hoveredDot ? 'cursor-pointer' :
+          draggedTemplateId ? 'cursor-copy' :
           'cursor-default'
         }`}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseMove={handleMouseMove}
         onClick={handleClick}
+        onDragOver={handleDragOver}
+        onDrop={handleDrop}
+        onDragLeave={handleDragLeave}
       />
       
       {/* Grid Scale Indicator */}

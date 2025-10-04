@@ -167,7 +167,12 @@ export function ProjectInspectorPanel({
                 {componentTemplates.map((template) => (
                   <div
                     key={template.id}
-                    className="p-2 rounded border border-gray-200 bg-gray-50"
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('templateId', template.id);
+                      e.dataTransfer.effectAllowed = 'copy';
+                    }}
+                    className="p-2 rounded border border-gray-200 bg-gray-50 cursor-move hover:bg-gray-100 hover:border-blue-300 transition-colors"
                     data-testid={`template-item-${template.id}`}
                   >
                     <div className="flex items-center justify-between">
@@ -176,13 +181,14 @@ export function ProjectInspectorPanel({
                           {template.name}
                         </div>
                         <div className="text-xs text-gray-600">
-                          {template.roomIds.length} room{template.roomIds.length !== 1 ? 's' : ''}
+                          {template.roomIds.length} room{template.roomIds.length !== 1 ? 's' : ''} • Drag to place
                         </div>
                       </div>
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => onDeleteTemplate(template.id)}
+                        onMouseDown={(e) => e.stopPropagation()}
                         className="h-8 w-8 p-0"
                         data-testid={`button-delete-template-${template.id}`}
                       >
