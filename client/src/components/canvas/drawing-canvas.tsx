@@ -797,27 +797,34 @@ export function DrawingCanvas({
     event.preventDefault();
     event.dataTransfer.dropEffect = 'copy';
     
+    console.log('Drag over canvas', event.dataTransfer.types);
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
     
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
     
-    const templateId = event.dataTransfer.types.includes('templateid') 
-      ? draggedTemplateId 
-      : null;
-      
-    if (templateId || event.dataTransfer.types.length > 0) {
-      setDraggedTemplateId(templateId);
+    // Try to get the templateId from dataTransfer
+    // During dragover, we can't access getData, so we check types
+    if (event.dataTransfer.types.includes('templateid')) {
+      setDraggedTemplateId('temp'); // Set a temp value to show we're dragging
       setDragPreviewPos(gridPoint);
     }
-  }, [gridSize, draggedTemplateId]);
+  }, [gridSize]);
 
   const handleDrop = useCallback((event: React.DragEvent<HTMLCanvasElement>) => {
     event.preventDefault();
     
+    console.log('Drop on canvas');
+    
     const templateId = event.dataTransfer.getData('templateId');
-    if (!templateId) return;
+    console.log('Template ID from drop:', templateId);
+    
+    if (!templateId) {
+      console.log('No template ID found');
+      return;
+    }
     
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -825,6 +832,7 @@ export function DrawingCanvas({
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
     
+    console.log('Placing instance at:', gridPoint);
     onPlaceInstance(templateId, gridPoint.x, gridPoint.y);
     
     setDraggedTemplateId(null);

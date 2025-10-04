@@ -169,8 +169,12 @@ export function ProjectInspectorPanel({
                     key={template.id}
                     draggable
                     onDragStart={(e) => {
+                      console.log('Drag start:', template.id);
                       e.dataTransfer.setData('templateId', template.id);
                       e.dataTransfer.effectAllowed = 'copy';
+                    }}
+                    onDragEnd={() => {
+                      console.log('Drag end');
                     }}
                     className="p-2 rounded border border-gray-200 bg-gray-50 cursor-move hover:bg-gray-100 hover:border-blue-300 transition-colors"
                     data-testid={`template-item-${template.id}`}
