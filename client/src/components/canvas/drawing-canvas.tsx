@@ -125,6 +125,8 @@ export function DrawingCanvas({
           // Calculate bounding box of original template
           const minX = Math.min(...templateRooms.map(r => r.x));
           const minY = Math.min(...templateRooms.map(r => r.y));
+          const maxX = Math.max(...templateRooms.map(r => r.x + r.width));
+          const maxY = Math.max(...templateRooms.map(r => r.y + r.height));
           
           // Draw each room in the template at the instance position
           templateRooms.forEach(room => {
@@ -144,6 +146,20 @@ export function DrawingCanvas({
             ctx.lineWidth = 1;
             ctx.strokeRect(instanceX, instanceY, width, height);
           });
+          
+          // Draw selection highlight if this instance is selected
+          if (selectedInstanceId === instance.id) {
+            const boundingX = instance.x * gridSize;
+            const boundingY = instance.y * gridSize;
+            const boundingWidth = (maxX - minX) * gridSize;
+            const boundingHeight = (maxY - minY) * gridSize;
+            
+            ctx.strokeStyle = '#3b82f6'; // Blue highlight
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 4]);
+            ctx.strokeRect(boundingX, boundingY, boundingWidth, boundingHeight);
+            ctx.setLineDash([]);
+          }
         }
       }
     });
@@ -416,6 +432,7 @@ export function DrawingCanvas({
     selectedRoomId,
     selectedEdgeId,
     selectedRoomIds,
+    selectedInstanceId,
     selectedTool,
     selectedColor,
     showGrid,
@@ -603,18 +620,38 @@ export function DrawingCanvas({
         break;
 
       case 'move':
-        const roomToMove = getRoomAt(gridPoint.x, gridPoint.y);
-        if (roomToMove) {
-          onSelectRoom(roomToMove.id);
+        // Check for component instance first
+        const instanceToMove = getInstanceAt(gridPoint.x, gridPoint.y);
+        if (instanceToMove) {
+          onSelectInstance(instanceToMove.id);
+          onSelectRoom(undefined);
+          if (onSelectRoomIds) {
+            onSelectRoomIds([]);
+          }
           setCanvasState(prev => ({
             ...prev,
             isDragging: false, // Don't start dragging until mouse moves
             dragStart: gridPoint,
             dragStartOffset: {
-              x: gridPoint.x - roomToMove.x,
-              y: gridPoint.y - roomToMove.y
+              x: gridPoint.x - instanceToMove.x,
+              y: gridPoint.y - instanceToMove.y
             }
           }));
+        } else {
+          const roomToMove = getRoomAt(gridPoint.x, gridPoint.y);
+          if (roomToMove) {
+            onSelectInstance(undefined);
+            onSelectRoom(roomToMove.id);
+            setCanvasState(prev => ({
+              ...prev,
+              isDragging: false, // Don't start dragging until mouse moves
+              dragStart: gridPoint,
+              dragStartOffset: {
+                x: gridPoint.x - roomToMove.x,
+                y: gridPoint.y - roomToMove.y
+              }
+            }));
+          }
         }
         break;
 
@@ -688,18 +725,29 @@ export function DrawingCanvas({
       onAddRoom(x, y, width, height);
     }
 
-    if (canvasState.isDragging && canvasState.dragStartOffset && selectedRoomId) {
-      const room = rooms.find(r => r.id === selectedRoomId);
-      if (room) {
-        const targetX = gridPoint.x - canvasState.dragStartOffset.x;
-        const targetY = gridPoint.y - canvasState.dragStartOffset.y;
-        
-        // Use the same constrained position logic as the preview
-        const otherRooms = rooms.filter(r => r.id !== room.id);
-        const finalPosition = RoomValidation.getValidDragPosition(room, targetX, targetY, otherRooms);
-        
-        // Move to the constrained position (same as what was previewed)
-        onMoveRoom(selectedRoomId, finalPosition.x, finalPosition.y);
+    if (canvasState.isDragging && canvasState.dragStartOffset) {
+      if (selectedInstanceId) {
+        // Moving a component instance
+        const instance = componentInstances.find(i => i.id === selectedInstanceId);
+        if (instance) {
+          const targetX = gridPoint.x - canvasState.dragStartOffset.x;
+          const targetY = gridPoint.y - canvasState.dragStartOffset.y;
+          onMoveInstance(selectedInstanceId, targetX, targetY);
+        }
+      } else if (selectedRoomId) {
+        // Moving a room
+        const room = rooms.find(r => r.id === selectedRoomId);
+        if (room) {
+          const targetX = gridPoint.x - canvasState.dragStartOffset.x;
+          const targetY = gridPoint.y - canvasState.dragStartOffset.y;
+          
+          // Use the same constrained position logic as the preview
+          const otherRooms = rooms.filter(r => r.id !== room.id);
+          const finalPosition = RoomValidation.getValidDragPosition(room, targetX, targetY, otherRooms);
+          
+          // Move to the constrained position (same as what was previewed)
+          onMoveRoom(selectedRoomId, finalPosition.x, finalPosition.y);
+        }
       }
     }
 
@@ -714,9 +762,12 @@ export function DrawingCanvas({
   }, [
     canvasState,
     selectedRoomId,
+    selectedInstanceId,
     rooms,
+    componentInstances,
     onAddRoom,
     onMoveRoom,
+    onMoveInstance,
     gridSize,
   ]);
 
