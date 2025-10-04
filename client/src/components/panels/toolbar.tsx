@@ -159,9 +159,15 @@ export function Toolbar({
 
       {/* Grid Controls and Shortcuts */}
       <div className="flex items-center space-x-4">
-        <div className="text-xs text-gray-500 hidden md:block">
-          <kbd className="px-1 py-0.5 bg-gray-200 text-gray-600 rounded">Del</kbd> to delete selected room
-        </div>
+        {selectedTool === 'select' ? (
+          <div className="text-xs text-gray-500 hidden md:block">
+            Hold <kbd className="px-1 py-0.5 bg-gray-200 text-gray-600 rounded">Ctrl</kbd> or <kbd className="px-1 py-0.5 bg-gray-200 text-gray-600 rounded">Cmd</kbd> to multi-select
+          </div>
+        ) : (
+          <div className="text-xs text-gray-500 hidden md:block">
+            <kbd className="px-1 py-0.5 bg-gray-200 text-gray-600 rounded">Del</kbd> to delete selected room
+          </div>
+        )}
         <div className="flex items-center space-x-4">
           <div className="flex items-center space-x-2">
             <Checkbox

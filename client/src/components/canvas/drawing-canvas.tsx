@@ -33,6 +33,7 @@ export function DrawingCanvas({
   selectedColor,
   selectedRoomId,
   selectedEdgeId,
+  selectedRoomIds = [],
   showGrid,
   cornerPriorities,
   onAddRoom,
@@ -40,6 +41,7 @@ export function DrawingCanvas({
   onDeleteRoom,
   onSelectRoom,
   onSelectEdge,
+  onSelectRoomIds,
   onToggleCornerPriority,
   getEdgeColor,
   getRoomAt,
@@ -139,15 +141,19 @@ export function DrawingCanvas({
       }
     }
 
-    // Highlight selected room and show drag preview
-    if (selectedRoomId) {
-      const room = rooms.find(r => r.id === selectedRoomId);
+    // Highlight selected room(s) and show drag preview
+    const roomsToHighlight = selectedTool === 'select' && selectedRoomIds.length > 0 
+      ? selectedRoomIds 
+      : (selectedRoomId ? [selectedRoomId] : []);
+
+    roomsToHighlight.forEach(roomId => {
+      const room = rooms.find(r => r.id === roomId);
       if (room) {
         let roomX = room.x;
         let roomY = room.y;
         
-        // Show drag preview if actively dragging
-        if (canvasState.isDragging && canvasState.dragStartOffset && mousePos) {
+        // Show drag preview if actively dragging this specific room
+        if (canvasState.isDragging && canvasState.dragStartOffset && mousePos && roomId === selectedRoomId) {
           const currentGridPos = CanvasUtils.getGridCoordinates(mousePos, gridSize);
           const targetX = currentGridPos.x - canvasState.dragStartOffset.x;
           const targetY = currentGridPos.y - canvasState.dragStartOffset.y;
@@ -170,7 +176,7 @@ export function DrawingCanvas({
         ctx.strokeRect(x, y, width, height);
         ctx.setLineDash([]);
       }
-    }
+    });
 
     // Highlight selected edge with dashed blue line - show full room wall
     if (selectedEdgeId) {
@@ -328,6 +334,8 @@ export function DrawingCanvas({
     edges,
     selectedRoomId,
     selectedEdgeId,
+    selectedRoomIds,
+    selectedTool,
     selectedColor,
     showGrid,
     canvasState,
@@ -457,6 +465,7 @@ export function DrawingCanvas({
 
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
+    const isMultiSelect = event.ctrlKey || event.metaKey; // Ctrl on Windows/Linux, Cmd on Mac
 
     // Check for corner click FIRST - regardless of selected tool
     // Check if this grid position corresponds to a corner (accounting for adjusted positions)
@@ -530,8 +539,36 @@ export function DrawingCanvas({
           onDeleteRoom(roomToDelete.id);
         }
         break;
+
+      case 'select':
+        const roomToSelect = getRoomAt(gridPoint.x, gridPoint.y);
+        if (roomToSelect) {
+          if (isMultiSelect && onSelectRoomIds) {
+            // Multi-select mode: toggle room in selection
+            if (selectedRoomIds.includes(roomToSelect.id)) {
+              // Remove from selection
+              onSelectRoomIds(selectedRoomIds.filter(id => id !== roomToSelect.id));
+            } else {
+              // Add to selection
+              onSelectRoomIds([...selectedRoomIds, roomToSelect.id]);
+            }
+          } else {
+            // Single select mode
+            onSelectRoom(roomToSelect.id);
+            if (onSelectRoomIds) {
+              onSelectRoomIds([roomToSelect.id]);
+            }
+          }
+        } else {
+          // Clicking empty space clears selection
+          onSelectRoom(undefined);
+          if (onSelectRoomIds) {
+            onSelectRoomIds([]);
+          }
+        }
+        break;
     }
-  }, [selectedTool, getRoomAt, onSelectRoom, onDeleteRoom, onToggleCornerPriority, gridSize, rooms]);
+  }, [selectedTool, getRoomAt, onSelectRoom, onSelectRoomIds, onDeleteRoom, onToggleCornerPriority, gridSize, rooms, selectedRoomIds]);
 
   const handleMouseUp = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
