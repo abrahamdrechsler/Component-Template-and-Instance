@@ -147,9 +147,9 @@ export function DrawingCanvas({
             ctx.strokeRect(instanceX, instanceY, width, height);
           });
           
-          // Draw 75% transparent blue overlay over the entire combined area
+          // Draw highly transparent blue overlay over the entire combined area
           ctx.save();
-          ctx.globalAlpha = 0.25; // 25% opacity = 75% transparent
+          ctx.globalAlpha = 0.12; // 12% opacity = 88% transparent
           ctx.fillStyle = '#3b82f6'; // Blue color
           templateRooms.forEach(room => {
             const offsetX = room.x - minX;
