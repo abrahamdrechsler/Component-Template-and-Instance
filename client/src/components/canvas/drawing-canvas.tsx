@@ -746,6 +746,17 @@ export function DrawingCanvas({
                 onSelectRoomIds([roomToSelect.id]);
               }
             }
+            
+            // Set up for potential dragging (same as move tool)
+            setCanvasState(prev => ({
+              ...prev,
+              isDragging: false,
+              dragStart: gridPoint,
+              dragStartOffset: {
+                x: gridPoint.x - roomToSelect.x,
+                y: gridPoint.y - roomToSelect.y
+              }
+            }));
           } else {
             // Clicking empty space clears all selections
             onSelectInstance(undefined);
