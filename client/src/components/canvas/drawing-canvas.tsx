@@ -147,22 +147,83 @@ export function DrawingCanvas({
             ctx.strokeRect(instanceX, instanceY, width, height);
           });
           
+          // Draw 75% transparent blue overlay on the combined outline
+          ctx.fillStyle = 'rgba(59, 130, 246, 0.25)'; // 75% transparent blue (0.25 alpha = 25% opacity = 75% transparent)
+          templateRooms.forEach(room => {
+            const offsetX = room.x - minX;
+            const offsetY = room.y - minY;
+            const instanceX = (instance.x + offsetX) * gridSize;
+            const instanceY = (instance.y + offsetY) * gridSize;
+            const width = room.width * gridSize;
+            const height = room.height * gridSize;
+            ctx.fillRect(instanceX, instanceY, width, height);
+          });
+          
           // Draw selection highlight if this instance is selected
           if (selectedInstanceId === instance.id) {
-            ctx.strokeStyle = '#3b82f6'; // Blue highlight
-            ctx.lineWidth = 3;
-            ctx.setLineDash([8, 4]);
+            // Calculate the outer perimeter by finding all external edges
+            const perimeter: { x1: number, y1: number, x2: number, y2: number }[] = [];
             
-            // Draw outline for each room in the instance
             templateRooms.forEach(room => {
               const offsetX = room.x - minX;
               const offsetY = room.y - minY;
-              const instanceX = (instance.x + offsetX) * gridSize;
-              const instanceY = (instance.y + offsetY) * gridSize;
-              const width = room.width * gridSize;
-              const height = room.height * gridSize;
+              const roomLeft = instance.x + offsetX;
+              const roomTop = instance.y + offsetY;
+              const roomRight = roomLeft + room.width;
+              const roomBottom = roomTop + room.height;
               
-              ctx.strokeRect(instanceX, instanceY, width, height);
+              // Check each edge to see if it's an external edge (not shared with another room)
+              const edges = [
+                { x1: roomLeft, y1: roomTop, x2: roomRight, y2: roomTop, side: 'top' },      // Top
+                { x1: roomRight, y1: roomTop, x2: roomRight, y2: roomBottom, side: 'right' }, // Right
+                { x1: roomLeft, y1: roomBottom, x2: roomRight, y2: roomBottom, side: 'bottom' }, // Bottom
+                { x1: roomLeft, y1: roomTop, x2: roomLeft, y2: roomBottom, side: 'left' }    // Left
+              ];
+              
+              edges.forEach(edge => {
+                // Check if this edge is shared with another room in the template
+                const isShared = templateRooms.some(otherRoom => {
+                  if (otherRoom.id === room.id) return false;
+                  
+                  const otherOffsetX = otherRoom.x - minX;
+                  const otherOffsetY = otherRoom.y - minY;
+                  const otherLeft = instance.x + otherOffsetX;
+                  const otherTop = instance.y + otherOffsetY;
+                  const otherRight = otherLeft + otherRoom.width;
+                  const otherBottom = otherTop + otherRoom.height;
+                  
+                  // Check if this edge is adjacent to the other room
+                  if (edge.side === 'top' && edge.y1 === otherBottom) {
+                    return edge.x1 < otherRight && edge.x2 > otherLeft;
+                  }
+                  if (edge.side === 'bottom' && edge.y1 === otherTop) {
+                    return edge.x1 < otherRight && edge.x2 > otherLeft;
+                  }
+                  if (edge.side === 'left' && edge.x1 === otherRight) {
+                    return edge.y1 < otherBottom && edge.y2 > otherTop;
+                  }
+                  if (edge.side === 'right' && edge.x1 === otherLeft) {
+                    return edge.y1 < otherBottom && edge.y2 > otherTop;
+                  }
+                  return false;
+                });
+                
+                if (!isShared) {
+                  perimeter.push(edge);
+                }
+              });
+            });
+            
+            // Draw the perimeter with dashed blue line
+            ctx.strokeStyle = '#3b82f6';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([8, 4]);
+            
+            perimeter.forEach(edge => {
+              ctx.beginPath();
+              ctx.moveTo(edge.x1 * gridSize, edge.y1 * gridSize);
+              ctx.lineTo(edge.x2 * gridSize, edge.y2 * gridSize);
+              ctx.stroke();
             });
             
             ctx.setLineDash([]);
