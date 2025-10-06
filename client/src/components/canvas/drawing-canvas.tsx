@@ -267,10 +267,9 @@ export function DrawingCanvas({
           const previewY = currentGridPos.y - canvasState.dragStartOffset.y;
           
           // Constrain to grid (no negative coordinates)
-          let constrainedX = Math.max(0, previewX);
-          let constrainedY = Math.max(0, previewY);
+          let targetX = Math.max(0, previewX);
+          let targetY = Math.max(0, previewY);
           
-          // Validate position - only show preview at valid positions
           // Create virtual rooms for all OTHER instances
           const otherInstanceRooms: Room[] = [];
           componentInstances.forEach(otherInstance => {
@@ -305,30 +304,58 @@ export function DrawingCanvas({
           // Combine regular rooms and other instance rooms for collision detection
           const roomsToCheckAgainst = [...regularRooms, ...otherInstanceRooms];
           
-          // Check if position is valid
-          let isValid = true;
-          for (const templateRoom of templateRooms) {
-            const offsetX = templateRoom.x - minX;
-            const offsetY = templateRoom.y - minY;
-            const newRoomX = constrainedX + offsetX;
-            const newRoomY = constrainedY + offsetY;
-            
-            const movedRoom: Room = {
-              ...templateRoom,
-              x: newRoomX,
-              y: newRoomY,
-            };
-            
-            if (!RoomValidation.isValidRoomPlacement(movedRoom, roomsToCheckAgainst)) {
-              isValid = false;
-              break;
+          // Helper function to check if an instance position is valid
+          const isInstancePositionValid = (x: number, y: number): boolean => {
+            for (const templateRoom of templateRooms) {
+              const offsetX = templateRoom.x - minX;
+              const offsetY = templateRoom.y - minY;
+              const movedRoom: Room = {
+                ...templateRoom,
+                x: x + offsetX,
+                y: y + offsetY,
+              };
+              if (!RoomValidation.isValidRoomPlacement(movedRoom, roomsToCheckAgainst)) {
+                return false;
+              }
             }
-          }
+            return true;
+          };
           
-          // If invalid, keep at current instance position (no preview movement)
-          if (!isValid) {
-            constrainedX = instance.x;
-            constrainedY = instance.y;
+          // Find nearest valid position (similar to room drag behavior)
+          let bestX = targetX;
+          let bestY = targetY;
+          
+          if (!isInstancePositionValid(targetX, targetY)) {
+            // Search in expanding grid for nearest valid position
+            const searchRadius = 10;
+            let found = false;
+            let bestDistance = Infinity;
+            
+            for (let dx = -searchRadius; dx <= searchRadius; dx++) {
+              for (let dy = -searchRadius; dy <= searchRadius; dy++) {
+                const testX = targetX + dx;
+                const testY = targetY + dy;
+                
+                // Skip negative positions
+                if (testX < 0 || testY < 0) continue;
+                
+                if (isInstancePositionValid(testX, testY)) {
+                  const distance = Math.abs(dx) + Math.abs(dy);
+                  if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestX = testX;
+                    bestY = testY;
+                    found = true;
+                  }
+                }
+              }
+            }
+            
+            // If no valid position found in search radius, keep at current position
+            if (!found) {
+              bestX = instance.x;
+              bestY = instance.y;
+            }
           }
           
           // Draw blue dashed border preview for each room's outline at validated position
@@ -339,8 +366,8 @@ export function DrawingCanvas({
           templateRooms.forEach(room => {
             const offsetX = room.x - minX;
             const offsetY = room.y - minY;
-            const roomPreviewX = (constrainedX + offsetX) * gridSize;
-            const roomPreviewY = (constrainedY + offsetY) * gridSize;
+            const roomPreviewX = (bestX + offsetX) * gridSize;
+            const roomPreviewY = (bestY + offsetY) * gridSize;
             const width = room.width * gridSize;
             const height = room.height * gridSize;
             
@@ -870,8 +897,8 @@ export function DrawingCanvas({
             const targetY = gridPoint.y - canvasState.dragStartOffset.y;
             
             // Apply basic grid constraints (no negative coordinates)
-            const constrainedX = Math.max(0, targetX);
-            const constrainedY = Math.max(0, targetY);
+            let constrainedX = Math.max(0, targetX);
+            let constrainedY = Math.max(0, targetY);
             
             // Calculate template origin
             const minX = Math.min(...templateRooms.map(r => r.x));
@@ -884,19 +911,21 @@ export function DrawingCanvas({
                 const otherTemplate = componentTemplates.find(t => t.id === otherInstance.templateId);
                 if (otherTemplate) {
                   const otherTemplateRooms = rooms.filter(r => otherTemplate.roomIds.includes(r.id));
-                  const otherMinX = Math.min(...otherTemplateRooms.map(r => r.x));
-                  const otherMinY = Math.min(...otherTemplateRooms.map(r => r.y));
-                  
-                  otherTemplateRooms.forEach(room => {
-                    const offsetX = room.x - otherMinX;
-                    const offsetY = room.y - otherMinY;
-                    otherInstanceRooms.push({
-                      ...room,
-                      id: `virtual-${otherInstance.id}-${room.id}`,
-                      x: otherInstance.x + offsetX,
-                      y: otherInstance.y + offsetY,
+                  if (otherTemplateRooms.length > 0) {
+                    const otherMinX = Math.min(...otherTemplateRooms.map(r => r.x));
+                    const otherMinY = Math.min(...otherTemplateRooms.map(r => r.y));
+                    
+                    otherTemplateRooms.forEach(room => {
+                      const offsetX = room.x - otherMinX;
+                      const offsetY = room.y - otherMinY;
+                      otherInstanceRooms.push({
+                        ...room,
+                        id: `virtual-${otherInstance.id}-${room.id}`,
+                        x: otherInstance.x + offsetX,
+                        y: otherInstance.y + offsetY,
+                      });
                     });
-                  });
+                  }
                 }
               }
             });
@@ -909,31 +938,65 @@ export function DrawingCanvas({
             // Combine regular rooms and other instance rooms for collision detection
             const roomsToCheckAgainst = [...regularRooms, ...otherInstanceRooms];
             
-            // Validate each room in this instance against all other rooms
-            let isValid = true;
-            for (const templateRoom of templateRooms) {
-              const offsetX = templateRoom.x - minX;
-              const offsetY = templateRoom.y - minY;
-              const newRoomX = constrainedX + offsetX;
-              const newRoomY = constrainedY + offsetY;
+            // Helper function to check if an instance position is valid
+            const isInstancePositionValid = (x: number, y: number): boolean => {
+              for (const templateRoom of templateRooms) {
+                const offsetX = templateRoom.x - minX;
+                const offsetY = templateRoom.y - minY;
+                const movedRoom: Room = {
+                  ...templateRoom,
+                  x: x + offsetX,
+                  y: y + offsetY,
+                };
+                if (!RoomValidation.isValidRoomPlacement(movedRoom, roomsToCheckAgainst)) {
+                  return false;
+                }
+              }
+              return true;
+            };
+            
+            // Find nearest valid position (same logic as preview)
+            if (!isInstancePositionValid(constrainedX, constrainedY)) {
+              // Search in expanding grid for nearest valid position
+              const searchRadius = 10;
+              let found = false;
+              let bestDistance = Infinity;
+              let bestX = constrainedX;
+              let bestY = constrainedY;
               
-              const movedRoom: Room = {
-                ...templateRoom,
-                x: newRoomX,
-                y: newRoomY,
-              };
+              for (let dx = -searchRadius; dx <= searchRadius; dx++) {
+                for (let dy = -searchRadius; dy <= searchRadius; dy++) {
+                  const testX = constrainedX + dx;
+                  const testY = constrainedY + dy;
+                  
+                  // Skip negative positions
+                  if (testX < 0 || testY < 0) continue;
+                  
+                  if (isInstancePositionValid(testX, testY)) {
+                    const distance = Math.abs(dx) + Math.abs(dy);
+                    if (distance < bestDistance) {
+                      bestDistance = distance;
+                      bestX = testX;
+                      bestY = testY;
+                      found = true;
+                    }
+                  }
+                }
+              }
               
-              if (!RoomValidation.isValidRoomPlacement(movedRoom, roomsToCheckAgainst)) {
-                isValid = false;
-                break;
+              // If found a valid position nearby, use it; otherwise stay at current position
+              if (found) {
+                constrainedX = bestX;
+                constrainedY = bestY;
+              } else {
+                // No valid position found - don't move
+                constrainedX = instance.x;
+                constrainedY = instance.y;
               }
             }
             
-            // Only move if all rooms in the instance pass validation
-            if (isValid) {
-              onMoveInstance(selectedInstanceId, constrainedX, constrainedY);
-            }
-            // If invalid, instance stays at current position (no movement)
+            // Move to the validated position (matches preview)
+            onMoveInstance(selectedInstanceId, constrainedX, constrainedY);
           }
         }
       } else if (selectedRoomId) {
