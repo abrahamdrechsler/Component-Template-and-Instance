@@ -546,8 +546,8 @@ export function DrawingCanvas({
       setHoveredDot(null);
     }
 
-    // Start dragging when mouse moves after mousedown in move mode
-    if (selectedTool === 'move' && canvasState.dragStart && !canvasState.isDragging && selectedRoomId) {
+    // Start dragging when mouse moves after mousedown in move or select mode
+    if ((selectedTool === 'move' || selectedTool === 'select') && canvasState.dragStart && !canvasState.isDragging && (selectedRoomId || selectedInstanceId)) {
       const deltaX = Math.abs(gridPoint.x - canvasState.dragStart.x);
       const deltaY = Math.abs(gridPoint.y - canvasState.dragStart.y);
       
@@ -672,6 +672,16 @@ export function DrawingCanvas({
           if (onSelectRoomIds) {
             onSelectRoomIds([]);
           }
+          // Set up for potential dragging
+          setCanvasState(prev => ({
+            ...prev,
+            isDragging: false,
+            dragStart: gridPoint,
+            dragStartOffset: {
+              x: gridPoint.x - instanceToSelect.x,
+              y: gridPoint.y - instanceToSelect.y
+            }
+          }));
         } else {
           // No instance, check for rooms
           const roomToSelect = getRoomAt(gridPoint.x, gridPoint.y);
