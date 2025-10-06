@@ -147,8 +147,10 @@ export function DrawingCanvas({
             ctx.strokeRect(instanceX, instanceY, width, height);
           });
           
-          // Draw 75% transparent blue overlay on the combined outline
-          ctx.fillStyle = 'rgba(59, 130, 246, 0.25)'; // 75% transparent blue (0.25 alpha = 25% opacity = 75% transparent)
+          // Draw 75% transparent blue overlay over the entire combined area
+          ctx.save();
+          ctx.globalAlpha = 0.25; // 25% opacity = 75% transparent
+          ctx.fillStyle = '#3b82f6'; // Blue color
           templateRooms.forEach(room => {
             const offsetX = room.x - minX;
             const offsetY = room.y - minY;
@@ -158,60 +160,56 @@ export function DrawingCanvas({
             const height = room.height * gridSize;
             ctx.fillRect(instanceX, instanceY, width, height);
           });
+          ctx.restore();
           
-          // Draw selection highlight if this instance is selected
+          // Draw selection highlight if this instance is selected - trace outer perimeter only
           if (selectedInstanceId === instance.id) {
-            // Calculate the outer perimeter by finding all external edges
-            const perimeter: { x1: number, y1: number, x2: number, y2: number }[] = [];
+            // Build a set of all occupied grid cells
+            const occupiedCells = new Set<string>();
+            templateRooms.forEach(room => {
+              const offsetX = room.x - minX;
+              const offsetY = room.y - minY;
+              for (let x = instance.x + offsetX; x < instance.x + offsetX + room.width; x++) {
+                for (let y = instance.y + offsetY; y < instance.y + offsetY + room.height; y++) {
+                  occupiedCells.add(`${x},${y}`);
+                }
+              }
+            });
+            
+            // Find all external edges by checking each cell's borders
+            const externalEdges: { x1: number, y1: number, x2: number, y2: number }[] = [];
             
             templateRooms.forEach(room => {
               const offsetX = room.x - minX;
               const offsetY = room.y - minY;
               const roomLeft = instance.x + offsetX;
               const roomTop = instance.y + offsetY;
-              const roomRight = roomLeft + room.width;
-              const roomBottom = roomTop + room.height;
               
-              // Check each edge to see if it's an external edge (not shared with another room)
-              const edges = [
-                { x1: roomLeft, y1: roomTop, x2: roomRight, y2: roomTop, side: 'top' },      // Top
-                { x1: roomRight, y1: roomTop, x2: roomRight, y2: roomBottom, side: 'right' }, // Right
-                { x1: roomLeft, y1: roomBottom, x2: roomRight, y2: roomBottom, side: 'bottom' }, // Bottom
-                { x1: roomLeft, y1: roomTop, x2: roomLeft, y2: roomBottom, side: 'left' }    // Left
-              ];
-              
-              edges.forEach(edge => {
-                // Check if this edge is shared with another room in the template
-                const isShared = templateRooms.some(otherRoom => {
-                  if (otherRoom.id === room.id) return false;
+              for (let x = roomLeft; x < roomLeft + room.width; x++) {
+                for (let y = roomTop; y < roomTop + room.height; y++) {
+                  // Check each of the 4 edges of this cell
                   
-                  const otherOffsetX = otherRoom.x - minX;
-                  const otherOffsetY = otherRoom.y - minY;
-                  const otherLeft = instance.x + otherOffsetX;
-                  const otherTop = instance.y + otherOffsetY;
-                  const otherRight = otherLeft + otherRoom.width;
-                  const otherBottom = otherTop + otherRoom.height;
+                  // Top edge - external if no cell above
+                  if (!occupiedCells.has(`${x},${y - 1}`)) {
+                    externalEdges.push({ x1: x, y1: y, x2: x + 1, y2: y });
+                  }
                   
-                  // Check if this edge is adjacent to the other room
-                  if (edge.side === 'top' && edge.y1 === otherBottom) {
-                    return edge.x1 < otherRight && edge.x2 > otherLeft;
+                  // Bottom edge - external if no cell below
+                  if (!occupiedCells.has(`${x},${y + 1}`)) {
+                    externalEdges.push({ x1: x, y1: y + 1, x2: x + 1, y2: y + 1 });
                   }
-                  if (edge.side === 'bottom' && edge.y1 === otherTop) {
-                    return edge.x1 < otherRight && edge.x2 > otherLeft;
+                  
+                  // Left edge - external if no cell to left
+                  if (!occupiedCells.has(`${x - 1},${y}`)) {
+                    externalEdges.push({ x1: x, y1: y, x2: x, y2: y + 1 });
                   }
-                  if (edge.side === 'left' && edge.x1 === otherRight) {
-                    return edge.y1 < otherBottom && edge.y2 > otherTop;
+                  
+                  // Right edge - external if no cell to right
+                  if (!occupiedCells.has(`${x + 1},${y}`)) {
+                    externalEdges.push({ x1: x + 1, y1: y, x2: x + 1, y2: y + 1 });
                   }
-                  if (edge.side === 'right' && edge.x1 === otherLeft) {
-                    return edge.y1 < otherBottom && edge.y2 > otherTop;
-                  }
-                  return false;
-                });
-                
-                if (!isShared) {
-                  perimeter.push(edge);
                 }
-              });
+              }
             });
             
             // Draw the perimeter with dashed blue line
@@ -219,7 +217,7 @@ export function DrawingCanvas({
             ctx.lineWidth = 3;
             ctx.setLineDash([8, 4]);
             
-            perimeter.forEach(edge => {
+            externalEdges.forEach(edge => {
               ctx.beginPath();
               ctx.moveTo(edge.x1 * gridSize, edge.y1 * gridSize);
               ctx.lineTo(edge.x2 * gridSize, edge.y2 * gridSize);
