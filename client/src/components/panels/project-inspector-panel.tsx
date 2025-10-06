@@ -14,6 +14,7 @@ interface ProjectInspectorPanelProps {
   selectedRoomIds: string[];
   componentTemplates: ComponentTemplate[];
   links: Link[];
+  onSelectRoom: (roomId: string) => void;
   onCreateTemplate: (name: string, roomIds: string[]) => void;
   onDeleteTemplate: (templateId: string) => void;
   onAddLink: (fileId: string, fileName: string) => void;
@@ -25,6 +26,7 @@ export function ProjectInspectorPanel({
   selectedRoomIds,
   componentTemplates,
   links,
+  onSelectRoom,
   onCreateTemplate,
   onDeleteTemplate,
   onAddLink,
@@ -79,10 +81,11 @@ export function ProjectInspectorPanel({
                 {rooms.map((room) => (
                   <div
                     key={room.id}
-                    className={`p-2 rounded border text-sm ${
+                    onClick={() => onSelectRoom(room.id)}
+                    className={`p-2 rounded border text-sm cursor-pointer hover:border-blue-300 transition-colors ${
                       selectedRoomIds.includes(room.id)
                         ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 bg-gray-50'
+                        : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
                     }`}
                     data-testid={`room-item-${room.id}`}
                   >

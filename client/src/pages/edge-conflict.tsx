@@ -169,6 +169,7 @@ export default function EdgeConflictPage() {
           selectedRoomIds={selectedRoomIds}
           componentTemplates={componentTemplates}
           links={links}
+          onSelectRoom={setSelectedRoomId}
           onCreateTemplate={createTemplate}
           onDeleteTemplate={deleteTemplate}
           onAddLink={addLink}
