@@ -149,15 +149,22 @@ export function DrawingCanvas({
           
           // Draw selection highlight if this instance is selected
           if (selectedInstanceId === instance.id) {
-            const boundingX = instance.x * gridSize;
-            const boundingY = instance.y * gridSize;
-            const boundingWidth = (maxX - minX) * gridSize;
-            const boundingHeight = (maxY - minY) * gridSize;
-            
             ctx.strokeStyle = '#3b82f6'; // Blue highlight
             ctx.lineWidth = 3;
             ctx.setLineDash([8, 4]);
-            ctx.strokeRect(boundingX, boundingY, boundingWidth, boundingHeight);
+            
+            // Draw outline for each room in the instance
+            templateRooms.forEach(room => {
+              const offsetX = room.x - minX;
+              const offsetY = room.y - minY;
+              const instanceX = (instance.x + offsetX) * gridSize;
+              const instanceY = (instance.y + offsetY) * gridSize;
+              const width = room.width * gridSize;
+              const height = room.height * gridSize;
+              
+              ctx.strokeRect(instanceX, instanceY, width, height);
+            });
+            
             ctx.setLineDash([]);
           }
         }
@@ -263,7 +270,11 @@ export function DrawingCanvas({
           const constrainedX = Math.max(0, previewX);
           const constrainedY = Math.max(0, previewY);
           
-          // Draw each room in the template at the preview position
+          // Draw blue dashed border preview for each room's outline
+          ctx.strokeStyle = '#3B82F6';
+          ctx.lineWidth = 3;
+          ctx.setLineDash([5, 5]);
+          
           templateRooms.forEach(room => {
             const offsetX = room.x - minX;
             const offsetY = room.y - minY;
@@ -272,13 +283,10 @@ export function DrawingCanvas({
             const width = room.width * gridSize;
             const height = room.height * gridSize;
             
-            // Draw blue dashed border preview (same style as room drag preview)
-            ctx.strokeStyle = '#3B82F6';
-            ctx.lineWidth = 3;
-            ctx.setLineDash([5, 5]);
             ctx.strokeRect(roomPreviewX, roomPreviewY, width, height);
-            ctx.setLineDash([]);
           });
+          
+          ctx.setLineDash([]);
         }
       }
     }
