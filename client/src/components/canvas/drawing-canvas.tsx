@@ -242,6 +242,47 @@ export function DrawingCanvas({
       }
     });
 
+    // Show drag preview for selected component instance
+    if (selectedInstanceId && canvasState.isDragging && canvasState.dragStartOffset && mousePos) {
+      const instance = componentInstances.find(i => i.id === selectedInstanceId);
+      const template = instance ? componentTemplates.find(t => t.id === instance.templateId) : undefined;
+      
+      if (instance && template) {
+        const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+        if (templateRooms.length > 0) {
+          // Calculate template origin
+          const minX = Math.min(...templateRooms.map(r => r.x));
+          const minY = Math.min(...templateRooms.map(r => r.y));
+          
+          // Calculate preview position
+          const currentGridPos = CanvasUtils.getGridCoordinates(mousePos, gridSize);
+          const previewX = currentGridPos.x - canvasState.dragStartOffset.x;
+          const previewY = currentGridPos.y - canvasState.dragStartOffset.y;
+          
+          // Constrain to grid (no negative coordinates)
+          const constrainedX = Math.max(0, previewX);
+          const constrainedY = Math.max(0, previewY);
+          
+          // Draw each room in the template at the preview position
+          templateRooms.forEach(room => {
+            const offsetX = room.x - minX;
+            const offsetY = room.y - minY;
+            const roomPreviewX = (constrainedX + offsetX) * gridSize;
+            const roomPreviewY = (constrainedY + offsetY) * gridSize;
+            const width = room.width * gridSize;
+            const height = room.height * gridSize;
+            
+            // Draw blue dashed border preview (same style as room drag preview)
+            ctx.strokeStyle = '#3B82F6';
+            ctx.lineWidth = 3;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(roomPreviewX, roomPreviewY, width, height);
+            ctx.setLineDash([]);
+          });
+        }
+      }
+    }
+
     // Highlight selected edge with dashed blue line - show full room wall
     if (selectedEdgeId) {
       const edge = edges.find(e => e.id === selectedEdgeId);
