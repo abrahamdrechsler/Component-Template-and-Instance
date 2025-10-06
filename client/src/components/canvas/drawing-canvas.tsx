@@ -267,10 +267,71 @@ export function DrawingCanvas({
           const previewY = currentGridPos.y - canvasState.dragStartOffset.y;
           
           // Constrain to grid (no negative coordinates)
-          const constrainedX = Math.max(0, previewX);
-          const constrainedY = Math.max(0, previewY);
+          let constrainedX = Math.max(0, previewX);
+          let constrainedY = Math.max(0, previewY);
           
-          // Draw blue dashed border preview for each room's outline
+          // Validate position - only show preview at valid positions
+          // Create virtual rooms for all OTHER instances
+          const otherInstanceRooms: Room[] = [];
+          componentInstances.forEach(otherInstance => {
+            if (otherInstance.id !== selectedInstanceId) {
+              const otherTemplate = componentTemplates.find(t => t.id === otherInstance.templateId);
+              if (otherTemplate) {
+                const otherTemplateRooms = rooms.filter(r => otherTemplate.roomIds.includes(r.id));
+                if (otherTemplateRooms.length > 0) {
+                  const otherMinX = Math.min(...otherTemplateRooms.map(r => r.x));
+                  const otherMinY = Math.min(...otherTemplateRooms.map(r => r.y));
+                  
+                  otherTemplateRooms.forEach(room => {
+                    const offsetX = room.x - otherMinX;
+                    const offsetY = room.y - otherMinY;
+                    otherInstanceRooms.push({
+                      ...room,
+                      id: `virtual-${otherInstance.id}-${room.id}`,
+                      x: otherInstance.x + offsetX,
+                      y: otherInstance.y + offsetY,
+                    });
+                  });
+                }
+              }
+            }
+          });
+          
+          // Get all regular rooms (not part of any template)
+          const allTemplateRoomIds = new Set<string>();
+          componentTemplates.forEach(t => t.roomIds.forEach(id => allTemplateRoomIds.add(id)));
+          const regularRooms = rooms.filter(r => !allTemplateRoomIds.has(r.id));
+          
+          // Combine regular rooms and other instance rooms for collision detection
+          const roomsToCheckAgainst = [...regularRooms, ...otherInstanceRooms];
+          
+          // Check if position is valid
+          let isValid = true;
+          for (const templateRoom of templateRooms) {
+            const offsetX = templateRoom.x - minX;
+            const offsetY = templateRoom.y - minY;
+            const newRoomX = constrainedX + offsetX;
+            const newRoomY = constrainedY + offsetY;
+            
+            const movedRoom: Room = {
+              ...templateRoom,
+              x: newRoomX,
+              y: newRoomY,
+            };
+            
+            if (!RoomValidation.isValidRoomPlacement(movedRoom, roomsToCheckAgainst)) {
+              isValid = false;
+              break;
+            }
+          }
+          
+          // If invalid, keep at current instance position (no preview movement)
+          if (!isValid) {
+            constrainedX = instance.x;
+            constrainedY = instance.y;
+          }
+          
+          // Draw blue dashed border preview for each room's outline at validated position
           ctx.strokeStyle = '#3B82F6';
           ctx.lineWidth = 3;
           ctx.setLineDash([5, 5]);
@@ -799,15 +860,81 @@ export function DrawingCanvas({
       if (selectedInstanceId) {
         // Moving a component instance
         const instance = componentInstances.find(i => i.id === selectedInstanceId);
-        if (instance) {
-          const targetX = gridPoint.x - canvasState.dragStartOffset.x;
-          const targetY = gridPoint.y - canvasState.dragStartOffset.y;
+        const template = instance ? componentTemplates.find(t => t.id === instance.templateId) : undefined;
+        
+        if (instance && template) {
+          const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
           
-          // Apply basic grid constraints (no negative coordinates)
-          const finalX = Math.max(0, targetX);
-          const finalY = Math.max(0, targetY);
-          
-          onMoveInstance(selectedInstanceId, finalX, finalY);
+          if (templateRooms.length > 0) {
+            const targetX = gridPoint.x - canvasState.dragStartOffset.x;
+            const targetY = gridPoint.y - canvasState.dragStartOffset.y;
+            
+            // Apply basic grid constraints (no negative coordinates)
+            const constrainedX = Math.max(0, targetX);
+            const constrainedY = Math.max(0, targetY);
+            
+            // Calculate template origin
+            const minX = Math.min(...templateRooms.map(r => r.x));
+            const minY = Math.min(...templateRooms.map(r => r.y));
+            
+            // Create virtual rooms for all OTHER instances
+            const otherInstanceRooms: Room[] = [];
+            componentInstances.forEach(otherInstance => {
+              if (otherInstance.id !== selectedInstanceId) {
+                const otherTemplate = componentTemplates.find(t => t.id === otherInstance.templateId);
+                if (otherTemplate) {
+                  const otherTemplateRooms = rooms.filter(r => otherTemplate.roomIds.includes(r.id));
+                  const otherMinX = Math.min(...otherTemplateRooms.map(r => r.x));
+                  const otherMinY = Math.min(...otherTemplateRooms.map(r => r.y));
+                  
+                  otherTemplateRooms.forEach(room => {
+                    const offsetX = room.x - otherMinX;
+                    const offsetY = room.y - otherMinY;
+                    otherInstanceRooms.push({
+                      ...room,
+                      id: `virtual-${otherInstance.id}-${room.id}`,
+                      x: otherInstance.x + offsetX,
+                      y: otherInstance.y + offsetY,
+                    });
+                  });
+                }
+              }
+            });
+            
+            // Get all regular rooms (not part of any template)
+            const allTemplateRoomIds = new Set<string>();
+            componentTemplates.forEach(t => t.roomIds.forEach(id => allTemplateRoomIds.add(id)));
+            const regularRooms = rooms.filter(r => !allTemplateRoomIds.has(r.id));
+            
+            // Combine regular rooms and other instance rooms for collision detection
+            const roomsToCheckAgainst = [...regularRooms, ...otherInstanceRooms];
+            
+            // Validate each room in this instance against all other rooms
+            let isValid = true;
+            for (const templateRoom of templateRooms) {
+              const offsetX = templateRoom.x - minX;
+              const offsetY = templateRoom.y - minY;
+              const newRoomX = constrainedX + offsetX;
+              const newRoomY = constrainedY + offsetY;
+              
+              const movedRoom: Room = {
+                ...templateRoom,
+                x: newRoomX,
+                y: newRoomY,
+              };
+              
+              if (!RoomValidation.isValidRoomPlacement(movedRoom, roomsToCheckAgainst)) {
+                isValid = false;
+                break;
+              }
+            }
+            
+            // Only move if all rooms in the instance pass validation
+            if (isValid) {
+              onMoveInstance(selectedInstanceId, constrainedX, constrainedY);
+            }
+            // If invalid, instance stays at current position (no movement)
+          }
         }
       } else if (selectedRoomId) {
         // Moving a room
