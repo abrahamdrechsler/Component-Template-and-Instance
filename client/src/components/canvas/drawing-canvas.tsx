@@ -417,20 +417,65 @@ export function DrawingCanvas({
             }
           }
           
-          // Draw blue dashed border preview for each room's outline at validated position
+          // Draw blue dashed border preview around outer perimeter only at validated position
           ctx.strokeStyle = '#3B82F6';
           ctx.lineWidth = 3;
           ctx.setLineDash([5, 5]);
           
+          // Build a set of all occupied grid cells for the preview position
+          const previewOccupiedCells = new Set<string>();
           templateRooms.forEach(room => {
             const offsetX = room.x - minX;
             const offsetY = room.y - minY;
-            const roomPreviewX = (bestX + offsetX) * gridSize;
-            const roomPreviewY = (bestY + offsetY) * gridSize;
-            const width = room.width * gridSize;
-            const height = room.height * gridSize;
+            for (let x = bestX + offsetX; x < bestX + offsetX + room.width; x++) {
+              for (let y = bestY + offsetY; y < bestY + offsetY + room.height; y++) {
+                previewOccupiedCells.add(`${x},${y}`);
+              }
+            }
+          });
+          
+          // Find all external edges for the preview
+          const previewExternalEdges: { x1: number, y1: number, x2: number, y2: number }[] = [];
+          
+          templateRooms.forEach(room => {
+            const offsetX = room.x - minX;
+            const offsetY = room.y - minY;
+            const roomLeft = bestX + offsetX;
+            const roomTop = bestY + offsetY;
             
-            ctx.strokeRect(roomPreviewX, roomPreviewY, width, height);
+            for (let x = roomLeft; x < roomLeft + room.width; x++) {
+              for (let y = roomTop; y < roomTop + room.height; y++) {
+                // Check each of the 4 edges of this cell
+                
+                // Top edge - external if no cell above
+                if (!previewOccupiedCells.has(`${x},${y - 1}`)) {
+                  previewExternalEdges.push({ x1: x, y1: y, x2: x + 1, y2: y });
+                }
+                
+                // Bottom edge - external if no cell below
+                if (!previewOccupiedCells.has(`${x},${y + 1}`)) {
+                  previewExternalEdges.push({ x1: x, y1: y + 1, x2: x + 1, y2: y + 1 });
+                }
+                
+                // Left edge - external if no cell to left
+                if (!previewOccupiedCells.has(`${x - 1},${y}`)) {
+                  previewExternalEdges.push({ x1: x, y1: y, x2: x, y2: y + 1 });
+                }
+                
+                // Right edge - external if no cell to right
+                if (!previewOccupiedCells.has(`${x + 1},${y}`)) {
+                  previewExternalEdges.push({ x1: x + 1, y1: y, x2: x + 1, y2: y + 1 });
+                }
+              }
+            }
+          });
+          
+          // Draw the perimeter
+          previewExternalEdges.forEach(edge => {
+            ctx.beginPath();
+            ctx.moveTo(edge.x1 * gridSize, edge.y1 * gridSize);
+            ctx.lineTo(edge.x2 * gridSize, edge.y2 * gridSize);
+            ctx.stroke();
           });
           
           ctx.setLineDash([]);
