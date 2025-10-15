@@ -128,7 +128,7 @@ export function DrawingCanvas({
           const maxX = Math.max(...templateRooms.map(r => r.x + r.width));
           const maxY = Math.max(...templateRooms.map(r => r.y + r.height));
           
-          // Draw each room in the template at the instance position
+          // Draw each room border in the template at the instance position (hollow, like originals)
           templateRooms.forEach(room => {
             const offsetX = room.x - minX;
             const offsetY = room.y - minY;
@@ -137,11 +137,7 @@ export function DrawingCanvas({
             const width = room.width * gridSize;
             const height = room.height * gridSize;
             
-            // Draw filled room
-            ctx.fillStyle = room.color;
-            ctx.fillRect(instanceX, instanceY, width, height);
-            
-            // Draw border
+            // Draw ONLY the border (no fill), matching the original rooms
             ctx.strokeStyle = '#000';
             ctx.lineWidth = 1;
             ctx.strokeRect(instanceX, instanceY, width, height);
