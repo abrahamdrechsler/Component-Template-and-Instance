@@ -26,6 +26,8 @@ export interface UseUnitsEditorReturn {
   componentInstances: ComponentInstance[];
   links: Link[];
   creationMode: CreationMode;
+  isEditingTemplate: boolean;
+  editingTemplateId: string | undefined;
   
   addRoom: (x: number, y: number, width: number, height: number) => void;
   deleteRoom: (roomId: string) => void;
@@ -63,6 +65,10 @@ export interface UseUnitsEditorReturn {
   removeLink: (linkId: string) => void;
   importTemplatesFromLink: (linkId: string, templateIds: string[]) => void;
   updateLinkStatus: (linkId: string, hasUpdates: boolean) => void;
+  enterTemplateEditMode: (templateId: string) => void;
+  exitTemplateEditMode: () => void;
+  saveTemplateEdits: () => void;
+  discardTemplateEdits: () => void;
 }
 
 export function useUnitsEditor(): UseUnitsEditorReturn {
@@ -84,6 +90,9 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   const [componentInstances, setComponentInstances] = useState<ComponentInstance[]>([]);
   const [links, setLinks] = useState<Link[]>([]);
   const [creationMode, setCreationMode] = useState<CreationMode>('template-is-first-instance');
+  const [isEditingTemplate, setIsEditingTemplate] = useState(false);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | undefined>();
+  const [preEditState, setPreEditState] = useState<{ rooms: Room[], edges: Edge[], templates: ComponentTemplate[] } | null>(null);
 
   const nextRoomIdRef = useRef(1);
   const nextTemplateIdRef = useRef(1);
@@ -475,6 +484,43 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     ));
   }, []);
 
+  const enterTemplateEditMode = useCallback((templateId: string) => {
+    // Save current state for potential discard
+    setPreEditState({
+      rooms: [...rooms],
+      edges: [...edges],
+      templates: [...componentTemplates],
+    });
+    
+    setIsEditingTemplate(true);
+    setEditingTemplateId(templateId);
+  }, [rooms, edges, componentTemplates]);
+
+  const exitTemplateEditMode = useCallback(() => {
+    setIsEditingTemplate(false);
+    setEditingTemplateId(undefined);
+    setPreEditState(null);
+  }, []);
+
+  const saveTemplateEdits = useCallback(() => {
+    if (!editingTemplateId) return;
+    
+    // The rooms and edges have already been modified in place
+    // Just exit edit mode
+    exitTemplateEditMode();
+  }, [editingTemplateId, exitTemplateEditMode]);
+
+  const discardTemplateEdits = useCallback(() => {
+    if (!preEditState) return;
+    
+    // Restore the previous state
+    setRooms(preEditState.rooms);
+    setEdges(preEditState.edges);
+    setComponentTemplates(preEditState.templates);
+    
+    exitTemplateEditMode();
+  }, [preEditState, exitTemplateEditMode]);
+
   return {
     rooms,
     edges,
@@ -494,6 +540,8 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     componentInstances,
     links,
     creationMode,
+    isEditingTemplate,
+    editingTemplateId,
     addRoom,
     deleteRoom,
     moveRoom,
@@ -529,5 +577,9 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     removeLink,
     importTemplatesFromLink,
     updateLinkStatus,
+    enterTemplateEditMode,
+    exitTemplateEditMode,
+    saveTemplateEdits,
+    discardTemplateEdits,
   };
 }

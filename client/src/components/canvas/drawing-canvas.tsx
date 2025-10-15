@@ -17,6 +17,7 @@ interface DrawingCanvasProps {
   cornerPriorities: Record<string, 'horizontal' | 'vertical'>;
   componentTemplates: ComponentTemplate[];
   componentInstances: ComponentInstance[];
+  creationMode: 'template-is-first-instance' | 'all-instances-are-templates' | 'template-is-separate-file';
   onAddRoom: (x: number, y: number, width: number, height: number) => void;
   onMoveRoom: (roomId: string, x: number, y: number) => void;
   onDeleteRoom: (roomId: string) => void;
@@ -27,6 +28,7 @@ interface DrawingCanvasProps {
   onMoveInstance: (instanceId: string, x: number, y: number) => void;
   onToggleCornerPriority: (x: number, y: number) => void;
   onPlaceInstance: (templateId: string, x: number, y: number) => void;
+  onEnterTemplateEditMode: (templateId: string) => void;
   getEdgeColor: (edge: Edge) => string;
   getRoomAt: (x: number, y: number) => Room | undefined;
   getEdgeAt: (x: number, y: number) => Edge | undefined;
@@ -46,6 +48,7 @@ export function DrawingCanvas({
   cornerPriorities,
   componentTemplates,
   componentInstances,
+  creationMode,
   onAddRoom,
   onMoveRoom,
   onDeleteRoom,
@@ -56,6 +59,7 @@ export function DrawingCanvas({
   onMoveInstance,
   onToggleCornerPriority,
   onPlaceInstance,
+  onEnterTemplateEditMode,
   getEdgeColor,
   getRoomAt,
   getEdgeAt,
@@ -1327,6 +1331,22 @@ export function DrawingCanvas({
     setDragPreviewPos(null);
   }, []);
 
+  const handleDoubleClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
+    // Only handle double-click on instances in "all-instances-are-templates" mode
+    if (creationMode !== 'all-instances-are-templates') return;
+    
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
+    const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
+
+    const instance = getInstanceAt(gridPoint.x, gridPoint.y);
+    if (instance) {
+      onEnterTemplateEditMode(instance.templateId);
+    }
+  }, [creationMode, gridSize, getInstanceAt, onEnterTemplateEditMode]);
+
   return (
     <div className="relative w-full h-full">
       <canvas
@@ -1343,6 +1363,7 @@ export function DrawingCanvas({
         onMouseUp={handleMouseUp}
         onMouseMove={handleMouseMove}
         onClick={handleClick}
+        onDoubleClick={handleDoubleClick}
         onDragOver={handleDragOver}
         onDrop={handleDrop}
         onDragLeave={handleDragLeave}

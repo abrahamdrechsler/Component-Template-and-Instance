@@ -54,6 +54,7 @@ export default function EdgeConflictPage() {
     duplicateInstance,
     addLink,
     removeLink,
+    enterTemplateEditMode,
   } = useUnitsEditor();
 
   // Keyboard shortcuts
@@ -204,6 +205,7 @@ export default function EdgeConflictPage() {
                   cornerPriorities={cornerPriorities}
                   componentTemplates={componentTemplates}
                   componentInstances={componentInstances}
+                  creationMode={creationMode}
                   onAddRoom={addRoom}
                   onMoveRoom={moveRoom}
                   onDeleteRoom={deleteRoom}
@@ -214,6 +216,7 @@ export default function EdgeConflictPage() {
                   onMoveInstance={moveInstance}
                   onToggleCornerPriority={toggleCornerPriority}
                   onPlaceInstance={placeInstance}
+                  onEnterTemplateEditMode={enterTemplateEditMode}
                   getEdgeColor={getEdgeColor}
                   getRoomAt={getRoomAt}
                   getEdgeAt={getEdgeAt}
