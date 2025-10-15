@@ -128,19 +128,25 @@ export function DrawingCanvas({
           const maxX = Math.max(...templateRooms.map(r => r.x + r.width));
           const maxY = Math.max(...templateRooms.map(r => r.y + r.height));
           
-          // Draw each room border in the template at the instance position (hollow, like originals)
+          // Draw room edges with colors at the instance position (same as originals)
           templateRooms.forEach(room => {
             const offsetX = room.x - minX;
             const offsetY = room.y - minY;
-            const instanceX = (instance.x + offsetX) * gridSize;
-            const instanceY = (instance.y + offsetY) * gridSize;
-            const width = room.width * gridSize;
-            const height = room.height * gridSize;
             
-            // Draw ONLY the border (no fill), matching the original rooms
-            ctx.strokeStyle = '#000';
-            ctx.lineWidth = 1;
-            ctx.strokeRect(instanceX, instanceY, width, height);
+            // Get edges for this room and draw them at instance position
+            const roomEdges = edges.filter(e => e.roomId === room.id);
+            roomEdges.forEach(edge => {
+              const color = getEdgeColor(edge);
+              // Create a translated edge at the instance position
+              const instanceEdge = {
+                ...edge,
+                x1: edge.x1 - minX + instance.x,
+                y1: edge.y1 - minY + instance.y,
+                x2: edge.x2 - minX + instance.x,
+                y2: edge.y2 - minY + instance.y,
+              };
+              CanvasUtils.drawEdge(ctx, instanceEdge, gridSize, color, cornerPriorities, rooms);
+            });
           });
           
           // Draw a single 75% transparent blue overlay over the combined shape
