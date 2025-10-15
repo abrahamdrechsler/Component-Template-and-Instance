@@ -271,12 +271,30 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   }, [rooms, edges, mode, colorPriority, conflictMatrix]);
 
   const getRoomAt = useCallback((x: number, y: number): Room | undefined => {
-    return rooms.find(room => CanvasUtils.isPointInRoom({ x, y }, room));
-  }, [rooms]);
+    return rooms.find(room => {
+      // In "all-instances-are-templates" mode (when not editing), ignore template rooms - they're only shown as instances
+      if (creationMode === 'all-instances-are-templates' && !isEditingTemplate) {
+        const isTemplateRoom = componentTemplates.some(t => t.roomIds.includes(room.id));
+        if (isTemplateRoom) {
+          return false;
+        }
+      }
+      
+      return CanvasUtils.isPointInRoom({ x, y }, room);
+    });
+  }, [rooms, creationMode, isEditingTemplate, componentTemplates]);
 
   const getEdgeAt = useCallback((x: number, y: number): Edge | undefined => {
     const tolerance = 0.5;
     return edges.find(edge => {
+      // In "all-instances-are-templates" mode (when not editing), ignore template edges - they're only shown as instances
+      if (creationMode === 'all-instances-are-templates' && !isEditingTemplate) {
+        const isTemplateEdge = componentTemplates.some(t => t.roomIds.includes(edge.roomId));
+        if (isTemplateEdge) {
+          return false;
+        }
+      }
+      
       const distanceToLine = Math.abs(
         (edge.y2 - edge.y1) * x - (edge.x2 - edge.x1) * y + 
         edge.x2 * edge.y1 - edge.y2 * edge.x1
@@ -285,7 +303,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       );
       return distanceToLine < tolerance;
     });
-  }, [edges]);
+  }, [edges, creationMode, isEditingTemplate, componentTemplates]);
 
   const getInstanceAt = useCallback((x: number, y: number): ComponentInstance | undefined => {
     for (const instance of componentInstances) {
@@ -391,6 +409,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       };
     }, { minX: Infinity, minY: Infinity });
     
+    // Always create an instance for the template
     const instanceId = `instance-${nextInstanceIdRef.current++}`;
     const newInstance: ComponentInstance = {
       id: instanceId,
@@ -399,7 +418,12 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       y: bounds.minY,
     };
     setComponentInstances(prev => [...prev, newInstance]);
-  }, [rooms]);
+    
+    // In "all-instances-are-templates" mode, clear room selection after creating template/instance
+    if (creationMode === 'all-instances-are-templates') {
+      setSelectedRoomIds([]);
+    }
+  }, [rooms, creationMode]);
 
   const deleteTemplate = useCallback((templateId: string) => {
     setComponentTemplates(prev => prev.filter(t => t.id !== templateId));

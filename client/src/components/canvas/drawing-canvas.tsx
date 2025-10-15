@@ -121,6 +121,14 @@ export function DrawingCanvas({
         return;
       }
       
+      // In "all-instances-are-templates" mode, hide template room edges (they're shown as instances)
+      if (creationMode === 'all-instances-are-templates' && !isEditingTemplate) {
+        const isTemplateRoom = componentTemplates.some(t => t.roomIds.includes(edge.roomId));
+        if (isTemplateRoom) {
+          return;
+        }
+      }
+      
       let color = getEdgeColor(edge);
       let alpha = 1.0;
       
