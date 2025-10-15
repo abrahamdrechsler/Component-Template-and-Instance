@@ -147,35 +147,36 @@ export function DrawingCanvas({
             ctx.strokeRect(instanceX, instanceY, width, height);
           });
           
-          // Draw highly transparent blue overlay over the entire combined area
-          ctx.save();
-          ctx.globalAlpha = 0.12; // 12% opacity = 88% transparent
-          ctx.fillStyle = '#3b82f6'; // Blue color
+          // Draw a single 75% transparent blue overlay over the combined perimeter
+          // Build a set of all occupied grid cells
+          const occupiedCells = new Set<string>();
           templateRooms.forEach(room => {
             const offsetX = room.x - minX;
             const offsetY = room.y - minY;
-            const instanceX = (instance.x + offsetX) * gridSize;
-            const instanceY = (instance.y + offsetY) * gridSize;
-            const width = room.width * gridSize;
-            const height = room.height * gridSize;
-            ctx.fillRect(instanceX, instanceY, width, height);
+            for (let x = instance.x + offsetX; x < instance.x + offsetX + room.width; x++) {
+              for (let y = instance.y + offsetY; y < instance.y + offsetY + room.height; y++) {
+                occupiedCells.add(`${x},${y}`);
+              }
+            }
           });
+          
+          // Create a single path for the entire combined shape
+          ctx.save();
+          ctx.beginPath();
+          
+          // Add rectangles for each cell to create the combined shape
+          occupiedCells.forEach(cellKey => {
+            const [x, y] = cellKey.split(',').map(Number);
+            ctx.rect(x * gridSize, y * gridSize, gridSize, gridSize);
+          });
+          
+          // Fill with transparent blue
+          ctx.fillStyle = 'rgba(59, 130, 246, 0.25)'; // 25% opacity = 75% transparent
+          ctx.fill();
           ctx.restore();
           
           // Draw selection highlight if this instance is selected - trace outer perimeter only
           if (selectedInstanceId === instance.id) {
-            // Build a set of all occupied grid cells
-            const occupiedCells = new Set<string>();
-            templateRooms.forEach(room => {
-              const offsetX = room.x - minX;
-              const offsetY = room.y - minY;
-              for (let x = instance.x + offsetX; x < instance.x + offsetX + room.width; x++) {
-                for (let y = instance.y + offsetY; y < instance.y + offsetY + room.height; y++) {
-                  occupiedCells.add(`${x},${y}`);
-                }
-              }
-            });
-            
             // Find all external edges by checking each cell's borders
             const externalEdges: { x1: number, y1: number, x2: number, y2: number }[] = [];
             
