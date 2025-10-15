@@ -192,10 +192,10 @@ export default function EdgeConflictPage() {
         />
 
         {/* Main Canvas Area */}
-        <div className="flex-1 flex flex-col bg-gray-100">
-          {/* Edit Mode Banner */}
+        <div className="flex-1 flex flex-col bg-gray-100 relative">
+          {/* Edit Mode Banner - Overlay */}
           {isEditingTemplate && (
-            <div className="bg-blue-500 text-white px-4 py-2 flex items-center justify-between">
+            <div className="absolute top-0 left-0 right-0 z-10 bg-blue-500 text-white px-4 py-2 flex items-center justify-between shadow-lg">
               <div className="flex items-center gap-2">
                 <div className="text-sm font-medium">Editing Template</div>
                 <div className="text-xs opacity-90">Make changes to the template rooms, then save or discard</div>

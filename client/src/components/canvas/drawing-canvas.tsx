@@ -121,6 +121,22 @@ export function DrawingCanvas({
         return;
       }
       
+      // In template editing mode, only show edges belonging to the template being edited
+      if (isEditingTemplate && editingTemplateId) {
+        const template = componentTemplates.find(t => t.id === editingTemplateId);
+        if (template && template.roomIds.includes(edge.roomId)) {
+          // This edge belongs to the template being edited - show normally
+          const color = getEdgeColor(edge);
+          CanvasUtils.drawEdge(ctx, edge, gridSize, color, cornerPriorities, rooms);
+        } else {
+          // This edge doesn't belong to the template being edited - show greyed out
+          ctx.globalAlpha = 0.2;
+          CanvasUtils.drawEdge(ctx, edge, gridSize, '#D1D5DB', cornerPriorities, rooms);
+          ctx.globalAlpha = 1.0;
+        }
+        return;
+      }
+      
       // In "all-instances-are-templates" mode, hide template room edges (they're shown as instances)
       if (creationMode === 'all-instances-are-templates' && !isEditingTemplate) {
         const isTemplateRoom = componentTemplates.some(t => t.roomIds.includes(edge.roomId));
@@ -129,21 +145,9 @@ export function DrawingCanvas({
         }
       }
       
-      let color = getEdgeColor(edge);
-      let alpha = 1.0;
-      
-      // In edit mode, grey out edges that aren't part of the template being edited
-      if (isEditingTemplate && editingTemplateId) {
-        const template = componentTemplates.find(t => t.id === editingTemplateId);
-        if (template && !template.roomIds.includes(edge.roomId)) {
-          color = '#D1D5DB'; // Grey color
-          alpha = 0.3; // Reduced opacity
-        }
-      }
-      
-      ctx.globalAlpha = alpha;
+      // Normal mode - show all edges
+      const color = getEdgeColor(edge);
       CanvasUtils.drawEdge(ctx, edge, gridSize, color, cornerPriorities, rooms);
-      ctx.globalAlpha = 1.0;
     });
 
     // Draw component instances
@@ -152,9 +156,9 @@ export function DrawingCanvas({
       if (template) {
         const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
         if (templateRooms.length > 0) {
-          // In edit mode, grey out ALL instances
+          // In edit mode, grey out ALL instances heavily
           if (isEditingTemplate) {
-            ctx.globalAlpha = 0.3;
+            ctx.globalAlpha = 0.1;
           }
           
           // Calculate bounding box of original template
@@ -906,11 +910,14 @@ export function DrawingCanvas({
 
     switch (selectedTool) {
       case 'draw':
-        setCanvasState(prev => ({
-          ...prev,
-          isDrawing: true,
-          drawStart: point,
-        }));
+        // Prevent drawing when in template editing mode
+        if (!isEditingTemplate) {
+          setCanvasState(prev => ({
+            ...prev,
+            isDrawing: true,
+            drawStart: point,
+          }));
+        }
         break;
 
       case 'move':
@@ -1031,13 +1038,16 @@ export function DrawingCanvas({
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
 
     if (canvasState.isDrawing && canvasState.drawStart) {
-      const startGrid = CanvasUtils.getGridCoordinates(canvasState.drawStart, gridSize);
-      const width = Math.max(1, Math.abs(gridPoint.x - startGrid.x));
-      const height = Math.max(1, Math.abs(gridPoint.y - startGrid.y));
-      const x = Math.min(startGrid.x, gridPoint.x);
-      const y = Math.min(startGrid.y, gridPoint.y);
-      
-      onAddRoom(x, y, width, height);
+      // Prevent room creation when in template editing mode
+      if (!isEditingTemplate) {
+        const startGrid = CanvasUtils.getGridCoordinates(canvasState.drawStart, gridSize);
+        const width = Math.max(1, Math.abs(gridPoint.x - startGrid.x));
+        const height = Math.max(1, Math.abs(gridPoint.y - startGrid.y));
+        const x = Math.min(startGrid.x, gridPoint.x);
+        const y = Math.min(startGrid.y, gridPoint.y);
+        
+        onAddRoom(x, y, width, height);
+      }
     }
 
     if (canvasState.isDragging && canvasState.dragStartOffset) {
@@ -1248,8 +1258,22 @@ export function DrawingCanvas({
     // Then check for room selection
     const room = getRoomAt(gridPoint.x, gridPoint.y);
     if (room) {
-      onSelectRoom(room.id);
-      onSelectEdge(undefined);
+      // In template editing mode, only allow selection of rooms belonging to the template being edited
+      if (isEditingTemplate && editingTemplateId) {
+        const template = componentTemplates.find(t => t.id === editingTemplateId);
+        if (template && template.roomIds.includes(room.id)) {
+          // This room belongs to the template being edited - allow selection
+          onSelectRoom(room.id);
+          onSelectEdge(undefined);
+        } else {
+          // This room doesn't belong to the template being edited - ignore click
+          return;
+        }
+      } else {
+        // Normal mode - allow any room selection
+        onSelectRoom(room.id);
+        onSelectEdge(undefined);
+      }
     } else {
       onSelectRoom(undefined);
       onSelectEdge(undefined);
@@ -1369,6 +1393,9 @@ export function DrawingCanvas({
     // Only handle double-click on instances in "all-instances-are-templates" mode
     if (creationMode !== 'all-instances-are-templates') return;
     
+    // Prevent double-clicks when already in template editing mode
+    if (isEditingTemplate) return;
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -1379,7 +1406,7 @@ export function DrawingCanvas({
     if (instance) {
       onEnterTemplateEditMode(instance.templateId);
     }
-  }, [creationMode, gridSize, getInstanceAt, onEnterTemplateEditMode]);
+  }, [creationMode, isEditingTemplate, gridSize, getInstanceAt, onEnterTemplateEditMode]);
 
   return (
     <div className="relative w-full h-full bg-canvas-background">
