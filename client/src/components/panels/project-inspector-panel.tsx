@@ -72,10 +72,10 @@ export function ProjectInspectorPanel({
   };
 
   return (
-    <div className="w-72 bg-white border-r border-gray-200 flex flex-col">
-      <div className="p-4 border-b border-gray-200 space-y-3">
+    <div className="w-72 bg-card border-r border-border flex flex-col shadow-sm">
+      <div className="p-4 border-b border-border bg-muted/30 space-y-3">
         <div>
-          <Label className="text-xs font-medium text-gray-700 mb-1.5 block">Creation Mode</Label>
+          <Label className="text-xs font-semibold text-foreground/70 mb-1.5 block uppercase tracking-wide">Creation Mode</Label>
           <Select 
             value={creationMode} 
             onValueChange={(value) => onCreationModeChange(value as CreationMode)}
@@ -96,18 +96,18 @@ export function ProjectInspectorPanel({
             </SelectContent>
           </Select>
         </div>
-        <h2 className="text-base font-semibold text-gray-900" data-testid="text-panel-title">Project Inspector</h2>
+        <h2 className="text-sm font-semibold text-foreground" data-testid="text-panel-title">PROJECT INSPECTOR</h2>
       </div>
       
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-6">
           <div>
             <div className="flex items-center justify-between mb-3">
-              <Label className="text-sm font-medium text-gray-700">Rooms ({rooms.length})</Label>
+              <Label className="text-xs font-semibold text-foreground/70 uppercase tracking-wide">Rooms ({rooms.length})</Label>
             </div>
             
             {rooms.length === 0 ? (
-              <div className="text-sm text-gray-500 text-center py-4">
+              <div className="text-sm text-muted-foreground text-center py-4">
                 No rooms yet. Draw a room to get started.
               </div>
             ) : (
@@ -116,15 +116,15 @@ export function ProjectInspectorPanel({
                   <div
                     key={room.id}
                     onClick={() => onSelectRoom(room.id)}
-                    className={`p-2 rounded border text-sm cursor-pointer hover:border-blue-300 transition-colors ${
+                    className={`p-2 rounded-sm border text-sm cursor-pointer hover:border-primary/50 transition-colors ${
                       selectedRoomIds.includes(room.id)
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 bg-gray-50 hover:bg-gray-100'
+                        ? 'border-primary bg-accent'
+                        : 'border-border bg-muted/50 hover:bg-muted'
                     }`}
                     data-testid={`room-item-${room.id}`}
                   >
-                    <div className="font-medium text-gray-900">{room.name}</div>
-                    <div className="text-xs text-gray-600 mt-1">
+                    <div className="font-medium text-foreground">{room.name}</div>
+                    <div className="text-xs text-muted-foreground mt-1">
                       {room.width}' × {room.height}' at ({room.x}', {room.y}')
                     </div>
                   </div>
@@ -137,9 +137,9 @@ export function ProjectInspectorPanel({
 
           <div>
             <div className="flex items-center justify-between mb-3">
-              <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+              <Label className="text-xs font-semibold text-foreground/70 uppercase tracking-wide flex items-center gap-2">
                 <Package className="w-4 h-4" />
-                Component Templates ({componentTemplates.length})
+                Templates ({componentTemplates.length})
               </Label>
             </div>
 
@@ -196,7 +196,7 @@ export function ProjectInspectorPanel({
             </Button>
 
             {componentTemplates.length === 0 ? (
-              <div className="text-sm text-gray-500 text-center py-4">
+              <div className="text-sm text-muted-foreground text-center py-4">
                 No templates yet. Select rooms and save as template.
               </div>
             ) : (
@@ -213,15 +213,15 @@ export function ProjectInspectorPanel({
                     onDragEnd={() => {
                       console.log('Drag end');
                     }}
-                    className="p-2 rounded border border-gray-200 bg-gray-50 cursor-move hover:bg-gray-100 hover:border-blue-300 transition-colors"
+                    className="p-2 rounded-sm border border-border bg-muted/50 cursor-move hover:bg-muted hover:border-primary/50 transition-colors"
                     data-testid={`template-item-${template.id}`}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
-                        <div className="font-medium text-gray-900 text-sm">
+                        <div className="font-medium text-foreground text-sm">
                           {template.name}
                         </div>
-                        <div className="text-xs text-gray-600">
+                        <div className="text-xs text-muted-foreground">
                           {template.roomIds.length} room{template.roomIds.length !== 1 ? 's' : ''} • Drag to place
                         </div>
                       </div>
@@ -233,7 +233,7 @@ export function ProjectInspectorPanel({
                         className="h-8 w-8 p-0"
                         data-testid={`button-delete-template-${template.id}`}
                       >
-                        <Trash2 className="w-4 h-4 text-red-600" />
+                        <Trash2 className="w-4 h-4 text-destructive" />
                       </Button>
                     </div>
                   </div>
@@ -246,7 +246,7 @@ export function ProjectInspectorPanel({
 
           <div>
             <div className="flex items-center justify-between mb-3">
-              <Label className="text-sm font-medium text-gray-700 flex items-center gap-2">
+              <Label className="text-xs font-semibold text-foreground/70 uppercase tracking-wide flex items-center gap-2">
                 <LinkIcon className="w-4 h-4" />
                 Links ({links.length})
               </Label>

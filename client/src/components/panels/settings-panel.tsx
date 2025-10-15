@@ -139,41 +139,41 @@ export function SettingsPanel({
   };
 
   return (
-    <div className="w-80 bg-white border-r border-gray-200 flex flex-col overflow-hidden">
-      <div className="p-4 border-b border-gray-200">
-        <h2 className="text-base font-semibold text-gray-900">Edge Fighting Rules</h2>
+    <div className="w-80 bg-card border-r border-border flex flex-col overflow-hidden shadow-sm">
+      <div className="p-4 border-b border-border bg-muted/30">
+        <h2 className="text-sm font-semibold text-foreground">EDGE FIGHTING RULES</h2>
       </div>
       
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
         {/* Mode Selection */}
         <div>
-          <Label className="text-sm font-medium text-gray-700 mb-3 block">Resolution Mode</Label>
+          <Label className="text-xs font-semibold text-foreground/70 mb-3 block uppercase tracking-wide">Resolution Mode</Label>
           <RadioGroup value={mode} onValueChange={onModeChange}>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="chronological" id="chronological" />
               <div>
-                <Label htmlFor="chronological" className="text-sm font-medium text-gray-900">
+                <Label htmlFor="chronological" className="text-sm font-medium text-foreground">
                   Chronological
                 </Label>
-                <div className="text-xs text-gray-500">Last drawn room wins</div>
+                <div className="text-xs text-muted-foreground">Last drawn room wins</div>
               </div>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="priority" id="priority" />
               <div>
-                <Label htmlFor="priority" className="text-sm font-medium text-gray-900">
+                <Label htmlFor="priority" className="text-sm font-medium text-foreground">
                   Priority List
                 </Label>
-                <div className="text-xs text-gray-500">User-defined hierarchy</div>
+                <div className="text-xs text-muted-foreground">User-defined hierarchy</div>
               </div>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="matrix" id="matrix" />
               <div>
-                <Label htmlFor="matrix" className="text-sm font-medium text-gray-900">
+                <Label htmlFor="matrix" className="text-sm font-medium text-foreground">
                   Conflict Matrix
                 </Label>
-                <div className="text-xs text-gray-500">Custom rule table</div>
+                <div className="text-xs text-muted-foreground">Custom rule table</div>
               </div>
             </div>
           </RadioGroup>
@@ -182,7 +182,7 @@ export function SettingsPanel({
         {/* Color Priority List */}
         {mode === 'priority' && (
           <div>
-            <Label className="text-sm font-medium text-gray-700 mb-3 block">
+            <Label className="text-xs font-semibold text-foreground/70 mb-3 block uppercase tracking-wide">
               Color Priority (Highest to Lowest)
             </Label>
             <div className="space-y-2">
@@ -197,26 +197,26 @@ export function SettingsPanel({
                   onDrop={(e) => handleDrop(e, index)}
                   onDragEnd={handleDragEnd}
                   onKeyDown={(e) => handleKeyDown(e, index)}
-                  className={`flex items-center p-2 rounded border cursor-move transition-colors focus:outline-none ${
+                  className={`flex items-center p-2 rounded-sm border cursor-move transition-colors focus:outline-none ${
                     draggedIndex === index
-                      ? 'bg-blue-100 border-blue-300 opacity-50'
+                      ? 'bg-accent border-primary opacity-50'
                       : selectedIndex === index
-                      ? 'bg-blue-50 border-blue-400 ring-2 ring-blue-200'
-                      : 'bg-gray-50 hover:bg-gray-100 border-gray-200'
+                      ? 'bg-accent border-primary ring-2 ring-primary/20'
+                      : 'bg-muted/50 hover:bg-muted border-border'
                   }`}
                   role="button"
                   aria-label={`${colorNames[color]} priority item. Use arrow keys to move up or down.`}
                 >
-                  <GripVertical className="w-4 h-4 text-gray-400 mr-2 flex-shrink-0" />
+                  <GripVertical className="w-4 h-4 text-muted-foreground mr-2 flex-shrink-0" />
                   <div
-                    className="w-4 h-4 rounded mr-3 flex-shrink-0"
+                    className="w-4 h-4 rounded-sm mr-3 flex-shrink-0 border border-border"
                     style={{ backgroundColor: ROOM_COLORS[color] }}
                   />
-                  <span className="flex-1 text-sm text-gray-900">
+                  <span className="flex-1 text-sm text-foreground">
                     {colorNames[color]}
                   </span>
                   {selectedIndex === index && (
-                    <span className="text-xs text-blue-600 ml-2">
+                    <span className="text-xs text-primary ml-2">
                       ↑↓ to move
                     </span>
                   )}
@@ -224,7 +224,7 @@ export function SettingsPanel({
               ))}
             </div>
             {colorPriority.length > 0 && (
-              <div className="text-xs text-gray-500 mt-2">
+              <div className="text-xs text-muted-foreground mt-2">
                 Click to select, then use ↑↓ arrow keys to reorder, or drag and drop
               </div>
             )}
@@ -234,10 +234,10 @@ export function SettingsPanel({
         {/* Conflict Matrix */}
         {mode === 'matrix' && (
           <div>
-            <Label className="text-sm font-medium text-gray-700 mb-3 block">
+            <Label className="text-xs font-semibold text-foreground/70 mb-3 block uppercase tracking-wide">
               Conflict Rules
             </Label>
-            <div className="text-xs text-gray-500 mb-4">
+            <div className="text-xs text-muted-foreground mb-4">
               Format: Color × Color = Result
             </div>
             
