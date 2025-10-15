@@ -1382,11 +1382,11 @@ export function DrawingCanvas({
   }, [creationMode, gridSize, getInstanceAt, onEnterTemplateEditMode]);
 
   return (
-    <div className="relative w-full h-full">
+    <div className="relative w-full h-full bg-canvas-background">
       <canvas
         ref={canvasRef}
         tabIndex={0}
-        className={`border border-gray-300 outline-none ${
+        className={`border border-border outline-none ${
           selectedTool === 'draw' ? 'cursor-crosshair' :
           selectedTool === 'move' ? 'cursor-grab' :
           hoveredDot ? 'cursor-pointer' :
@@ -1404,20 +1404,20 @@ export function DrawingCanvas({
       />
       
       {/* Grid Scale Indicator */}
-      <div className="absolute bottom-2 left-2 bg-white bg-opacity-90 px-2 py-1 rounded text-xs text-gray-600 border">
+      <div className="absolute bottom-2 left-2 bg-card px-3 py-1.5 rounded-sm text-xs text-muted-foreground border border-border shadow-sm">
         Grid: 1 square = 1 ft
       </div>
 
       {/* Zoom Controls */}
       <div className="absolute top-2 left-2 flex flex-col space-y-1">
-        <button className="bg-white bg-opacity-90 hover:bg-white p-2 rounded border shadow-sm transition-colors">
-          <i className="fas fa-plus text-xs text-gray-600"></i>
+        <button className="bg-card hover:bg-muted p-2 rounded-sm border border-border shadow-sm transition-colors">
+          <i className="fas fa-plus text-xs text-muted-foreground"></i>
         </button>
-        <button className="bg-white bg-opacity-90 hover:bg-white p-2 rounded border shadow-sm transition-colors">
-          <i className="fas fa-minus text-xs text-gray-600"></i>
+        <button className="bg-card hover:bg-muted p-2 rounded-sm border border-border shadow-sm transition-colors">
+          <i className="fas fa-minus text-xs text-muted-foreground"></i>
         </button>
-        <button className="bg-white bg-opacity-90 hover:bg-white p-2 rounded border shadow-sm transition-colors">
-          <i className="fas fa-home text-xs text-gray-600"></i>
+        <button className="bg-card hover:bg-muted p-2 rounded-sm border border-border shadow-sm transition-colors">
+          <i className="fas fa-home text-xs text-muted-foreground"></i>
         </button>
       </div>
     </div>
