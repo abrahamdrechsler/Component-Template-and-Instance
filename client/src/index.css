@@ -3,26 +3,26 @@
 @tailwind utilities;
 
 :root {
-  --background: hsl(0, 0%, 100%);
-  --foreground: hsl(20, 14.3%, 4.1%);
-  --muted: hsl(60, 4.8%, 95.9%);
-  --muted-foreground: hsl(25, 5.3%, 44.7%);
+  --background: hsl(30, 15%, 96%);
+  --foreground: hsl(0, 0%, 20%);
+  --muted: hsl(30, 10%, 92%);
+  --muted-foreground: hsl(0, 0%, 45%);
   --popover: hsl(0, 0%, 100%);
-  --popover-foreground: hsl(20, 14.3%, 4.1%);
+  --popover-foreground: hsl(0, 0%, 20%);
   --card: hsl(0, 0%, 100%);
-  --card-foreground: hsl(20, 14.3%, 4.1%);
-  --border: hsl(20, 5.9%, 90%);
-  --input: hsl(20, 5.9%, 90%);
-  --primary: hsl(207, 90%, 54%);
-  --primary-foreground: hsl(211, 100%, 99%);
-  --secondary: hsl(60, 4.8%, 95.9%);
-  --secondary-foreground: hsl(24, 9.8%, 10%);
-  --accent: hsl(60, 4.8%, 95.9%);
-  --accent-foreground: hsl(24, 9.8%, 10%);
+  --card-foreground: hsl(0, 0%, 20%);
+  --border: hsl(30, 10%, 88%);
+  --input: hsl(0, 0%, 100%);
+  --primary: hsl(200, 70%, 50%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(30, 10%, 92%);
+  --secondary-foreground: hsl(0, 0%, 20%);
+  --accent: hsl(200, 70%, 96%);
+  --accent-foreground: hsl(200, 70%, 40%);
   --destructive: hsl(0, 84.2%, 60.2%);
-  --destructive-foreground: hsl(60, 9.1%, 97.8%);
-  --ring: hsl(20, 14.3%, 4.1%);
-  --radius: 0.5rem;
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --ring: hsl(200, 70%, 50%);
+  --radius: 0.25rem;
   
   /* Room colors for edge conflict prototype */
   --room-red: hsl(4, 90%, 58%);
@@ -37,10 +37,10 @@
   --room-orange: hsl(36, 100%, 50%);
   
   /* Grid and canvas colors */
-  --grid-color: hsl(220, 13%, 91%);
-  --canvas-background: hsl(0, 0%, 100%);
-  --selection-color: hsl(207, 90%, 54%);
-  --edge-highlight: hsl(142, 71%, 45%);
+  --grid-color: hsl(30, 5%, 88%);
+  --canvas-background: hsl(0, 0%, 98%);
+  --selection-color: hsl(200, 70%, 50%);
+  --edge-highlight: hsl(200, 70%, 50%);
 }
 
 .dark {
@@ -114,19 +114,19 @@
 
 @layer components {
   .panel-container {
-    @apply bg-white border-r border-gray-200 flex flex-col overflow-hidden;
+    @apply bg-card border-r border-border flex flex-col overflow-hidden shadow-sm;
   }
   
   .panel-header {
-    @apply p-4 border-b border-gray-200;
+    @apply px-4 py-3 border-b border-border bg-muted/30;
   }
   
   .panel-content {
-    @apply flex-1 overflow-y-auto p-4 space-y-6;
+    @apply flex-1 overflow-y-auto p-4 space-y-4;
   }
   
   .priority-item {
-    @apply flex items-center p-2 bg-gray-50 rounded border cursor-move;
+    @apply flex items-center p-2 bg-muted/50 rounded-sm border border-border cursor-move hover:bg-muted transition-colors;
   }
   
   .matrix-cell {
@@ -134,6 +134,24 @@
   }
   
   .matrix-select {
-    @apply w-full text-xs border rounded;
+    @apply w-full text-xs border border-border rounded-sm bg-white;
+  }
+}
+
+/* Professional architectural software styling */
+@layer utilities {
+  .toolbar-button {
+    @apply h-9 px-3 text-sm font-medium transition-colors;
+    @apply bg-white border border-border hover:bg-muted/50;
+    @apply text-foreground;
+  }
+  
+  .toolbar-button-active {
+    @apply bg-primary text-primary-foreground border-primary;
+  }
+  
+  .input-clean {
+    @apply h-9 px-3 text-sm bg-white border border-border rounded-sm;
+    @apply focus:outline-none focus:ring-1 focus:ring-primary;
   }
 }

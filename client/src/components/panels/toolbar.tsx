@@ -41,10 +41,10 @@ export function Toolbar({
   };
 
   return (
-    <div className="bg-white border-b border-gray-200 h-16 flex items-center px-4 shadow-sm">
-      <div className="flex items-center space-x-4">
+    <div className="bg-card border-b border-border h-14 flex items-center px-4 shadow-sm">
+      <div className="flex items-center space-x-3">
         {/* Drawing Tools */}
-        <div className="flex items-center space-x-2 border-r border-gray-200 pr-4">
+        <div className="flex items-center space-x-1 border-r border-border pr-3">
           <Button
             variant={selectedTool === 'select' ? 'default' : 'outline'}
             size="sm"
@@ -55,7 +55,7 @@ export function Toolbar({
           >
             <MousePointer className="w-4 h-4" />
             <span>Select</span>
-            <kbd className="ml-1 px-1 py-0.5 text-xs bg-gray-200 text-gray-600 rounded">S</kbd>
+            <kbd className="ml-1 px-1 py-0.5 text-xs bg-muted text-muted-foreground rounded-sm">S</kbd>
           </Button>
           <Button
             variant={selectedTool === 'draw' ? 'default' : 'outline'}
@@ -67,7 +67,7 @@ export function Toolbar({
           >
             <Pencil className="w-4 h-4" />
             <span>Draw Room</span>
-            <kbd className="ml-1 px-1 py-0.5 text-xs bg-gray-200 text-gray-600 rounded">R</kbd>
+            <kbd className="ml-1 px-1 py-0.5 text-xs bg-muted text-muted-foreground rounded-sm">R</kbd>
           </Button>
           <Button
             variant={selectedTool === 'move' ? 'default' : 'outline'}
@@ -79,7 +79,7 @@ export function Toolbar({
           >
             <Move className="w-4 h-4" />
             <span>Move Room</span>
-            <kbd className="ml-1 px-1 py-0.5 text-xs bg-gray-200 text-gray-600 rounded">M</kbd>
+            <kbd className="ml-1 px-1 py-0.5 text-xs bg-muted text-muted-foreground rounded-sm">M</kbd>
           </Button>
           <Button
             variant={selectedTool === 'delete' ? 'destructive' : 'outline'}
@@ -91,12 +91,12 @@ export function Toolbar({
           >
             <Trash2 className="w-4 h-4" />
             <span>Delete</span>
-            <kbd className="ml-1 px-1 py-0.5 text-xs bg-gray-200 text-gray-600 rounded">D</kbd>
+            <kbd className="ml-1 px-1 py-0.5 text-xs bg-muted text-muted-foreground rounded-sm">D</kbd>
           </Button>
         </div>
 
         {/* File Operations */}
-        <div className="flex items-center space-x-2 border-r border-gray-200 pr-4">
+        <div className="flex items-center space-x-1 border-r border-border pr-3">
           <Button
             variant="outline"
             size="sm"
@@ -147,35 +147,35 @@ export function Toolbar({
 
       {/* Project Name */}
       <div className="flex-1 flex items-center justify-center gap-2">
-        <span className="text-sm text-gray-600">Project:</span>
+        <span className="text-sm text-muted-foreground font-medium">Project:</span>
         <Input
           value={fileName}
           onChange={(e) => onFileNameChange(e.target.value)}
-          className="w-64 h-8 text-center"
+          className="w-64 h-8 text-center text-sm bg-white border-border"
           placeholder="Enter project name"
           data-testid="input-file-name"
         />
       </div>
 
       {/* Grid Controls and Shortcuts */}
-      <div className="flex items-center space-x-4">
+      <div className="flex items-center space-x-3">
         {selectedTool === 'select' ? (
-          <div className="text-xs text-gray-500 hidden md:block">
-            Hold <kbd className="px-1 py-0.5 bg-gray-200 text-gray-600 rounded">Ctrl</kbd>, <kbd className="px-1 py-0.5 bg-gray-200 text-gray-600 rounded">Cmd</kbd>, or <kbd className="px-1 py-0.5 bg-gray-200 text-gray-600 rounded">Shift</kbd> to multi-select
+          <div className="text-xs text-muted-foreground hidden md:block">
+            Hold <kbd className="px-1 py-0.5 bg-muted text-muted-foreground rounded-sm text-xs">Ctrl</kbd>, <kbd className="px-1 py-0.5 bg-muted text-muted-foreground rounded-sm text-xs">Cmd</kbd>, or <kbd className="px-1 py-0.5 bg-muted text-muted-foreground rounded-sm text-xs">Shift</kbd> to multi-select
           </div>
         ) : (
-          <div className="text-xs text-gray-500 hidden md:block">
-            <kbd className="px-1 py-0.5 bg-gray-200 text-gray-600 rounded">Del</kbd> to delete selected room
+          <div className="text-xs text-muted-foreground hidden md:block">
+            <kbd className="px-1 py-0.5 bg-muted text-muted-foreground rounded-sm text-xs">Del</kbd> to delete selected room
           </div>
         )}
-        <div className="flex items-center space-x-4">
+        <div className="flex items-center space-x-3">
           <div className="flex items-center space-x-2">
             <Checkbox
               id="show-grid"
               checked={showGrid}
               onCheckedChange={onToggleGrid}
             />
-            <label htmlFor="show-grid" className="text-sm text-gray-600">
+            <label htmlFor="show-grid" className="text-sm text-muted-foreground">
               Show Grid
             </label>
           </div>
