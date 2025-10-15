@@ -5,6 +5,8 @@ import { CanvasUtils } from '@/lib/canvas-utils';
 import { EdgeFightingResolver } from '@/lib/edge-fighting';
 import { RoomValidation } from '@/lib/room-validation';
 
+export type CreationMode = 'template-is-first-instance' | 'all-instances-are-templates' | 'template-is-separate-file';
+
 export interface UseUnitsEditorReturn {
   rooms: Room[];
   edges: Edge[];
@@ -23,6 +25,7 @@ export interface UseUnitsEditorReturn {
   componentTemplates: ComponentTemplate[];
   componentInstances: ComponentInstance[];
   links: Link[];
+  creationMode: CreationMode;
   
   addRoom: (x: number, y: number, width: number, height: number) => void;
   deleteRoom: (roomId: string) => void;
@@ -40,6 +43,7 @@ export interface UseUnitsEditorReturn {
   setSelectedInstanceId: (instanceId: string | undefined) => void;
   setShowGrid: (show: boolean) => void;
   setFileName: (name: string) => void;
+  setCreationMode: (mode: CreationMode) => void;
   toggleCornerPriority: (x: number, y: number) => void;
   exportData: () => void;
   importData: (data: any) => void;
@@ -78,6 +82,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   const [componentTemplates, setComponentTemplates] = useState<ComponentTemplate[]>([]);
   const [componentInstances, setComponentInstances] = useState<ComponentInstance[]>([]);
   const [links, setLinks] = useState<Link[]>([]);
+  const [creationMode, setCreationMode] = useState<CreationMode>('template-is-first-instance');
 
   const nextRoomIdRef = useRef(1);
   const nextTemplateIdRef = useRef(1);
@@ -472,6 +477,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     componentTemplates,
     componentInstances,
     links,
+    creationMode,
     addRoom,
     deleteRoom,
     moveRoom,
@@ -488,6 +494,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     setSelectedInstanceId,
     setShowGrid,
     setFileName,
+    setCreationMode,
     toggleCornerPriority,
     exportData,
     importData,

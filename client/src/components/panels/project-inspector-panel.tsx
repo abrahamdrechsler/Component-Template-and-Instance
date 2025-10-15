@@ -5,32 +5,44 @@ import { Room, ComponentTemplate, Link, type FileMetadata } from '@shared/schema
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Package, Link as LinkIcon, Plus, Trash2, AlertCircle, Download } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { CreationMode } from '@/hooks/use-units-editor';
 
 interface ProjectInspectorPanelProps {
   rooms: Room[];
   selectedRoomIds: string[];
   componentTemplates: ComponentTemplate[];
   links: Link[];
+  creationMode: CreationMode;
   onSelectRoom: (roomId: string) => void;
   onCreateTemplate: (name: string, roomIds: string[]) => void;
   onDeleteTemplate: (templateId: string) => void;
   onAddLink: (fileId: string, fileName: string) => void;
   onRemoveLink: (linkId: string) => void;
+  onCreationModeChange: (mode: CreationMode) => void;
 }
+
+const CREATION_MODE_LABELS: Record<CreationMode, string> = {
+  'template-is-first-instance': 'Template is first Instance',
+  'all-instances-are-templates': 'All instances are Templates',
+  'template-is-separate-file': 'Template is Separate File',
+};
 
 export function ProjectInspectorPanel({
   rooms,
   selectedRoomIds,
   componentTemplates,
   links,
+  creationMode,
   onSelectRoom,
   onCreateTemplate,
   onDeleteTemplate,
   onAddLink,
   onRemoveLink,
+  onCreationModeChange,
 }: ProjectInspectorPanelProps) {
   const [templateName, setTemplateName] = useState('');
   const [showTemplateInput, setShowTemplateInput] = useState(false);
@@ -61,7 +73,29 @@ export function ProjectInspectorPanel({
 
   return (
     <div className="w-72 bg-white border-r border-gray-200 flex flex-col">
-      <div className="p-4 border-b border-gray-200">
+      <div className="p-4 border-b border-gray-200 space-y-3">
+        <div>
+          <Label className="text-xs font-medium text-gray-700 mb-1.5 block">Creation Mode</Label>
+          <Select 
+            value={creationMode} 
+            onValueChange={(value) => onCreationModeChange(value as CreationMode)}
+          >
+            <SelectTrigger className="w-full" data-testid="select-creation-mode">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="template-is-first-instance" data-testid="option-template-is-first-instance">
+                {CREATION_MODE_LABELS['template-is-first-instance']}
+              </SelectItem>
+              <SelectItem value="all-instances-are-templates" data-testid="option-all-instances-are-templates">
+                {CREATION_MODE_LABELS['all-instances-are-templates']}
+              </SelectItem>
+              <SelectItem value="template-is-separate-file" data-testid="option-template-is-separate-file">
+                {CREATION_MODE_LABELS['template-is-separate-file']}
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <h2 className="text-base font-semibold text-gray-900" data-testid="text-panel-title">Project Inspector</h2>
       </div>
       

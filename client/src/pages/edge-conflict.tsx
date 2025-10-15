@@ -24,6 +24,7 @@ export default function EdgeConflictPage() {
     componentTemplates,
     componentInstances,
     links,
+    creationMode,
     addRoom,
     deleteRoom,
     moveRoom,
@@ -37,6 +38,7 @@ export default function EdgeConflictPage() {
     setSelectedInstanceId,
     setShowGrid,
     setFileName,
+    setCreationMode,
     toggleCornerPriority,
     exportData,
     importData,
@@ -169,10 +171,12 @@ export default function EdgeConflictPage() {
           selectedRoomIds={selectedRoomIds}
           componentTemplates={componentTemplates}
           links={links}
+          creationMode={creationMode}
           onSelectRoom={setSelectedRoomId}
           onCreateTemplate={createTemplate}
           onDeleteTemplate={deleteTemplate}
           onAddLink={addLink}
+          onCreationModeChange={setCreationMode}
           onRemoveLink={removeLink}
         />
 
