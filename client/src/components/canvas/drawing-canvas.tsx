@@ -150,16 +150,10 @@ export function DrawingCanvas({
     componentInstances.forEach(instance => {
       const template = componentTemplates.find(t => t.id === instance.templateId);
       if (template) {
-        // In edit mode, skip drawing instances of the template being edited
-        if (isEditingTemplate && instance.templateId === editingTemplateId) {
-          return;
-        }
-        
         const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
         if (templateRooms.length > 0) {
-          // In edit mode, grey out other instances
-          const isGreyedOut = isEditingTemplate && instance.templateId !== editingTemplateId;
-          if (isGreyedOut) {
+          // In edit mode, grey out ALL instances
+          if (isEditingTemplate) {
             ctx.globalAlpha = 0.3;
           }
           
