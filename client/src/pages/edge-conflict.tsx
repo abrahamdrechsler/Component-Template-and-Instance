@@ -57,6 +57,8 @@ export default function EdgeConflictPage() {
     addLink,
     removeLink,
     enterTemplateEditMode,
+    saveTemplateEdits,
+    discardTemplateEdits,
   } = useUnitsEditor();
 
   // Keyboard shortcuts
@@ -191,6 +193,32 @@ export default function EdgeConflictPage() {
 
         {/* Main Canvas Area */}
         <div className="flex-1 flex flex-col bg-gray-100">
+          {/* Edit Mode Banner */}
+          {isEditingTemplate && (
+            <div className="bg-blue-500 text-white px-4 py-2 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium">Editing Template</div>
+                <div className="text-xs opacity-90">Make changes to the template rooms, then save or discard</div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={saveTemplateEdits}
+                  className="bg-white text-blue-600 px-4 py-1.5 rounded text-sm font-medium hover:bg-blue-50 transition-colors"
+                  data-testid="button-save-template"
+                >
+                  Save Changes
+                </button>
+                <button
+                  onClick={discardTemplateEdits}
+                  className="bg-transparent border border-white text-white px-4 py-1.5 rounded text-sm font-medium hover:bg-blue-600 transition-colors"
+                  data-testid="button-discard-template"
+                >
+                  Discard
+                </button>
+              </div>
+            </div>
+          )}
+          
           <div className="flex-1 p-4">
             <div className="bg-white rounded-lg shadow-sm border border-gray-200 h-full relative overflow-hidden">
               <div className="absolute inset-4">
