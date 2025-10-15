@@ -58,6 +58,7 @@ export interface UseUnitsEditorReturn {
   placeInstance: (templateId: string, x: number, y: number) => void;
   moveInstance: (instanceId: string, x: number, y: number) => void;
   deleteInstance: (instanceId: string) => void;
+  duplicateInstance: (instanceId: string) => void;
   addLink: (linkedFileId: string, linkedFileName: string) => void;
   removeLink: (linkId: string) => void;
   importTemplatesFromLink: (linkId: string, templateIds: string[]) => void;
@@ -429,6 +430,21 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     setComponentInstances(prev => prev.filter(i => i.id !== instanceId));
   }, []);
 
+  const duplicateInstance = useCallback((instanceId: string) => {
+    const instance = componentInstances.find(i => i.id === instanceId);
+    if (!instance) return;
+    
+    const newInstanceId = `instance-${nextInstanceIdRef.current++}`;
+    const newInstance: ComponentInstance = {
+      id: newInstanceId,
+      templateId: instance.templateId,
+      x: instance.x + 5, // Offset by 5 grid units
+      y: instance.y + 5,
+    };
+    setComponentInstances(prev => [...prev, newInstance]);
+    setSelectedInstanceId(newInstanceId); // Select the new instance
+  }, [componentInstances]);
+
   const addLink = useCallback((linkedFileId: string, linkedFileName: string) => {
     const linkId = `link-${nextLinkIdRef.current++}`;
     const newLink: Link = {
@@ -508,6 +524,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     placeInstance,
     moveInstance,
     deleteInstance,
+    duplicateInstance,
     addLink,
     removeLink,
     importTemplatesFromLink,

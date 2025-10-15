@@ -51,6 +51,7 @@ export default function EdgeConflictPage() {
     placeInstance,
     moveInstance,
     deleteInstance,
+    duplicateInstance,
     addLink,
     removeLink,
   } = useUnitsEditor();
@@ -79,12 +80,17 @@ export default function EdgeConflictPage() {
         case 'd':
           setSelectedTool('delete');
           break;
+        case 'c':
+          if (selectedInstanceId) {
+            duplicateInstance(selectedInstanceId);
+          }
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [setSelectedTool]);
+  }, [setSelectedTool, selectedInstanceId, duplicateInstance]);
 
   const handleImport = async (file: File) => {
     try {
