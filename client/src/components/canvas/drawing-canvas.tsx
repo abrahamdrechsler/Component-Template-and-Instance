@@ -18,6 +18,8 @@ interface DrawingCanvasProps {
   componentTemplates: ComponentTemplate[];
   componentInstances: ComponentInstance[];
   creationMode: 'template-is-first-instance' | 'all-instances-are-templates' | 'template-is-separate-file';
+  isEditingTemplate: boolean;
+  editingTemplateId?: string;
   onAddRoom: (x: number, y: number, width: number, height: number) => void;
   onMoveRoom: (roomId: string, x: number, y: number) => void;
   onDeleteRoom: (roomId: string) => void;
@@ -49,6 +51,8 @@ export function DrawingCanvas({
   componentTemplates,
   componentInstances,
   creationMode,
+  isEditingTemplate,
+  editingTemplateId,
   onAddRoom,
   onMoveRoom,
   onDeleteRoom,
@@ -116,16 +120,41 @@ export function DrawingCanvas({
       if (canvasState.isDragging && edge.roomId === selectedRoomId) {
         return;
       }
-      const color = getEdgeColor(edge);
+      
+      let color = getEdgeColor(edge);
+      let alpha = 1.0;
+      
+      // In edit mode, grey out edges that aren't part of the template being edited
+      if (isEditingTemplate && editingTemplateId) {
+        const template = componentTemplates.find(t => t.id === editingTemplateId);
+        if (template && !template.roomIds.includes(edge.roomId)) {
+          color = '#D1D5DB'; // Grey color
+          alpha = 0.3; // Reduced opacity
+        }
+      }
+      
+      ctx.globalAlpha = alpha;
       CanvasUtils.drawEdge(ctx, edge, gridSize, color, cornerPriorities, rooms);
+      ctx.globalAlpha = 1.0;
     });
 
     // Draw component instances
     componentInstances.forEach(instance => {
       const template = componentTemplates.find(t => t.id === instance.templateId);
       if (template) {
+        // In edit mode, skip drawing instances of the template being edited
+        if (isEditingTemplate && instance.templateId === editingTemplateId) {
+          return;
+        }
+        
         const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
         if (templateRooms.length > 0) {
+          // In edit mode, grey out other instances
+          const isGreyedOut = isEditingTemplate && instance.templateId !== editingTemplateId;
+          if (isGreyedOut) {
+            ctx.globalAlpha = 0.3;
+          }
+          
           // Calculate bounding box of original template
           const minX = Math.min(...templateRooms.map(r => r.x));
           const minY = Math.min(...templateRooms.map(r => r.y));
@@ -245,6 +274,9 @@ export function DrawingCanvas({
             
             ctx.setLineDash([]);
           }
+          
+          // Reset alpha after drawing instance
+          ctx.globalAlpha = 1.0;
         }
       }
     });

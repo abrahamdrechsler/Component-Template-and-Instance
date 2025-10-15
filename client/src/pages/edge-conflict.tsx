@@ -25,6 +25,8 @@ export default function EdgeConflictPage() {
     componentInstances,
     links,
     creationMode,
+    isEditingTemplate,
+    editingTemplateId,
     addRoom,
     deleteRoom,
     moveRoom,
@@ -206,6 +208,8 @@ export default function EdgeConflictPage() {
                   componentTemplates={componentTemplates}
                   componentInstances={componentInstances}
                   creationMode={creationMode}
+                  isEditingTemplate={isEditingTemplate}
+                  editingTemplateId={editingTemplateId}
                   onAddRoom={addRoom}
                   onMoveRoom={moveRoom}
                   onDeleteRoom={deleteRoom}
