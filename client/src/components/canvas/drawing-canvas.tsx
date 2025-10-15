@@ -147,36 +147,48 @@ export function DrawingCanvas({
             ctx.strokeRect(instanceX, instanceY, width, height);
           });
           
-          // Draw a single 75% transparent blue overlay over the combined perimeter
-          // Build a set of all occupied grid cells
-          const occupiedCells = new Set<string>();
+          // Draw a single 75% transparent blue overlay over the combined shape
+          ctx.save();
+          
+          // First, create a clipping region from all rooms (this prevents overlapping fills)
+          ctx.beginPath();
           templateRooms.forEach(room => {
             const offsetX = room.x - minX;
             const offsetY = room.y - minY;
-            for (let x = instance.x + offsetX; x < instance.x + offsetX + room.width; x++) {
-              for (let y = instance.y + offsetY; y < instance.y + offsetY + room.height; y++) {
-                occupiedCells.add(`${x},${y}`);
-              }
-            }
+            const instanceX = (instance.x + offsetX) * gridSize;
+            const instanceY = (instance.y + offsetY) * gridSize;
+            const width = room.width * gridSize;
+            const height = room.height * gridSize;
+            ctx.rect(instanceX, instanceY, width, height);
           });
+          ctx.clip();
           
-          // Create a single path for the entire combined shape
-          ctx.save();
-          ctx.beginPath();
+          // Calculate bounding box to fill the entire clipped region at once
+          const minInstanceX = Math.min(...templateRooms.map(r => (instance.x + (r.x - minX)) * gridSize));
+          const minInstanceY = Math.min(...templateRooms.map(r => (instance.y + (r.y - minY)) * gridSize));
+          const maxInstanceX = Math.max(...templateRooms.map(r => (instance.x + (r.x - minX) + r.width) * gridSize));
+          const maxInstanceY = Math.max(...templateRooms.map(r => (instance.y + (r.y - minY) + r.height) * gridSize));
           
-          // Add rectangles for each cell to create the combined shape
-          occupiedCells.forEach(cellKey => {
-            const [x, y] = cellKey.split(',').map(Number);
-            ctx.rect(x * gridSize, y * gridSize, gridSize, gridSize);
-          });
-          
-          // Fill with transparent blue
+          // Now fill the entire bounding box with transparent blue - clipping ensures it only shows in room areas
           ctx.fillStyle = 'rgba(59, 130, 246, 0.25)'; // 25% opacity = 75% transparent
-          ctx.fill();
+          ctx.fillRect(minInstanceX, minInstanceY, maxInstanceX - minInstanceX, maxInstanceY - minInstanceY);
+          
           ctx.restore();
           
           // Draw selection highlight if this instance is selected - trace outer perimeter only
           if (selectedInstanceId === instance.id) {
+            // Build a set of all occupied grid cells
+            const occupiedCells = new Set<string>();
+            templateRooms.forEach(room => {
+              const offsetX = room.x - minX;
+              const offsetY = room.y - minY;
+              for (let x = instance.x + offsetX; x < instance.x + offsetX + room.width; x++) {
+                for (let y = instance.y + offsetY; y < instance.y + offsetY + room.height; y++) {
+                  occupiedCells.add(`${x},${y}`);
+                }
+              }
+            });
+            
             // Find all external edges by checking each cell's borders
             const externalEdges: { x1: number, y1: number, x2: number, y2: number }[] = [];
             
