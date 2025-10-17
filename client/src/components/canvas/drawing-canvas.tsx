@@ -20,9 +20,14 @@ interface DrawingCanvasProps {
   creationMode: 'template-is-first-instance' | 'all-instances-are-templates' | 'template-is-separate-file';
   isEditingTemplate: boolean;
   editingTemplateId?: string;
+  editingInstanceId?: string;
+  isSelectingOrigin: boolean;
+  templateOriginX?: number;
+  templateOriginY?: number;
   onAddRoom: (x: number, y: number, width: number, height: number) => void;
   onMoveRoom: (roomId: string, x: number, y: number) => void;
   onDeleteRoom: (roomId: string) => void;
+  onDeleteInstance: (instanceId: string) => void;
   onSelectRoom: (roomId: string | undefined) => void;
   onSelectEdge: (edgeId: string | undefined) => void;
   onSelectRoomIds?: (roomIds: string[]) => void;
@@ -30,7 +35,9 @@ interface DrawingCanvasProps {
   onMoveInstance: (instanceId: string, x: number, y: number) => void;
   onToggleCornerPriority: (x: number, y: number) => void;
   onPlaceInstance: (templateId: string, x: number, y: number) => void;
-  onEnterTemplateEditMode: (templateId: string) => void;
+  onEnterTemplateEditMode: (templateId: string, instanceId?: string) => void;
+  onSelectOrigin: (x: number, y: number) => void;
+  onSetTemplateOrigin: (x: number, y: number) => void;
   getEdgeColor: (edge: Edge) => string;
   getRoomAt: (x: number, y: number) => Room | undefined;
   getEdgeAt: (x: number, y: number) => Edge | undefined;
@@ -53,9 +60,14 @@ export function DrawingCanvas({
   creationMode,
   isEditingTemplate,
   editingTemplateId,
+  editingInstanceId,
+  isSelectingOrigin,
+  templateOriginX,
+  templateOriginY,
   onAddRoom,
   onMoveRoom,
   onDeleteRoom,
+  onDeleteInstance,
   onSelectRoom,
   onSelectEdge,
   onSelectRoomIds,
@@ -64,6 +76,8 @@ export function DrawingCanvas({
   onToggleCornerPriority,
   onPlaceInstance,
   onEnterTemplateEditMode,
+  onSelectOrigin,
+  onSetTemplateOrigin,
   getEdgeColor,
   getRoomAt,
   getEdgeAt,
@@ -89,15 +103,30 @@ export function DrawingCanvas({
   // Handle keyboard events for delete key
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Delete' && selectedRoomId) {
+      if (event.key === 'Delete') {
         event.preventDefault();
-        onDeleteRoom(selectedRoomId);
+        
+        // Prevent deletion during template editing mode
+        if (isEditingTemplate) {
+          return;
+        }
+        
+        if (selectedRoomId) {
+          // Delete selected room
+          onDeleteRoom(selectedRoomId);
+        } else if (selectedInstanceId) {
+          // Delete selected template instance
+          const instance = componentInstances.find(i => i.id === selectedInstanceId);
+          if (instance) {
+            onDeleteInstance(selectedInstanceId);
+          }
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedRoomId, onDeleteRoom]);
+  }, [selectedRoomId, selectedInstanceId, componentInstances, onDeleteRoom, onDeleteInstance, isEditingTemplate]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -121,24 +150,31 @@ export function DrawingCanvas({
         return;
       }
       
-      // In template editing mode, only show edges belonging to the template being edited
+      // In template editing mode, handle edges differently
       if (isEditingTemplate && editingTemplateId) {
-        const template = componentTemplates.find(t => t.id === editingTemplateId);
-        if (template && template.roomIds.includes(edge.roomId)) {
-          // This edge belongs to the template being edited - show normally
+        if (edge.roomId.startsWith('editing-')) {
+          // This is a temporary editing room edge - show normally
           const color = getEdgeColor(edge);
           CanvasUtils.drawEdge(ctx, edge, gridSize, color, cornerPriorities, rooms);
         } else {
-          // This edge doesn't belong to the template being edited - show greyed out
-          ctx.globalAlpha = 0.2;
-          CanvasUtils.drawEdge(ctx, edge, gridSize, '#D1D5DB', cornerPriorities, rooms);
+          // Check if this edge belongs to the original template being edited
+          const template = componentTemplates.find(t => t.id === editingTemplateId);
+          if (template && template.roomIds.includes(edge.roomId)) {
+            // This is an original template room edge - hide it completely during editing
+            return;
+          }
+          
+          // This is a non-editing edge - show greyed out with no color
+          ctx.globalAlpha = 0.15;
+          CanvasUtils.drawEdge(ctx, edge, gridSize, '#9CA3AF', cornerPriorities, rooms);
           ctx.globalAlpha = 1.0;
         }
         return;
       }
       
       // In "all-instances-are-templates" mode, hide template room edges (they're shown as instances)
-      if (creationMode === 'all-instances-are-templates' && !isEditingTemplate) {
+      // ALWAYS hide original template room edges in this mode, even during editing
+      if (creationMode === 'all-instances-are-templates') {
         const isTemplateRoom = componentTemplates.some(t => t.roomIds.includes(edge.roomId));
         if (isTemplateRoom) {
           return;
@@ -156,9 +192,9 @@ export function DrawingCanvas({
       if (template) {
         const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
         if (templateRooms.length > 0) {
-          // In edit mode, grey out ALL instances heavily
+          // In edit mode, grey out ALL instances heavily with no color
           if (isEditingTemplate) {
-            ctx.globalAlpha = 0.1;
+            ctx.globalAlpha = 0.08;
           }
           
           // Calculate bounding box of original template
@@ -175,7 +211,8 @@ export function DrawingCanvas({
             // Get edges for this room and draw them at instance position
             const roomEdges = edges.filter(e => e.roomId === room.id);
             roomEdges.forEach(edge => {
-              const color = getEdgeColor(edge);
+              // In edit mode, use grey color for instances
+              const color = isEditingTemplate ? '#9CA3AF' : getEdgeColor(edge);
               // Create a translated edge at the instance position
               const instanceEdge = {
                 ...edge,
@@ -210,8 +247,9 @@ export function DrawingCanvas({
           const maxInstanceX = Math.max(...templateRooms.map(r => (instance.x + (r.x - minX) + r.width) * gridSize));
           const maxInstanceY = Math.max(...templateRooms.map(r => (instance.y + (r.y - minY) + r.height) * gridSize));
           
-          // Now fill the entire bounding box with transparent blue - clipping ensures it only shows in room areas
-          ctx.fillStyle = 'rgba(59, 130, 246, 0.25)'; // 25% opacity = 75% transparent
+          // Fill with transparent overlay - blue normally, grey during edit mode
+          const fillColor = isEditingTemplate ? 'rgba(156, 163, 175, 0.15)' : 'rgba(59, 130, 246, 0.25)';
+          ctx.fillStyle = fillColor;
           ctx.fillRect(minInstanceX, minInstanceY, maxInstanceX - minInstanceX, maxInstanceY - minInstanceY);
           
           ctx.restore();
@@ -631,12 +669,17 @@ export function DrawingCanvas({
       ctx.setLineDash([]);
       
       // Find which room this corner belongs to and adjust position for boundary corners
-      const owningRoom = rooms.find(room => 
-        (hoveredCorner.x === room.x && hoveredCorner.y === room.y) || // top-left
-        (hoveredCorner.x === room.x + room.width && hoveredCorner.y === room.y) || // top-right
-        (hoveredCorner.x === room.x && hoveredCorner.y === room.y + room.height) || // bottom-left
-        (hoveredCorner.x === room.x + room.width && hoveredCorner.y === room.y + room.height) // bottom-right
-      );
+      const owningRoom = rooms.find(room => {
+        // In template editing mode, only consider editing rooms
+        if (isEditingTemplate && editingTemplateId && !room.id.startsWith('editing-')) {
+          return false;
+        }
+        
+        return (hoveredCorner.x === room.x && hoveredCorner.y === room.y) || // top-left
+               (hoveredCorner.x === room.x + room.width && hoveredCorner.y === room.y) || // top-right
+               (hoveredCorner.x === room.x && hoveredCorner.y === room.y + room.height) || // bottom-left
+               (hoveredCorner.x === room.x + room.width && hoveredCorner.y === room.y + room.height); // bottom-right
+      });
       
       let cornerX = hoveredCorner.x * gridSize;
       let cornerY = hoveredCorner.y * gridSize;
@@ -724,6 +767,28 @@ export function DrawingCanvas({
         }
       }
     }
+
+    // Draw template origin point (red dot)
+    if ((isSelectingOrigin || isEditingTemplate) && templateOriginX !== undefined && templateOriginY !== undefined) {
+      ctx.save();
+      
+      // Draw red circle for origin point
+      ctx.beginPath();
+      ctx.arc(templateOriginX * gridSize, templateOriginY * gridSize, 8, 0, 2 * Math.PI);
+      ctx.fillStyle = '#EF4444'; // Red color
+      ctx.fill();
+      ctx.strokeStyle = '#DC2626'; // Darker red border
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      
+      // Draw white dot in center
+      ctx.beginPath();
+      ctx.arc(templateOriginX * gridSize, templateOriginY * gridSize, 3, 0, 2 * Math.PI);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+      
+      ctx.restore();
+    }
   }, [
     rooms,
     edges,
@@ -744,6 +809,9 @@ export function DrawingCanvas({
     dragPreviewPos,
     componentTemplates,
     componentInstances,
+    isSelectingOrigin,
+    templateOriginX,
+    templateOriginY,
   ]);
 
   const handleMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -754,6 +822,12 @@ export function DrawingCanvas({
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
     setMousePos(point);
 
+    // Handle origin dragging
+    if (canvasState.isDraggingOrigin) {
+      onSetTemplateOrigin(gridPoint.x, gridPoint.y);
+      return;
+    }
+
     // Check for corner hover
     // Only check hover when not dragging to avoid interference
     if (!canvasState.isDragging) {
@@ -761,6 +835,11 @@ export function DrawingCanvas({
       let foundCornerHover: {x: number, y: number} | null = null;
       
       for (const room of rooms) {
+        // In template editing mode, only detect corners for editing rooms
+        if (isEditingTemplate && editingTemplateId && !room.id.startsWith('editing-')) {
+          continue;
+        }
+        
         // Check each corner of the room
         const corners = [
           {x: room.x, y: room.y}, // top-left
@@ -815,25 +894,30 @@ export function DrawingCanvas({
       if (targetRoomId) {
         const room = rooms.find(r => r.id === targetRoomId);
         if (room) {
-          const roomEdges = edges.filter(e => e.roomId === targetRoomId);
-          const edgesBySide = new Map<string, Edge>();
-          
-          roomEdges.forEach(edge => {
-            if (!edgesBySide.has(edge.side)) {
-              edgesBySide.set(edge.side, edge);
+          // In template editing mode, only show hover for editing rooms
+          if (isEditingTemplate && editingTemplateId && !room.id.startsWith('editing-')) {
+            setHoveredDot(null);
+          } else {
+            const roomEdges = edges.filter(e => e.roomId === targetRoomId);
+            const edgesBySide = new Map<string, Edge>();
+            
+            roomEdges.forEach(edge => {
+              if (!edgesBySide.has(edge.side)) {
+                edgesBySide.set(edge.side, edge);
+              }
+            });
+            
+            let foundHover = null;
+            for (const [side, edge] of Array.from(edgesBySide.entries())) {
+              const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
+              if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
+                foundHover = edge.id;
+                break;
+              }
             }
-          });
-          
-          let foundHover = null;
-          for (const [side, edge] of Array.from(edgesBySide.entries())) {
-            const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
-            if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
-              foundHover = edge.id;
-              break;
-            }
+            
+            setHoveredDot(foundHover);
           }
-          
-          setHoveredDot(foundHover);
         } else {
           setHoveredDot(null);
         }
@@ -867,11 +951,31 @@ export function DrawingCanvas({
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
     const isMultiSelect = event.ctrlKey || event.metaKey || event.shiftKey; // Ctrl/Cmd/Shift for multi-select
 
+    // Check for origin dot drag (only during template editing mode)
+    if (isEditingTemplate && templateOriginX !== undefined && templateOriginY !== undefined) {
+      const originPixelX = templateOriginX * gridSize;
+      const originPixelY = templateOriginY * gridSize;
+      const distance = Math.sqrt(Math.pow(point.x - originPixelX, 2) + Math.pow(point.y - originPixelY, 2));
+      
+      if (distance <= 10) { // 10 pixel radius for click detection (larger than visual size for easier clicking)
+        setCanvasState(prev => ({
+          ...prev,
+          isDraggingOrigin: true,
+        }));
+        return;
+      }
+    }
+
     // Check for corner click FIRST - regardless of selected tool
     // Check if this grid position corresponds to a corner (accounting for adjusted positions)
     let clickedCorner: {x: number, y: number} | null = null;
     
     for (const room of rooms) {
+      // In template editing mode, only detect corners for editing rooms
+      if (isEditingTemplate && editingTemplateId && !room.id.startsWith('editing-')) {
+        continue;
+      }
+      
       const corners = [
         {x: room.x, y: room.y}, // top-left
         {x: room.x + room.width, y: room.y}, // top-right
@@ -957,9 +1061,20 @@ export function DrawingCanvas({
         break;
 
       case 'delete':
-        const roomToDelete = getRoomAt(gridPoint.x, gridPoint.y);
-        if (roomToDelete) {
-          onDeleteRoom(roomToDelete.id);
+        // Prevent deletion during template editing mode
+        if (isEditingTemplate) {
+          break;
+        }
+        
+        // Check for template instance first
+        const instanceToDelete = getInstanceAt(gridPoint.x, gridPoint.y);
+        if (instanceToDelete) {
+          onDeleteInstance(instanceToDelete.id);
+        } else {
+          const roomToDelete = getRoomAt(gridPoint.x, gridPoint.y);
+          if (roomToDelete) {
+            onDeleteRoom(roomToDelete.id);
+          }
         }
         break;
 
@@ -1036,6 +1151,15 @@ export function DrawingCanvas({
 
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
+
+    // Handle origin dragging stop
+    if (canvasState.isDraggingOrigin) {
+      setCanvasState(prev => ({
+        ...prev,
+        isDraggingOrigin: false,
+      }));
+      return;
+    }
 
     if (canvasState.isDrawing && canvasState.drawStart) {
       // Prevent room creation when in template editing mode
@@ -1210,6 +1334,12 @@ export function DrawingCanvas({
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
 
+    // Handle origin selection
+    if (isSelectingOrigin) {
+      onSelectOrigin(gridPoint.x, gridPoint.y);
+      return;
+    }
+
     // Check for edge dot click first
     // Allow edge dot clicks regardless of selected tool
     if (!canvasState.isDragging) {
@@ -1226,21 +1356,26 @@ export function DrawingCanvas({
       if (targetRoomId) {
         const room = rooms.find(r => r.id === targetRoomId);
         if (room) {
-          const roomEdges = edges.filter(e => e.roomId === targetRoomId);
-          const edgesBySide = new Map<string, Edge>();
-          
-          roomEdges.forEach(edge => {
-            if (!edgesBySide.has(edge.side)) {
-              edgesBySide.set(edge.side, edge);
-            }
-          });
-          
-          for (const [side, edge] of Array.from(edgesBySide.entries())) {
-            const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
-            if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
-              onSelectEdge(edge.id);
-              onSelectRoom(undefined); // Clear room selection when edge is selected
-              return;
+          // In template editing mode, only show dots for editing rooms
+          if (isEditingTemplate && editingTemplateId && !room.id.startsWith('editing-')) {
+            // Skip dot detection for non-editing rooms
+          } else {
+            const roomEdges = edges.filter(e => e.roomId === targetRoomId);
+            const edgesBySide = new Map<string, Edge>();
+            
+            roomEdges.forEach(edge => {
+              if (!edgesBySide.has(edge.side)) {
+                edgesBySide.set(edge.side, edge);
+              }
+            });
+            
+            for (const [side, edge] of Array.from(edgesBySide.entries())) {
+              const dotPosition = CanvasUtils.getEdgeDotPosition(room, side as any, gridSize);
+              if (CanvasUtils.isPointNearEdgeDot(point, dotPosition, gridSize)) {
+                onSelectEdge(edge.id);
+                onSelectRoom(undefined); // Clear room selection when edge is selected
+                return;
+              }
             }
           }
         }
@@ -1258,15 +1393,14 @@ export function DrawingCanvas({
     // Then check for room selection
     const room = getRoomAt(gridPoint.x, gridPoint.y);
     if (room) {
-      // In template editing mode, only allow selection of rooms belonging to the template being edited
+      // In template editing mode, only allow selection of temporary editing rooms
       if (isEditingTemplate && editingTemplateId) {
-        const template = componentTemplates.find(t => t.id === editingTemplateId);
-        if (template && template.roomIds.includes(room.id)) {
-          // This room belongs to the template being edited - allow selection
+        if (room.id.startsWith('editing-')) {
+          // This is a temporary editing room - allow selection
           onSelectRoom(room.id);
           onSelectEdge(undefined);
         } else {
-          // This room doesn't belong to the template being edited - ignore click
+          // This is not an editing room - ignore click
           return;
         }
       } else {
@@ -1404,7 +1538,7 @@ export function DrawingCanvas({
 
     const instance = getInstanceAt(gridPoint.x, gridPoint.y);
     if (instance) {
-      onEnterTemplateEditMode(instance.templateId);
+      onEnterTemplateEditMode(instance.templateId, instance.id);
     }
   }, [creationMode, isEditingTemplate, gridSize, getInstanceAt, onEnterTemplateEditMode]);
 

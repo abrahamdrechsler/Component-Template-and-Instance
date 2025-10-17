@@ -51,6 +51,8 @@ export const componentTemplateSchema = z.object({
   name: z.string(),
   roomIds: z.array(z.string()), // IDs of rooms that belong to this template
   sourceFileId: z.string().optional(), // If imported from another file
+  originX: z.number(), // X coordinate of the template's origin point
+  originY: z.number(), // Y coordinate of the template's origin point
 });
 
 // Component Instance schema - a placed occurrence of a template

@@ -27,6 +27,10 @@ export default function EdgeConflictPage() {
     creationMode,
     isEditingTemplate,
     editingTemplateId,
+    editingInstanceId,
+    isSelectingOrigin,
+    templateOriginX,
+    templateOriginY,
     addRoom,
     deleteRoom,
     moveRoom,
@@ -49,6 +53,10 @@ export default function EdgeConflictPage() {
     getEdgeAt,
     getInstanceAt,
     createTemplate,
+    startOriginSelection,
+    selectOrigin,
+    cancelOriginSelection,
+    setTemplateOrigin,
     deleteTemplate,
     placeInstance,
     moveInstance,
@@ -183,8 +191,11 @@ export default function EdgeConflictPage() {
           componentTemplates={componentTemplates}
           links={links}
           creationMode={creationMode}
+          isSelectingOrigin={isSelectingOrigin}
           onSelectRoom={setSelectedRoomId}
           onCreateTemplate={createTemplate}
+          onStartOriginSelection={startOriginSelection}
+          onCancelOriginSelection={cancelOriginSelection}
           onDeleteTemplate={deleteTemplate}
           onAddLink={addLink}
           onCreationModeChange={setCreationMode}
@@ -238,9 +249,14 @@ export default function EdgeConflictPage() {
                   creationMode={creationMode}
                   isEditingTemplate={isEditingTemplate}
                   editingTemplateId={editingTemplateId}
+                  editingInstanceId={editingInstanceId}
+                  isSelectingOrigin={isSelectingOrigin}
+                  templateOriginX={templateOriginX}
+                  templateOriginY={templateOriginY}
                   onAddRoom={addRoom}
                   onMoveRoom={moveRoom}
                   onDeleteRoom={deleteRoom}
+                  onDeleteInstance={deleteInstance}
                   onSelectRoom={setSelectedRoomId}
                   onSelectEdge={setSelectedEdgeId}
                   onSelectRoomIds={setSelectedRoomIds}
@@ -249,6 +265,8 @@ export default function EdgeConflictPage() {
                   onToggleCornerPriority={toggleCornerPriority}
                   onPlaceInstance={placeInstance}
                   onEnterTemplateEditMode={enterTemplateEditMode}
+                  onSelectOrigin={selectOrigin}
+                  onSetTemplateOrigin={setTemplateOrigin}
                   getEdgeColor={getEdgeColor}
                   getRoomAt={getRoomAt}
                   getEdgeAt={getEdgeAt}

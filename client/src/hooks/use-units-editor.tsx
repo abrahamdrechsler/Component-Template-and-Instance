@@ -28,6 +28,10 @@ export interface UseUnitsEditorReturn {
   creationMode: CreationMode;
   isEditingTemplate: boolean;
   editingTemplateId: string | undefined;
+  editingInstanceId: string | undefined;
+  isSelectingOrigin: boolean;
+  templateOriginX: number | undefined;
+  templateOriginY: number | undefined;
   
   addRoom: (x: number, y: number, width: number, height: number) => void;
   deleteRoom: (roomId: string) => void;
@@ -55,6 +59,10 @@ export interface UseUnitsEditorReturn {
   getInstanceAt: (x: number, y: number) => ComponentInstance | undefined;
   
   createTemplate: (name: string, roomIds: string[]) => void;
+  startOriginSelection: (name: string, roomIds: string[]) => void;
+  selectOrigin: (x: number, y: number) => void;
+  cancelOriginSelection: () => void;
+  setTemplateOrigin: (x: number, y: number) => void;
   deleteTemplate: (templateId: string) => void;
   updateTemplate: (templateId: string, updates: Partial<ComponentTemplate>) => void;
   placeInstance: (templateId: string, x: number, y: number) => void;
@@ -65,7 +73,7 @@ export interface UseUnitsEditorReturn {
   removeLink: (linkId: string) => void;
   importTemplatesFromLink: (linkId: string, templateIds: string[]) => void;
   updateLinkStatus: (linkId: string, hasUpdates: boolean) => void;
-  enterTemplateEditMode: (templateId: string) => void;
+  enterTemplateEditMode: (templateId: string, instanceId?: string) => void;
   exitTemplateEditMode: () => void;
   saveTemplateEdits: () => void;
   discardTemplateEdits: () => void;
@@ -92,7 +100,13 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   const [creationMode, setCreationMode] = useState<CreationMode>('template-is-first-instance');
   const [isEditingTemplate, setIsEditingTemplate] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState<string | undefined>();
+  const [editingInstanceId, setEditingInstanceId] = useState<string | undefined>();
   const [preEditState, setPreEditState] = useState<{ rooms: Room[], edges: Edge[], templates: ComponentTemplate[] } | null>(null);
+  const [isSelectingOrigin, setIsSelectingOrigin] = useState(false);
+  const [pendingTemplateName, setPendingTemplateName] = useState('');
+  const [pendingTemplateRoomIds, setPendingTemplateRoomIds] = useState<string[]>([]);
+  const [templateOriginX, setTemplateOriginX] = useState<number | undefined>();
+  const [templateOriginY, setTemplateOriginY] = useState<number | undefined>();
 
   const nextRoomIdRef = useRef(1);
   const nextTemplateIdRef = useRef(1);
@@ -272,8 +286,14 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
 
   const getRoomAt = useCallback((x: number, y: number): Room | undefined => {
     return rooms.find(room => {
-      // In "all-instances-are-templates" mode (when not editing), ignore template rooms - they're only shown as instances
-      if (creationMode === 'all-instances-are-templates' && !isEditingTemplate) {
+      // In template editing mode, only detect temporary editing rooms
+      if (isEditingTemplate && editingTemplateId) {
+        // Only allow interaction with temporary editing rooms
+        if (!room.id.startsWith('editing-')) {
+          return false;
+        }
+      } else if (creationMode === 'all-instances-are-templates') {
+        // In normal "all-instances-are-templates" mode, ignore original template rooms
         const isTemplateRoom = componentTemplates.some(t => t.roomIds.includes(room.id));
         if (isTemplateRoom) {
           return false;
@@ -282,13 +302,19 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       
       return CanvasUtils.isPointInRoom({ x, y }, room);
     });
-  }, [rooms, creationMode, isEditingTemplate, componentTemplates]);
+  }, [rooms, creationMode, isEditingTemplate, editingTemplateId, componentTemplates]);
 
   const getEdgeAt = useCallback((x: number, y: number): Edge | undefined => {
     const tolerance = 0.5;
     return edges.find(edge => {
-      // In "all-instances-are-templates" mode (when not editing), ignore template edges - they're only shown as instances
-      if (creationMode === 'all-instances-are-templates' && !isEditingTemplate) {
+      // In template editing mode, only detect temporary editing edges
+      if (isEditingTemplate && editingTemplateId) {
+        // Only allow interaction with temporary editing edges
+        if (!edge.roomId.startsWith('editing-')) {
+          return false;
+        }
+      } else if (creationMode === 'all-instances-are-templates') {
+        // In normal "all-instances-are-templates" mode, ignore original template edges
         const isTemplateEdge = componentTemplates.some(t => t.roomIds.includes(edge.roomId));
         if (isTemplateEdge) {
           return false;
@@ -303,7 +329,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       );
       return distanceToLine < tolerance;
     });
-  }, [edges, creationMode, isEditingTemplate, componentTemplates]);
+  }, [edges, creationMode, isEditingTemplate, editingTemplateId, componentTemplates]);
 
   const getInstanceAt = useCallback((x: number, y: number): ComponentInstance | undefined => {
     for (const instance of componentInstances) {
@@ -391,12 +417,135 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     });
   }, []);
 
+  const startOriginSelection = useCallback((name: string, roomIds: string[]) => {
+    setPendingTemplateName(name);
+    setPendingTemplateRoomIds(roomIds);
+    setIsSelectingOrigin(true);
+    
+    // Calculate default origin (center of template bounds)
+    const bounds = roomIds.reduce((acc, roomId) => {
+      const room = rooms.find(r => r.id === roomId);
+      if (!room) return acc;
+      return {
+        minX: Math.min(acc.minX, room.x),
+        minY: Math.min(acc.minY, room.y),
+        maxX: Math.max(acc.maxX, room.x + room.width),
+        maxY: Math.max(acc.maxY, room.y + room.height),
+      };
+    }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+    
+    if (bounds.minX !== Infinity) {
+      const centerX = Math.floor((bounds.minX + bounds.maxX) / 2);
+      const centerY = Math.floor((bounds.minY + bounds.maxY) / 2);
+      setTemplateOriginX(centerX);
+      setTemplateOriginY(centerY);
+    }
+  }, [rooms]);
+
+  const selectOrigin = useCallback((x: number, y: number) => {
+    setTemplateOriginX(x);
+    setTemplateOriginY(y);
+    
+    // Now that origin is selected, create the template with the pending data
+    if (pendingTemplateName && pendingTemplateRoomIds.length > 0) {
+      // Create template directly here to avoid circular dependency
+      const templateId = `template-${nextTemplateIdRef.current++}`;
+      const newTemplate: ComponentTemplate = {
+        id: templateId,
+        name: pendingTemplateName,
+        roomIds: pendingTemplateRoomIds,
+        originX: x,  
+        originY: y,
+      };
+      setComponentTemplates(prev => [...prev, newTemplate]);
+      
+      const bounds = pendingTemplateRoomIds.reduce((acc, roomId) => {
+        const room = rooms.find(r => r.id === roomId);
+        if (!room) return acc;
+        return {
+          minX: Math.min(acc.minX, room.x),
+          minY: Math.min(acc.minY, room.y),
+        };
+      }, { minX: Infinity, minY: Infinity });
+      
+      // Always create an instance for the template
+      const instanceId = `instance-${nextInstanceIdRef.current++}`;
+      const newInstance: ComponentInstance = {
+        id: instanceId,
+        templateId,
+        x: bounds.minX,
+        y: bounds.minY,
+      };
+      setComponentInstances(prev => [...prev, newInstance]);
+      
+      // Clear origin selection state
+      setIsSelectingOrigin(false);
+      setPendingTemplateName('');
+      setPendingTemplateRoomIds([]);
+      setTemplateOriginX(undefined);
+      setTemplateOriginY(undefined);
+      
+      // In "all-instances-are-templates" mode, clear room selection after creating template/instance
+      if (creationMode === 'all-instances-are-templates') {
+        setSelectedRoomIds([]);
+      }
+    }
+  }, [pendingTemplateName, pendingTemplateRoomIds, rooms, creationMode]);
+
+  const cancelOriginSelection = useCallback(() => {
+    setIsSelectingOrigin(false);
+    setPendingTemplateName('');
+    setPendingTemplateRoomIds([]);
+    setTemplateOriginX(undefined);
+    setTemplateOriginY(undefined);
+  }, []);
+
+  const setTemplateOrigin = useCallback((x: number, y: number) => {
+    if (isEditingTemplate && editingTemplateId) {
+      // Update existing template's origin
+      setComponentTemplates(prev => prev.map(t => 
+        t.id === editingTemplateId ? { ...t, originX: x, originY: y } : t
+      ));
+      setTemplateOriginX(x);
+      setTemplateOriginY(y);
+    }
+  }, [isEditingTemplate, editingTemplateId]);
+
   const createTemplate = useCallback((name: string, roomIds: string[]) => {
+    if (templateOriginX === undefined || templateOriginY === undefined) {
+      // If no origin set yet, start origin selection instead
+      setPendingTemplateName(name);
+      setPendingTemplateRoomIds(roomIds);
+      setIsSelectingOrigin(true);
+      
+      // Calculate default origin (center of template bounds)
+      const bounds = roomIds.reduce((acc, roomId) => {
+        const room = rooms.find(r => r.id === roomId);
+        if (!room) return acc;
+        return {
+          minX: Math.min(acc.minX, room.x),
+          minY: Math.min(acc.minY, room.y),
+          maxX: Math.max(acc.maxX, room.x + room.width),
+          maxY: Math.max(acc.maxY, room.y + room.height),
+        };
+      }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+      
+      if (bounds.minX !== Infinity) {
+        const centerX = Math.floor((bounds.minX + bounds.maxX) / 2);
+        const centerY = Math.floor((bounds.minY + bounds.maxY) / 2);
+        setTemplateOriginX(centerX);
+        setTemplateOriginY(centerY);
+      }
+      return;
+    }
+
     const templateId = `template-${nextTemplateIdRef.current++}`;
     const newTemplate: ComponentTemplate = {
       id: templateId,
       name,
       roomIds,
+      originX: templateOriginX,  
+      originY: templateOriginY,
     };
     setComponentTemplates(prev => [...prev, newTemplate]);
     
@@ -419,11 +568,18 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     };
     setComponentInstances(prev => [...prev, newInstance]);
     
+    // Clear origin selection state
+    setIsSelectingOrigin(false);
+    setPendingTemplateName('');
+    setPendingTemplateRoomIds([]);
+    setTemplateOriginX(undefined);
+    setTemplateOriginY(undefined);
+    
     // In "all-instances-are-templates" mode, clear room selection after creating template/instance
     if (creationMode === 'all-instances-are-templates') {
       setSelectedRoomIds([]);
     }
-  }, [rooms, creationMode]);
+  }, [rooms, creationMode, templateOriginX, templateOriginY]);
 
   const deleteTemplate = useCallback((templateId: string) => {
     setComponentTemplates(prev => prev.filter(t => t.id !== templateId));
@@ -508,7 +664,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     ));
   }, []);
 
-  const enterTemplateEditMode = useCallback((templateId: string) => {
+  const enterTemplateEditMode = useCallback((templateId: string, instanceId?: string) => {
     // Save current state for potential discard
     setPreEditState({
       rooms: [...rooms],
@@ -516,23 +672,137 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       templates: [...componentTemplates],
     });
     
+    const template = componentTemplates.find(t => t.id === templateId);
+    if (template) {
+      // Set the template origin for editing/display
+      // Handle legacy templates that don't have origin points
+      if (template.originX !== undefined && template.originY !== undefined) {
+        setTemplateOriginX(template.originX);
+        setTemplateOriginY(template.originY);
+      } else {
+        // Calculate default origin (center of template bounds) for legacy templates
+        const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+        if (templateRooms.length > 0) {
+          const bounds = templateRooms.reduce((acc, room) => ({
+            minX: Math.min(acc.minX, room.x),
+            minY: Math.min(acc.minY, room.y),
+            maxX: Math.max(acc.maxX, room.x + room.width),
+            maxY: Math.max(acc.maxY, room.y + room.height),
+          }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+          
+          const centerX = Math.floor((bounds.minX + bounds.maxX) / 2);
+          const centerY = Math.floor((bounds.minY + bounds.maxY) / 2);
+          setTemplateOriginX(centerX);
+          setTemplateOriginY(centerY);
+          
+          // Update the template with the calculated origin
+          setComponentTemplates(prev => prev.map(t => 
+            t.id === templateId ? { ...t, originX: centerX, originY: centerY } : t
+          ));
+        }
+      }
+    }
+    
+    if (instanceId) {
+      // Editing through an instance - create temporary rooms at instance position
+      const instance = componentInstances.find(i => i.id === instanceId);
+      
+      if (instance && template) {
+        const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+        
+        if (templateRooms.length > 0) {
+          // Create temporary editing rooms at their current positions
+          // Don't reposition them - let them stay where they are
+          const editingRooms = templateRooms.map(room => ({
+            ...room,
+            id: `editing-${room.id}`, // Temporary ID to avoid conflicts
+            // Keep original positions - no translation
+            x: room.x,
+            y: room.y,
+          }));
+          
+          // Add temporary rooms to the rooms array
+          setRooms(prev => [...prev, ...editingRooms]);
+          
+          // Generate edges for the temporary rooms
+          const allTempEdges: Edge[] = [];
+          for (const room of editingRooms) {
+            const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, editingRooms);
+            allTempEdges.push(...roomEdges);
+          }
+          setEdges(prev => [...prev, ...allTempEdges]);
+        }
+      }
+      
+      setEditingInstanceId(instanceId);
+    }
+    
     setIsEditingTemplate(true);
     setEditingTemplateId(templateId);
-  }, [rooms, edges, componentTemplates]);
+  }, [rooms, edges, componentTemplates, componentInstances]);
 
   const exitTemplateEditMode = useCallback(() => {
+    // Clean up temporary editing rooms and edges
+    setRooms(prev => prev.filter(room => !room.id.startsWith('editing-')));
+    setEdges(prev => prev.filter(edge => !edge.roomId.startsWith('editing-')));
+    
     setIsEditingTemplate(false);
     setEditingTemplateId(undefined);
+    setEditingInstanceId(undefined);
+    setTemplateOriginX(undefined);
+    setTemplateOriginY(undefined);
     setPreEditState(null);
   }, []);
 
   const saveTemplateEdits = useCallback(() => {
     if (!editingTemplateId) return;
     
-    // The rooms and edges have already been modified in place
-    // Just exit edit mode
+    if (editingInstanceId && preEditState) {
+      // Editing through an instance - need to save changes back to template
+      const instance = componentInstances.find(i => i.id === editingInstanceId);
+      const template = componentTemplates.find(t => t.id === editingTemplateId);
+      
+      if (instance && template) {
+        // Get the temporary editing rooms and original template rooms
+        const editingRooms = rooms.filter(r => r.id.startsWith('editing-'));
+        const originalTemplateRooms = preEditState.rooms.filter(r => template.roomIds.includes(r.id));
+        
+        if (editingRooms.length > 0) {
+          // Since editing rooms are at their original positions, directly copy changes back
+          const updatedRooms = rooms.filter(r => !r.id.startsWith('editing-')).map(room => {
+            if (!template.roomIds.includes(room.id)) {
+              return room; // Not a template room, leave unchanged
+            }
+            
+            const matchingEditingRoom = editingRooms.find(er => er.id === `editing-${room.id}`);
+            if (matchingEditingRoom) {
+              // Copy the editing room's changes back to the original template room
+              return {
+                ...matchingEditingRoom, // Copy all properties (width, height, color, etc.)
+                id: room.id, // Restore original ID
+              };
+            }
+            
+            return room;
+          });
+          
+          // Update rooms state
+          setRooms(updatedRooms);
+          
+          // Regenerate edges for the updated rooms
+          const allEdges: Edge[] = [];
+          for (const room of updatedRooms) {
+            const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, updatedRooms);
+            allEdges.push(...roomEdges);
+          }
+          setEdges(allEdges);
+        }
+      }
+    }
+    
+    // Exit edit mode and clean up
     exitTemplateEditMode();
-  }, [editingTemplateId, exitTemplateEditMode]);
+  }, [editingTemplateId, editingInstanceId, componentInstances, componentTemplates, rooms, preEditState, exitTemplateEditMode]);
 
   const discardTemplateEdits = useCallback(() => {
     if (!preEditState) return;
@@ -566,6 +836,10 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     creationMode,
     isEditingTemplate,
     editingTemplateId,
+    editingInstanceId,
+    isSelectingOrigin,
+    templateOriginX,
+    templateOriginY,
     addRoom,
     deleteRoom,
     moveRoom,
@@ -591,6 +865,10 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     getEdgeAt,
     getInstanceAt,
     createTemplate,
+    startOriginSelection,
+    selectOrigin,
+    cancelOriginSelection,
+    setTemplateOrigin,
     deleteTemplate,
     updateTemplate,
     placeInstance,

@@ -17,8 +17,11 @@ interface ProjectInspectorPanelProps {
   componentTemplates: ComponentTemplate[];
   links: Link[];
   creationMode: CreationMode;
+  isSelectingOrigin: boolean;
   onSelectRoom: (roomId: string) => void;
   onCreateTemplate: (name: string, roomIds: string[]) => void;
+  onStartOriginSelection: (name: string, roomIds: string[]) => void;
+  onCancelOriginSelection: () => void;
   onDeleteTemplate: (templateId: string) => void;
   onAddLink: (fileId: string, fileName: string) => void;
   onRemoveLink: (linkId: string) => void;
@@ -37,8 +40,11 @@ export function ProjectInspectorPanel({
   componentTemplates,
   links,
   creationMode,
+  isSelectingOrigin,
   onSelectRoom,
   onCreateTemplate,
+  onStartOriginSelection,
+  onCancelOriginSelection,
   onDeleteTemplate,
   onAddLink,
   onRemoveLink,
@@ -65,7 +71,8 @@ export function ProjectInspectorPanel({
     }
 
     if (templateName.trim()) {
-      onCreateTemplate(templateName.trim(), selectedRoomIds);
+      // Start origin selection workflow instead of creating template directly
+      onStartOriginSelection(templateName.trim(), selectedRoomIds);
       setTemplateName('');
       setShowTemplateInput(false);
     }
@@ -184,10 +191,31 @@ export function ProjectInspectorPanel({
               </div>
             )}
 
+            {isSelectingOrigin && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-md space-y-2 mb-3">
+                <div className="text-sm font-medium text-red-800">
+                  Select Origin Point
+                </div>
+                <div className="text-xs text-red-600">
+                  Click on the canvas to set the origin point for your template. 
+                  The red dot shows where the template will anchor when placed.
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={onCancelOriginSelection}
+                  className="w-full text-red-600 border-red-200 hover:bg-red-100"
+                  data-testid="button-cancel-origin"
+                >
+                  Cancel Template Creation
+                </Button>
+              </div>
+            )}
+
             <Button
               size="sm"
               onClick={handleCreateTemplate}
-              disabled={selectedRoomIds.length === 0}
+              disabled={selectedRoomIds.length === 0 || isSelectingOrigin}
               className="w-full mb-3"
               data-testid="button-save-template"
             >

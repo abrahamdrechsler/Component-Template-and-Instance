@@ -16,6 +16,7 @@ export interface CanvasState {
   dragStartOffset?: Point;
   isDrawing: boolean;
   drawStart: Point | null;
+  isDraggingOrigin?: boolean;
 }
 
 export interface EdgeConflict {
