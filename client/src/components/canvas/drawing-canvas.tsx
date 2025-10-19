@@ -768,7 +768,8 @@ export function DrawingCanvas({
       }
     }
 
-    // Draw template origin point (red dot)
+    // Draw template origin points
+    // During origin selection or template editing, show the temporary origin point
     if ((isSelectingOrigin || isEditingTemplate) && templateOriginX !== undefined && templateOriginY !== undefined) {
       ctx.save();
       
@@ -788,6 +789,46 @@ export function DrawingCanvas({
       ctx.fill();
       
       ctx.restore();
+    }
+    
+    // In "template-is-first-instance" mode, always show origin for first instance (the template)
+    if (creationMode === 'template-is-first-instance' && !isSelectingOrigin && !isEditingTemplate) {
+      componentTemplates.forEach(template => {
+        // Find the first instance of this template (represents the template itself)
+        const firstInstance = componentInstances.find(inst => inst.templateId === template.id);
+        
+        if (firstInstance && template.originX !== undefined && template.originY !== undefined) {
+          // Calculate the absolute position of the origin relative to the first instance
+          const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+          if (templateRooms.length > 0) {
+            const minX = Math.min(...templateRooms.map(r => r.x));
+            const minY = Math.min(...templateRooms.map(r => r.y));
+            
+            // Origin is relative to template position, so we need to translate it to the instance position
+            const originX = firstInstance.x + (template.originX - minX);
+            const originY = firstInstance.y + (template.originY - minY);
+            
+            ctx.save();
+            
+            // Draw red circle for origin point
+            ctx.beginPath();
+            ctx.arc(originX * gridSize, originY * gridSize, 8, 0, 2 * Math.PI);
+            ctx.fillStyle = '#EF4444'; // Red color
+            ctx.fill();
+            ctx.strokeStyle = '#DC2626'; // Darker red border
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // Draw white dot in center
+            ctx.beginPath();
+            ctx.arc(originX * gridSize, originY * gridSize, 3, 0, 2 * Math.PI);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.fill();
+            
+            ctx.restore();
+          }
+        }
+      });
     }
   }, [
     rooms,
@@ -809,6 +850,8 @@ export function DrawingCanvas({
     dragPreviewPos,
     componentTemplates,
     componentInstances,
+    creationMode,
+    isEditingTemplate,
     isSelectingOrigin,
     templateOriginX,
     templateOriginY,
