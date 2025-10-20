@@ -3,9 +3,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Room, Edge, RoomColor, ComponentInstance, ComponentTemplate } from '@shared/schema';
+import { Room, Edge, RoomColor, ComponentInstance, ComponentTemplate, Option, RoomCondition } from '@shared/schema';
 import { ROOM_COLORS } from '@/types/room';
-import { MousePointer, Trash2, Package } from 'lucide-react';
+import { MousePointer, Trash2, Package, ChevronDown, Plus, X } from 'lucide-react';
+import { useState } from 'react';
 
 interface InspectorPanelProps {
   selectedRoom?: Room;
@@ -13,6 +14,7 @@ interface InspectorPanelProps {
   selectedInstance?: ComponentInstance;
   rooms: Room[];
   componentTemplates: ComponentTemplate[];
+  options: Option[];
   onUpdateRoom: (roomId: string, updates: Partial<Room>) => void;
   onUpdateEdge: (edgeId: string, updates: Partial<Edge>) => void;
   onDeleteRoom: (roomId: string) => void;
@@ -25,11 +27,14 @@ export function InspectorPanel({
   selectedInstance,
   rooms,
   componentTemplates,
+  options,
   onUpdateRoom,
   onUpdateEdge,
   onDeleteRoom,
   onDeleteInstance,
 }: InspectorPanelProps) {
+  const [conditionsExpanded, setConditionsExpanded] = useState(true);
+  
   const colorNames = {
     skyBlue: 'Blue',
     coralRed: 'Red',
@@ -62,9 +67,54 @@ export function InspectorPanel({
     return side.charAt(0).toUpperCase() + side.slice(1);
   };
 
+  // Condition management helpers
+  const addCondition = () => {
+    if (!selectedRoom || options.length === 0) return;
+    
+    const firstOption = options[0];
+    const firstValue = firstOption.values[0];
+    
+    const newCondition: RoomCondition = {
+      id: `condition-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      optionId: firstOption.id,
+      valueId: firstValue.id,
+      operator: 'equals',
+    };
+    
+    const currentConditions = selectedRoom.conditions || [];
+    onUpdateRoom(selectedRoom.id, { conditions: [...currentConditions, newCondition] });
+  };
+
+  const updateCondition = (conditionId: string, updates: Partial<RoomCondition>) => {
+    if (!selectedRoom || !selectedRoom.conditions) return;
+    
+    const updatedConditions = selectedRoom.conditions.map(c =>
+      c.id === conditionId ? { ...c, ...updates } : c
+    );
+    
+    onUpdateRoom(selectedRoom.id, { conditions: updatedConditions });
+  };
+
+  const deleteCondition = (conditionId: string) => {
+    if (!selectedRoom || !selectedRoom.conditions) return;
+    
+    const updatedConditions = selectedRoom.conditions.filter(c => c.id !== conditionId);
+    onUpdateRoom(selectedRoom.id, { conditions: updatedConditions });
+  };
+
+  const toggleOperator = (conditionId: string) => {
+    if (!selectedRoom || !selectedRoom.conditions) return;
+    
+    const condition = selectedRoom.conditions.find(c => c.id === conditionId);
+    if (!condition) return;
+    
+    const newOperator = condition.operator === 'equals' ? 'notEquals' : 'equals';
+    updateCondition(conditionId, { operator: newOperator });
+  };
+
   if (!selectedRoom && !selectedEdge && !selectedInstance) {
     return (
-      <div className="w-72 bg-white border-l border-gray-200 flex flex-col">
+      <div className="w-full h-full bg-white border-l border-gray-200 flex flex-col">
         <div className="p-4 border-b border-gray-200">
           <h2 className="text-base font-semibold text-gray-900">Inspector</h2>
         </div>
@@ -80,7 +130,7 @@ export function InspectorPanel({
   }
 
   return (
-    <div className="w-72 bg-white border-l border-gray-200 flex flex-col">
+    <div className="w-full h-full bg-white border-l border-gray-200 flex flex-col">
       <div className="p-4 border-b border-gray-200">
         <h2 className="text-base font-semibold text-gray-900">
           {selectedInstance ? 'Component Instance' : selectedEdge ? 'Edge' : selectedRoom ? 'Room' : 'Inspector'}
@@ -181,6 +231,112 @@ export function InspectorPanel({
               </div>
             </div>
           </div>
+
+          {/* Conditions Section */}
+          {options.length > 0 && (
+            <div className="border-t border-gray-200 pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <button
+                  onClick={() => setConditionsExpanded(!conditionsExpanded)}
+                  className="flex items-center gap-2 text-sm font-medium text-gray-700 hover:text-gray-900"
+                >
+                  Conditions
+                  <ChevronDown 
+                    className={`w-4 h-4 transition-transform ${conditionsExpanded ? 'rotate-180' : ''}`}
+                  />
+                </button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={addCondition}
+                  className="h-7 w-7 p-0"
+                  disabled={options.length === 0}
+                >
+                  <Plus className="w-4 h-4" />
+                </Button>
+              </div>
+
+              {conditionsExpanded && (
+                <div className="space-y-2">
+                  {(!selectedRoom.conditions || selectedRoom.conditions.length === 0) ? (
+                    <p className="text-xs text-gray-500 text-center py-3">
+                      No conditions. Click + to add.
+                    </p>
+                  ) : (
+                    selectedRoom.conditions.map((condition) => {
+                      const option = options.find(o => o.id === condition.optionId);
+                      const selectedValue = option?.values.find(v => v.id === condition.valueId);
+                      
+                      return (
+                        <div key={condition.id} className="flex items-center gap-2">
+                          {/* Option Dropdown */}
+                          <Select
+                            value={condition.optionId}
+                            onValueChange={(value) => {
+                              const newOption = options.find(o => o.id === value);
+                              if (newOption) {
+                                updateCondition(condition.id, {
+                                  optionId: value,
+                                  valueId: newOption.values[0].id,
+                                });
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="flex-1 h-9 text-xs">
+                              <SelectValue placeholder="Select option" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {options.map((opt) => (
+                                <SelectItem key={opt.id} value={opt.id} className="text-xs">
+                                  {opt.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          {/* Operator Toggle */}
+                          <button
+                            onClick={() => toggleOperator(condition.id)}
+                            className="h-9 w-9 flex items-center justify-center border border-gray-300 rounded bg-white hover:bg-gray-50 text-sm font-medium"
+                            title={condition.operator === 'equals' ? 'Equals' : 'Not equals'}
+                          >
+                            {condition.operator === 'equals' ? '=' : '≠'}
+                          </button>
+
+                          {/* Value Dropdown */}
+                          <Select
+                            value={condition.valueId}
+                            onValueChange={(value) => updateCondition(condition.id, { valueId: value })}
+                          >
+                            <SelectTrigger className="flex-1 h-9 text-xs">
+                              <SelectValue placeholder="Select value" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {option?.values.map((val) => (
+                                <SelectItem key={val.id} value={val.id} className="text-xs">
+                                  {val.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+
+                          {/* Delete Button */}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => deleteCondition(condition.id)}
+                            className="h-9 w-9 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <X className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="pt-4 border-t border-gray-200">
             <Button

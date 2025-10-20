@@ -1,12 +1,12 @@
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Room, ComponentTemplate, Link, type FileMetadata } from '@shared/schema';
+import { Room, ComponentTemplate, Link, Option, type FileMetadata } from '@shared/schema';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Package, Link as LinkIcon, Plus, Trash2, AlertCircle, Download } from 'lucide-react';
+import { Package, Link as LinkIcon, Plus, Trash2, AlertCircle, Download, Settings } from 'lucide-react';
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { CreationMode } from '@/hooks/use-units-editor';
@@ -16,6 +16,8 @@ interface ProjectInspectorPanelProps {
   selectedRoomIds: string[];
   componentTemplates: ComponentTemplate[];
   links: Link[];
+  options: Option[];
+  activeOptionState: Record<string, string>;
   creationMode: CreationMode;
   isSelectingOrigin: boolean;
   onSelectRoom: (roomId: string) => void;
@@ -26,6 +28,11 @@ interface ProjectInspectorPanelProps {
   onAddLink: (fileId: string, fileName: string) => void;
   onRemoveLink: (linkId: string) => void;
   onCreationModeChange: (mode: CreationMode) => void;
+  onTemplateDragStart: (templateId: string) => void;
+  onTemplateDragEnd: () => void;
+  onCreateOption: (name: string) => void;
+  onSelectOption: (optionId: string) => void;
+  onSetActiveOptionValue: (optionId: string, valueId: string) => void;
 }
 
 const CREATION_MODE_LABELS: Record<CreationMode, string> = {
@@ -39,6 +46,8 @@ export function ProjectInspectorPanel({
   selectedRoomIds,
   componentTemplates,
   links,
+  options,
+  activeOptionState,
   creationMode,
   isSelectingOrigin,
   onSelectRoom,
@@ -49,10 +58,17 @@ export function ProjectInspectorPanel({
   onAddLink,
   onRemoveLink,
   onCreationModeChange,
+  onTemplateDragStart,
+  onTemplateDragEnd,
+  onCreateOption,
+  onSelectOption,
+  onSetActiveOptionValue,
 }: ProjectInspectorPanelProps) {
   const [templateName, setTemplateName] = useState('');
   const [showTemplateInput, setShowTemplateInput] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [optionName, setOptionName] = useState('');
+  const [showOptionInput, setShowOptionInput] = useState(false);
   
   const { data: publishedFiles = [] } = useQuery<FileMetadata[]>({
     queryKey: ['/api/files'],
@@ -79,7 +95,7 @@ export function ProjectInspectorPanel({
   };
 
   return (
-    <div className="w-72 bg-card border-r border-border flex flex-col shadow-sm">
+    <div className="w-full h-full bg-card border-r border-border flex flex-col shadow-sm">
       <div className="p-4 border-b border-border bg-muted/30 space-y-3">
         <div>
           <Label className="text-xs font-semibold text-foreground/70 mb-1.5 block uppercase tracking-wide">Creation Mode</Label>
@@ -237,9 +253,16 @@ export function ProjectInspectorPanel({
                       console.log('Drag start:', template.id);
                       e.dataTransfer.setData('templateId', template.id);
                       e.dataTransfer.effectAllowed = 'copy';
+                      onTemplateDragStart(template.id);
+                      
+                      // Hide the default drag image (the UI element)
+                      const img = new Image();
+                      img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAUEBAAAACwAAAAAAQABAAACAkQBADs=';
+                      e.dataTransfer.setDragImage(img, 0, 0);
                     }}
                     onDragEnd={() => {
                       console.log('Drag end');
+                      onTemplateDragEnd();
                     }}
                     className="p-2 rounded-sm border border-border bg-muted/50 cursor-move hover:bg-muted hover:border-primary/50 transition-colors"
                     data-testid={`template-item-${template.id}`}
@@ -271,6 +294,109 @@ export function ProjectInspectorPanel({
           </div>
 
           <Separator />
+
+          {/* OPTIONS SECTION */}
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <Label className="text-xs font-semibold text-foreground/70 uppercase tracking-wide flex items-center gap-2">
+                <Settings className="w-4 h-4" />
+                Options ({options.length})
+              </Label>
+            </div>
+
+            {!showOptionInput && (
+              <Button
+                size="sm"
+                onClick={() => {
+                  setShowOptionInput(true);
+                  setOptionName(`Option ${options.length + 1}`);
+                }}
+                className="w-full mb-3"
+                data-testid="button-create-option"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create Option
+              </Button>
+            )}
+
+            {showOptionInput && (
+              <div className="p-3 bg-accent rounded-md space-y-2 mb-3">
+                <Label htmlFor="option-name" className="text-xs font-medium">Option Name</Label>
+                <Input
+                  id="option-name"
+                  placeholder="Enter option name..."
+                  value={optionName}
+                  onChange={(e) => setOptionName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && optionName.trim()) {
+                      onCreateOption(optionName.trim());
+                      setOptionName('');
+                      setShowOptionInput(false);
+                    }
+                  }}
+                  autoFocus
+                  data-testid="input-option-name"
+                />
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      if (optionName.trim()) {
+                        onCreateOption(optionName.trim());
+                        setOptionName('');
+                        setShowOptionInput(false);
+                      }
+                    }}
+                    data-testid="button-save-option"
+                  >
+                    Save
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setShowOptionInput(false);
+                      setOptionName('');
+                    }}
+                    data-testid="button-cancel-option"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {options.length === 0 ? (
+              <div className="text-sm text-muted-foreground text-center py-4">
+                No options yet. Click "Create Option" to get started.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {options.map((option) => (
+                  <div
+                    key={option.id}
+                    onClick={() => onSelectOption(option.id)}
+                    className="p-2 rounded-sm border border-border bg-muted/50 hover:bg-muted hover:border-primary/50 transition-colors cursor-pointer"
+                    data-testid={`option-item-${option.id}`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="font-medium text-foreground text-sm">
+                          {option.name}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {option.values.length} value{option.values.length !== 1 ? 's' : ''}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* LINKS SECTION - COMMENTED OUT FOR NOW */}
+          {/* <Separator />
 
           <div>
             <div className="flex items-center justify-between mb-3">
@@ -379,7 +505,43 @@ export function ProjectInspectorPanel({
                 ))}
               </div>
             )}
-          </div>
+          </div> */}
+
+          {/* ACTIVE OPTION STATE SECTION */}
+          {options.length > 0 && (
+            <>
+              <Separator />
+              <div>
+                <Label className="text-xs font-semibold text-foreground/70 uppercase tracking-wide mb-3 block">
+                  Active Option State
+                </Label>
+                <div className="space-y-3">
+                  {options.map((option) => (
+                    <div key={option.id}>
+                      <Label htmlFor={`active-option-${option.id}`} className="text-xs font-medium text-foreground mb-1 block">
+                        {option.name}
+                      </Label>
+                      <Select
+                        value={activeOptionState[option.id] || option.values[0]?.id}
+                        onValueChange={(valueId) => onSetActiveOptionValue(option.id, valueId)}
+                      >
+                        <SelectTrigger id={`active-option-${option.id}`} className="w-full">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {option.values.map((value) => (
+                            <SelectItem key={value.id} value={value.id}>
+                              {value.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </ScrollArea>
     </div>

@@ -1,14 +1,21 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { useUnitsEditor } from '@/hooks/use-units-editor';
 import { Toolbar } from '@/components/panels/toolbar';
 import { ProjectInspectorPanel } from '@/components/panels/project-inspector-panel';
 import { InspectorPanel } from '@/components/panels/inspector-panel';
+import { OptionInspectorPanel } from '@/components/panels/option-inspector-panel';
 import { DrawingCanvas } from '@/components/canvas/drawing-canvas';
 import { ROOM_COLORS } from '@/types/room';
 import { useToast } from '@/hooks/use-toast';
 
 export default function EdgeConflictPage() {
   const { toast } = useToast();
+  const [draggedTemplateId, setDraggedTemplateId] = useState<string | null>(null);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(320); // px
+  const [rightPanelWidth, setRightPanelWidth] = useState(288); // px (w-72 = 18rem = 288px)
+  const [isDraggingLeft, setIsDraggingLeft] = useState(false);
+  const [isDraggingRight, setIsDraggingRight] = useState(false);
+  
   const {
     rooms,
     edges,
@@ -24,6 +31,9 @@ export default function EdgeConflictPage() {
     componentTemplates,
     componentInstances,
     links,
+    options,
+    activeOptionState,
+    selectedOptionId,
     creationMode,
     isEditingTemplate,
     editingTemplateId,
@@ -57,6 +67,7 @@ export default function EdgeConflictPage() {
     selectOrigin,
     cancelOriginSelection,
     setTemplateOrigin,
+    updateTemplateOrigin,
     deleteTemplate,
     placeInstance,
     moveInstance,
@@ -67,7 +78,47 @@ export default function EdgeConflictPage() {
     enterTemplateEditMode,
     saveTemplateEdits,
     discardTemplateEdits,
+    createOption,
+    updateOption,
+    deleteOption,
+    addOptionValue,
+    updateOptionValue,
+    deleteOptionValue,
+    setActiveOptionValue,
+    setSelectedOptionId,
   } = useUnitsEditor();
+
+  // Resizing handlers
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDraggingLeft) {
+        const newWidth = Math.max(200, Math.min(600, e.clientX));
+        setLeftPanelWidth(newWidth);
+      } else if (isDraggingRight) {
+        const newWidth = Math.max(200, Math.min(600, window.innerWidth - e.clientX));
+        setRightPanelWidth(newWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingLeft(false);
+      setIsDraggingRight(false);
+    };
+
+    if (isDraggingLeft || isDraggingRight) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isDraggingLeft, isDraggingRight]);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -185,25 +236,42 @@ export default function EdgeConflictPage() {
       />
 
       <div className="flex flex-1 overflow-hidden">
-        <ProjectInspectorPanel
-          rooms={rooms}
-          selectedRoomIds={selectedRoomIds}
-          componentTemplates={componentTemplates}
-          links={links}
-          creationMode={creationMode}
-          isSelectingOrigin={isSelectingOrigin}
-          onSelectRoom={setSelectedRoomId}
-          onCreateTemplate={createTemplate}
-          onStartOriginSelection={startOriginSelection}
-          onCancelOriginSelection={cancelOriginSelection}
-          onDeleteTemplate={deleteTemplate}
-          onAddLink={addLink}
-          onCreationModeChange={setCreationMode}
-          onRemoveLink={removeLink}
+        {/* Left Inspector Panel */}
+        <div style={{ width: leftPanelWidth, flexShrink: 0 }}>
+          <ProjectInspectorPanel
+            rooms={rooms}
+            selectedRoomIds={selectedRoomIds}
+            componentTemplates={componentTemplates}
+            links={links}
+            options={options}
+            activeOptionState={activeOptionState}
+            creationMode={creationMode}
+            isSelectingOrigin={isSelectingOrigin}
+            onSelectRoom={setSelectedRoomId}
+            onCreateTemplate={createTemplate}
+            onStartOriginSelection={startOriginSelection}
+            onCancelOriginSelection={cancelOriginSelection}
+            onDeleteTemplate={deleteTemplate}
+            onAddLink={addLink}
+            onCreationModeChange={setCreationMode}
+            onRemoveLink={removeLink}
+            onTemplateDragStart={setDraggedTemplateId}
+            onTemplateDragEnd={() => setDraggedTemplateId(null)}
+            onCreateOption={createOption}
+            onSelectOption={setSelectedOptionId}
+            onSetActiveOptionValue={setActiveOptionValue}
+          />
+        </div>
+
+        {/* Left Resizer */}
+        <div
+          onMouseDown={() => setIsDraggingLeft(true)}
+          className="w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize transition-colors flex-shrink-0"
+          style={{ minWidth: '4px' }}
         />
 
         {/* Main Canvas Area */}
-        <div className="flex-1 flex flex-col bg-gray-100 relative">
+        <div className="flex-1 flex flex-col bg-gray-100 relative" style={{ minWidth: 0 }}>
           {/* Edit Mode Banner - Overlay */}
           {isEditingTemplate && (
             <div className="absolute top-0 left-0 right-0 z-10 bg-blue-500 text-white px-4 py-2 flex items-center justify-between shadow-lg">
@@ -253,6 +321,7 @@ export default function EdgeConflictPage() {
                   isSelectingOrigin={isSelectingOrigin}
                   templateOriginX={templateOriginX}
                   templateOriginY={templateOriginY}
+                  draggedTemplateId={draggedTemplateId}
                   onAddRoom={addRoom}
                   onMoveRoom={moveRoom}
                   onDeleteRoom={deleteRoom}
@@ -267,6 +336,7 @@ export default function EdgeConflictPage() {
                   onEnterTemplateEditMode={enterTemplateEditMode}
                   onSelectOrigin={selectOrigin}
                   onSetTemplateOrigin={setTemplateOrigin}
+                  onUpdateTemplateOrigin={updateTemplateOrigin}
                   getEdgeColor={getEdgeColor}
                   getRoomAt={getRoomAt}
                   getEdgeAt={getEdgeAt}
@@ -277,17 +347,39 @@ export default function EdgeConflictPage() {
           </div>
         </div>
 
-        <InspectorPanel
-          selectedRoom={selectedRoom}
-          selectedEdge={selectedEdge}
-          selectedInstance={selectedInstance}
-          rooms={rooms}
-          componentTemplates={componentTemplates}
-          onUpdateRoom={updateRoom}
-          onUpdateEdge={updateEdge}
-          onDeleteRoom={deleteRoom}
-          onDeleteInstance={deleteInstance}
+        {/* Right Resizer */}
+        <div
+          onMouseDown={() => setIsDraggingRight(true)}
+          className="w-1 bg-gray-200 hover:bg-blue-400 cursor-col-resize transition-colors flex-shrink-0"
+          style={{ minWidth: '4px' }}
         />
+
+        {/* Right Inspector Panel */}
+        <div style={{ width: rightPanelWidth, flexShrink: 0 }}>
+          {selectedOptionId ? (
+            <OptionInspectorPanel
+              option={options.find(o => o.id === selectedOptionId)}
+              onUpdateOption={updateOption}
+              onDeleteOption={deleteOption}
+              onAddOptionValue={addOptionValue}
+              onUpdateOptionValue={updateOptionValue}
+              onDeleteOptionValue={deleteOptionValue}
+            />
+          ) : (
+            <InspectorPanel
+              selectedRoom={selectedRoom}
+              selectedEdge={selectedEdge}
+              selectedInstance={selectedInstance}
+              rooms={rooms}
+              componentTemplates={componentTemplates}
+              options={options}
+              onUpdateRoom={updateRoom}
+              onUpdateEdge={updateEdge}
+              onDeleteRoom={deleteRoom}
+              onDeleteInstance={deleteInstance}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

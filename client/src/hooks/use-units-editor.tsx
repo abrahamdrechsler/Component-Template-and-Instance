@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { Room, Edge, ConflictMatrixEntry, RoomColor, EdgeFightingMode, CornerPriority, ComponentTemplate, ComponentInstance, Link } from '@shared/schema';
+import { Room, Edge, ConflictMatrixEntry, RoomColor, EdgeFightingMode, CornerPriority, ComponentTemplate, ComponentInstance, Link, Option, OptionValue } from '@shared/schema';
 import { ROOM_COLORS } from '@/types/room';
 import { CanvasUtils } from '@/lib/canvas-utils';
 import { EdgeFightingResolver } from '@/lib/edge-fighting';
@@ -25,6 +25,9 @@ export interface UseUnitsEditorReturn {
   componentTemplates: ComponentTemplate[];
   componentInstances: ComponentInstance[];
   links: Link[];
+  options: Option[];
+  activeOptionState: Record<string, string>;
+  selectedOptionId: string | undefined;
   creationMode: CreationMode;
   isEditingTemplate: boolean;
   editingTemplateId: string | undefined;
@@ -63,6 +66,7 @@ export interface UseUnitsEditorReturn {
   selectOrigin: (x: number, y: number) => void;
   cancelOriginSelection: () => void;
   setTemplateOrigin: (x: number, y: number) => void;
+  updateTemplateOrigin: (templateId: string, x: number, y: number) => void;
   deleteTemplate: (templateId: string) => void;
   updateTemplate: (templateId: string, updates: Partial<ComponentTemplate>) => void;
   placeInstance: (templateId: string, x: number, y: number) => void;
@@ -77,6 +81,15 @@ export interface UseUnitsEditorReturn {
   exitTemplateEditMode: () => void;
   saveTemplateEdits: () => void;
   discardTemplateEdits: () => void;
+  
+  createOption: (name: string) => void;
+  updateOption: (optionId: string, name: string) => void;
+  deleteOption: (optionId: string) => void;
+  addOptionValue: (optionId: string, name: string) => void;
+  updateOptionValue: (optionId: string, valueId: string, name: string) => void;
+  deleteOptionValue: (optionId: string, valueId: string) => void;
+  setActiveOptionValue: (optionId: string, valueId: string) => void;
+  setSelectedOptionId: (optionId: string | undefined) => void;
 }
 
 export function useUnitsEditor(): UseUnitsEditorReturn {
@@ -97,6 +110,9 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   const [componentTemplates, setComponentTemplates] = useState<ComponentTemplate[]>([]);
   const [componentInstances, setComponentInstances] = useState<ComponentInstance[]>([]);
   const [links, setLinks] = useState<Link[]>([]);
+  const [options, setOptions] = useState<Option[]>([]);
+  const [activeOptionState, setActiveOptionState] = useState<Record<string, string>>({});
+  const [selectedOptionId, setSelectedOptionId] = useState<string | undefined>();
   const [creationMode, setCreationMode] = useState<CreationMode>('template-is-first-instance');
   const [isEditingTemplate, setIsEditingTemplate] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState<string | undefined>();
@@ -112,6 +128,8 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   const nextTemplateIdRef = useRef(1);
   const nextInstanceIdRef = useRef(1);
   const nextLinkIdRef = useRef(1);
+  const nextOptionIdRef = useRef(1);
+  const nextOptionValueIdRef = useRef(1);
 
   const updateColorPriorityForUsedColors = useCallback((roomList: Room[], edgeList?: Edge[]) => {
     const usedColorsSet = new Set(roomList.map(room => room.color));
@@ -337,15 +355,22 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       if (template) {
         const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
         if (templateRooms.length > 0) {
-          const minX = Math.min(...templateRooms.map(r => r.x));
-          const minY = Math.min(...templateRooms.map(r => r.y));
-          const maxX = Math.max(...templateRooms.map(r => r.x + r.width));
-          const maxY = Math.max(...templateRooms.map(r => r.y + r.height));
+          // Use template origin as reference point
+          const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
+          const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
           
-          const instanceMinX = instance.x;
-          const instanceMinY = instance.y;
-          const instanceMaxX = instance.x + (maxX - minX);
-          const instanceMaxY = instance.y + (maxY - minY);
+          // Calculate actual bounding box when rendered at instance position
+          const instanceRoomPositions = templateRooms.map(r => ({
+            x1: instance.x + (r.x - originX),
+            y1: instance.y + (r.y - originY),
+            x2: instance.x + (r.x - originX) + r.width,
+            y2: instance.y + (r.y - originY) + r.height,
+          }));
+          
+          const instanceMinX = Math.min(...instanceRoomPositions.map(p => p.x1));
+          const instanceMinY = Math.min(...instanceRoomPositions.map(p => p.y1));
+          const instanceMaxX = Math.max(...instanceRoomPositions.map(p => p.x2));
+          const instanceMaxY = Math.max(...instanceRoomPositions.map(p => p.y2));
           
           if (x >= instanceMinX && x <= instanceMaxX && y >= instanceMinY && y <= instanceMaxY) {
             return instance;
@@ -418,79 +443,56 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   }, []);
 
   const startOriginSelection = useCallback((name: string, roomIds: string[]) => {
-    setPendingTemplateName(name);
-    setPendingTemplateRoomIds(roomIds);
-    setIsSelectingOrigin(true);
-    
-    // Calculate default origin (center of template bounds)
+    // Automatically calculate origin at bottom-left corner (AABB)
     const bounds = roomIds.reduce((acc, roomId) => {
       const room = rooms.find(r => r.id === roomId);
       if (!room) return acc;
       return {
         minX: Math.min(acc.minX, room.x),
         minY: Math.min(acc.minY, room.y),
-        maxX: Math.max(acc.maxX, room.x + room.width),
         maxY: Math.max(acc.maxY, room.y + room.height),
       };
-    }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
+    }, { minX: Infinity, minY: Infinity, maxY: -Infinity });
     
     if (bounds.minX !== Infinity) {
-      const centerX = Math.round((bounds.minX + bounds.maxX) / 2);
-      const centerY = Math.round((bounds.minY + bounds.maxY) / 2);
-      setTemplateOriginX(centerX);
-      setTemplateOriginY(centerY);
-    }
-  }, [rooms]);
-
-  const selectOrigin = useCallback((x: number, y: number) => {
-    setTemplateOriginX(x);
-    setTemplateOriginY(y);
-    
-    // Now that origin is selected, create the template with the pending data
-    if (pendingTemplateName && pendingTemplateRoomIds.length > 0) {
-      // Create template directly here to avoid circular dependency
+      // Place origin at bottom-left corner (minX, maxY)
+      const originX = bounds.minX;
+      const originY = bounds.maxY;
+      
+      // Create template immediately with calculated origin
       const templateId = `template-${nextTemplateIdRef.current++}`;
       const newTemplate: ComponentTemplate = {
         id: templateId,
-        name: pendingTemplateName,
-        roomIds: pendingTemplateRoomIds,
-        originX: x,  
-        originY: y,
+        name,
+        roomIds,
+        originX,
+        originY,
       };
       setComponentTemplates(prev => [...prev, newTemplate]);
       
-      const bounds = pendingTemplateRoomIds.reduce((acc, roomId) => {
-        const room = rooms.find(r => r.id === roomId);
-        if (!room) return acc;
-        return {
-          minX: Math.min(acc.minX, room.x),
-          minY: Math.min(acc.minY, room.y),
-        };
-      }, { minX: Infinity, minY: Infinity });
-      
-      // Always create an instance for the template
-      const instanceId = `instance-${nextInstanceIdRef.current++}`;
-      const newInstance: ComponentInstance = {
-        id: instanceId,
-        templateId,
-        x: bounds.minX,
-        y: bounds.minY,
-      };
-      setComponentInstances(prev => [...prev, newInstance]);
-      
-      // Clear origin selection state
-      setIsSelectingOrigin(false);
-      setPendingTemplateName('');
-      setPendingTemplateRoomIds([]);
-      setTemplateOriginX(undefined);
-      setTemplateOriginY(undefined);
-      
-      // In "all-instances-are-templates" mode, clear room selection after creating template/instance
+      // Only create an instance automatically in "all-instances-are-templates" mode
       if (creationMode === 'all-instances-are-templates') {
+        const instanceId = `instance-${nextInstanceIdRef.current++}`;
+        const newInstance: ComponentInstance = {
+          id: instanceId,
+          templateId,
+          x: bounds.minX,
+          y: bounds.minY,
+        };
+        setComponentInstances(prev => [...prev, newInstance]);
+        
+        // Clear room selection after creating template/instance
         setSelectedRoomIds([]);
       }
     }
-  }, [pendingTemplateName, pendingTemplateRoomIds, rooms, creationMode]);
+  }, [rooms, creationMode]);
+
+  const selectOrigin = useCallback((x: number, y: number) => {
+    // This function is kept for backwards compatibility but is no longer used
+    // in the main template creation workflow (origin is now auto-calculated)
+    setTemplateOriginX(x);
+    setTemplateOriginY(y);
+  }, []);
 
   const cancelOriginSelection = useCallback(() => {
     setIsSelectingOrigin(false);
@@ -512,75 +514,48 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   }, [isEditingTemplate, editingTemplateId]);
 
   const createTemplate = useCallback((name: string, roomIds: string[]) => {
-    if (templateOriginX === undefined || templateOriginY === undefined) {
-      // If no origin set yet, start origin selection instead
-      setPendingTemplateName(name);
-      setPendingTemplateRoomIds(roomIds);
-      setIsSelectingOrigin(true);
-      
-      // Calculate default origin (center of template bounds)
-      const bounds = roomIds.reduce((acc, roomId) => {
-        const room = rooms.find(r => r.id === roomId);
-        if (!room) return acc;
-        return {
-          minX: Math.min(acc.minX, room.x),
-          minY: Math.min(acc.minY, room.y),
-          maxX: Math.max(acc.maxX, room.x + room.width),
-          maxY: Math.max(acc.maxY, room.y + room.height),
-        };
-      }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
-      
-      if (bounds.minX !== Infinity) {
-        // Calculate center and snap to grid intersection (not grid square center)
-        const centerX = Math.round((bounds.minX + bounds.maxX) / 2);
-        const centerY = Math.round((bounds.minY + bounds.maxY) / 2);
-        setTemplateOriginX(centerX);
-        setTemplateOriginY(centerY);
-      }
-      return;
-    }
-
-    const templateId = `template-${nextTemplateIdRef.current++}`;
-    const newTemplate: ComponentTemplate = {
-      id: templateId,
-      name,
-      roomIds,
-      originX: templateOriginX,  
-      originY: templateOriginY,
-    };
-    setComponentTemplates(prev => [...prev, newTemplate]);
-    
+    // Automatically calculate origin at bottom-left corner (AABB)
     const bounds = roomIds.reduce((acc, roomId) => {
       const room = rooms.find(r => r.id === roomId);
       if (!room) return acc;
       return {
         minX: Math.min(acc.minX, room.x),
         minY: Math.min(acc.minY, room.y),
+        maxY: Math.max(acc.maxY, room.y + room.height),
       };
-    }, { minX: Infinity, minY: Infinity });
+    }, { minX: Infinity, minY: Infinity, maxY: -Infinity });
     
-    // Always create an instance for the template
-    const instanceId = `instance-${nextInstanceIdRef.current++}`;
-    const newInstance: ComponentInstance = {
-      id: instanceId,
-      templateId,
-      x: bounds.minX,
-      y: bounds.minY,
+    if (bounds.minX === Infinity) return;
+    
+    // Place origin at bottom-left corner (minX, maxY)
+    const originX = bounds.minX;
+    const originY = bounds.maxY;
+
+    const templateId = `template-${nextTemplateIdRef.current++}`;
+    const newTemplate: ComponentTemplate = {
+      id: templateId,
+      name,
+      roomIds,
+      originX,
+      originY,
     };
-    setComponentInstances(prev => [...prev, newInstance]);
+    setComponentTemplates(prev => [...prev, newTemplate]);
     
-    // Clear origin selection state
-    setIsSelectingOrigin(false);
-    setPendingTemplateName('');
-    setPendingTemplateRoomIds([]);
-    setTemplateOriginX(undefined);
-    setTemplateOriginY(undefined);
-    
-    // In "all-instances-are-templates" mode, clear room selection after creating template/instance
+    // Only create an instance automatically in "all-instances-are-templates" mode
     if (creationMode === 'all-instances-are-templates') {
+      const instanceId = `instance-${nextInstanceIdRef.current++}`;
+      const newInstance: ComponentInstance = {
+        id: instanceId,
+        templateId,
+        x: bounds.minX,
+        y: bounds.minY,
+      };
+      setComponentInstances(prev => [...prev, newInstance]);
+      
+      // Clear room selection after creating template/instance
       setSelectedRoomIds([]);
     }
-  }, [rooms, creationMode, templateOriginX, templateOriginY]);
+  }, [rooms, creationMode]);
 
   const deleteTemplate = useCallback((templateId: string) => {
     setComponentTemplates(prev => prev.filter(t => t.id !== templateId));
@@ -592,29 +567,167 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       t.id === templateId ? { ...t, ...updates } : t
     ));
   }, []);
+  
+  const updateTemplateOrigin = useCallback((templateId: string, x: number, y: number) => {
+    updateTemplate(templateId, { originX: x, originY: y });
+  }, [updateTemplate]);
 
   const placeInstance = useCallback((templateId: string, x: number, y: number) => {
-    const instanceId = `instance-${nextInstanceIdRef.current++}`;
-    const newInstance: ComponentInstance = {
-      id: instanceId,
-      templateId,
-      x,
-      y,
-    };
-    setComponentInstances(prev => [...prev, newInstance]);
-  }, []);
+    const template = componentTemplates.find(t => t.id === templateId);
+    if (!template) return;
+    
+    const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+    if (templateRooms.length === 0) return;
+    
+    const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
+    const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
+    
+    // Create virtual rooms for the new instance being placed
+    const newInstanceRooms: Room[] = templateRooms.map(room => ({
+      ...room,
+      id: `new-instance-${room.id}`,
+      x: x + (room.x - originX),
+      y: y + (room.y - originY),
+    }));
+    
+    // Create virtual rooms for all existing instances
+    const existingInstanceRooms: Room[] = [];
+    componentInstances.forEach(instance => {
+      const instanceTemplate = componentTemplates.find(t => t.id === instance.templateId);
+      if (instanceTemplate) {
+        const instanceTemplateRooms = rooms.filter(r => instanceTemplate.roomIds.includes(r.id));
+        if (instanceTemplateRooms.length > 0) {
+          const instanceOriginX = instanceTemplate.originX ?? Math.min(...instanceTemplateRooms.map(r => r.x));
+          const instanceOriginY = instanceTemplate.originY ?? Math.min(...instanceTemplateRooms.map(r => r.y));
+          
+          instanceTemplateRooms.forEach(room => {
+            existingInstanceRooms.push({
+              ...room,
+              id: `virtual-${instance.id}-${room.id}`,
+              x: instance.x + (room.x - instanceOriginX),
+              y: instance.y + (room.y - instanceOriginY),
+            });
+          });
+        }
+      }
+    });
+    
+    // In "template-is-first-instance" mode, also check against template rooms
+    const templateRoomsToCheck: Room[] = [];
+    if (creationMode === 'template-is-first-instance') {
+      // Get all template rooms that are visible (not part of instances)
+      componentTemplates.forEach(t => {
+        const tRooms = rooms.filter(r => t.roomIds.includes(r.id));
+        templateRoomsToCheck.push(...tRooms);
+      });
+    }
+    
+    // Combine all rooms to check against
+    const allRoomsToCheck = [...existingInstanceRooms, ...templateRoomsToCheck];
+    
+    // Validate each room of the new instance
+    let isValid = true;
+    for (const newRoom of newInstanceRooms) {
+      if (!RoomValidation.isValidRoomPlacement(newRoom, allRoomsToCheck)) {
+        isValid = false;
+        break;
+      }
+    }
+    
+    // If valid, place the instance
+    if (isValid) {
+      const instanceId = `instance-${nextInstanceIdRef.current++}`;
+      const newInstance: ComponentInstance = {
+        id: instanceId,
+        templateId,
+        x,
+        y,
+      };
+      setComponentInstances(prev => [...prev, newInstance]);
+    }
+    // If not valid, silently reject (don't place the instance)
+  }, [componentTemplates, componentInstances, rooms, creationMode]);
 
   const moveInstance = useCallback((instanceId: string, x: number, y: number) => {
-    setComponentInstances(prev => prev.map(instance => {
-      if (instance.id === instanceId) {
-        // Constrain to grid (no negative coordinates)
-        const constrainedX = Math.max(0, x);
-        const constrainedY = Math.max(0, y);
-        return { ...instance, x: constrainedX, y: constrainedY };
-      }
-      return instance;
+    const instance = componentInstances.find(i => i.id === instanceId);
+    if (!instance) return;
+    
+    const template = componentTemplates.find(t => t.id === instance.templateId);
+    if (!template) return;
+    
+    const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+    if (templateRooms.length === 0) return;
+    
+    const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
+    const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
+    
+    // Constrain to grid (no negative coordinates)
+    const constrainedX = Math.max(0, x);
+    const constrainedY = Math.max(0, y);
+    
+    // Create virtual rooms for the instance at the new position
+    const movedInstanceRooms: Room[] = templateRooms.map(room => ({
+      ...room,
+      id: `moved-${instance.id}-${room.id}`,
+      x: constrainedX + (room.x - originX),
+      y: constrainedY + (room.y - originY),
     }));
-  }, []);
+    
+    // Create virtual rooms for all OTHER instances
+    const otherInstanceRooms: Room[] = [];
+    componentInstances.forEach(otherInstance => {
+      if (otherInstance.id !== instanceId) {
+        const otherTemplate = componentTemplates.find(t => t.id === otherInstance.templateId);
+        if (otherTemplate) {
+          const otherTemplateRooms = rooms.filter(r => otherTemplate.roomIds.includes(r.id));
+          if (otherTemplateRooms.length > 0) {
+            const otherOriginX = otherTemplate.originX ?? Math.min(...otherTemplateRooms.map(r => r.x));
+            const otherOriginY = otherTemplate.originY ?? Math.min(...otherTemplateRooms.map(r => r.y));
+            
+            otherTemplateRooms.forEach(room => {
+              otherInstanceRooms.push({
+                ...room,
+                id: `virtual-${otherInstance.id}-${room.id}`,
+                x: otherInstance.x + (room.x - otherOriginX),
+                y: otherInstance.y + (room.y - otherOriginY),
+              });
+            });
+          }
+        }
+      }
+    });
+    
+    // In "template-is-first-instance" mode, also check against template rooms
+    const templateRoomsToCheck: Room[] = [];
+    if (creationMode === 'template-is-first-instance') {
+      componentTemplates.forEach(t => {
+        const tRooms = rooms.filter(r => t.roomIds.includes(r.id));
+        templateRoomsToCheck.push(...tRooms);
+      });
+    }
+    
+    // Combine all rooms to check against
+    const allRoomsToCheck = [...otherInstanceRooms, ...templateRoomsToCheck];
+    
+    // Validate each room of the moved instance
+    let isValid = true;
+    for (const movedRoom of movedInstanceRooms) {
+      if (!RoomValidation.isValidRoomPlacement(movedRoom, allRoomsToCheck)) {
+        isValid = false;
+        break;
+      }
+    }
+    
+    // Only move if valid
+    if (isValid) {
+      setComponentInstances(prev => prev.map(inst => {
+        if (inst.id === instanceId) {
+          return { ...inst, x: constrainedX, y: constrainedY };
+        }
+        return inst;
+      }));
+    }
+  }, [componentInstances, componentTemplates, rooms, creationMode]);
 
   const deleteInstance = useCallback((instanceId: string) => {
     setComponentInstances(prev => prev.filter(i => i.id !== instanceId));
@@ -624,16 +737,84 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     const instance = componentInstances.find(i => i.id === instanceId);
     if (!instance) return;
     
-    const newInstanceId = `instance-${nextInstanceIdRef.current++}`;
-    const newInstance: ComponentInstance = {
-      id: newInstanceId,
-      templateId: instance.templateId,
-      x: instance.x + 5, // Offset by 5 grid units
-      y: instance.y + 5,
-    };
-    setComponentInstances(prev => [...prev, newInstance]);
-    setSelectedInstanceId(newInstanceId); // Select the new instance
-  }, [componentInstances]);
+    const template = componentTemplates.find(t => t.id === instance.templateId);
+    if (!template) return;
+    
+    const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+    if (templateRooms.length === 0) return;
+    
+    const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
+    const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
+    
+    // Try to place at offset position (5 grid units away)
+    const targetX = instance.x + 5;
+    const targetY = instance.y + 5;
+    
+    // Create virtual rooms for the new instance
+    const newInstanceRooms: Room[] = templateRooms.map(room => ({
+      ...room,
+      id: `duplicate-${room.id}`,
+      x: targetX + (room.x - originX),
+      y: targetY + (room.y - originY),
+    }));
+    
+    // Create virtual rooms for all existing instances
+    const existingInstanceRooms: Room[] = [];
+    componentInstances.forEach(existingInstance => {
+      const existingTemplate = componentTemplates.find(t => t.id === existingInstance.templateId);
+      if (existingTemplate) {
+        const existingTemplateRooms = rooms.filter(r => existingTemplate.roomIds.includes(r.id));
+        if (existingTemplateRooms.length > 0) {
+          const existingOriginX = existingTemplate.originX ?? Math.min(...existingTemplateRooms.map(r => r.x));
+          const existingOriginY = existingTemplate.originY ?? Math.min(...existingTemplateRooms.map(r => r.y));
+          
+          existingTemplateRooms.forEach(room => {
+            existingInstanceRooms.push({
+              ...room,
+              id: `virtual-${existingInstance.id}-${room.id}`,
+              x: existingInstance.x + (room.x - existingOriginX),
+              y: existingInstance.y + (room.y - existingOriginY),
+            });
+          });
+        }
+      }
+    });
+    
+    // In "template-is-first-instance" mode, also check against template rooms
+    const templateRoomsToCheck: Room[] = [];
+    if (creationMode === 'template-is-first-instance') {
+      componentTemplates.forEach(t => {
+        const tRooms = rooms.filter(r => t.roomIds.includes(r.id));
+        templateRoomsToCheck.push(...tRooms);
+      });
+    }
+    
+    // Combine all rooms to check against
+    const allRoomsToCheck = [...existingInstanceRooms, ...templateRoomsToCheck];
+    
+    // Validate placement
+    let isValid = true;
+    for (const newRoom of newInstanceRooms) {
+      if (!RoomValidation.isValidRoomPlacement(newRoom, allRoomsToCheck)) {
+        isValid = false;
+        break;
+      }
+    }
+    
+    // If valid, create the duplicate
+    if (isValid) {
+      const newInstanceId = `instance-${nextInstanceIdRef.current++}`;
+      const newInstance: ComponentInstance = {
+        id: newInstanceId,
+        templateId: instance.templateId,
+        x: targetX,
+        y: targetY,
+      };
+      setComponentInstances(prev => [...prev, newInstance]);
+      setSelectedInstanceId(newInstanceId);
+    }
+    // If not valid, silently reject the duplicate
+  }, [componentInstances, componentTemplates, rooms, creationMode]);
 
   const addLink = useCallback((linkedFileId: string, linkedFileName: string) => {
     const linkId = `link-${nextLinkIdRef.current++}`;
@@ -816,6 +997,99 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     exitTemplateEditMode();
   }, [preEditState, exitTemplateEditMode]);
 
+  // Option management functions
+  const createOption = useCallback((name: string) => {
+    const optionId = `option-${nextOptionIdRef.current++}`;
+    const value1Id = `value-${nextOptionValueIdRef.current++}`;
+    const value2Id = `value-${nextOptionValueIdRef.current++}`;
+    
+    const newOption: Option = {
+      id: optionId,
+      name,
+      values: [
+        { id: value1Id, name: 'Option 1' },
+        { id: value2Id, name: 'Option 2' },
+      ],
+    };
+    
+    setOptions(prev => [...prev, newOption]);
+    // Set the first value as active by default
+    setActiveOptionState(prev => ({ ...prev, [optionId]: value1Id }));
+  }, []);
+
+  const updateOption = useCallback((optionId: string, name: string) => {
+    setOptions(prev => prev.map(opt => 
+      opt.id === optionId ? { ...opt, name } : opt
+    ));
+  }, []);
+
+  const deleteOption = useCallback((optionId: string) => {
+    setOptions(prev => prev.filter(opt => opt.id !== optionId));
+    setActiveOptionState(prev => {
+      const newState = { ...prev };
+      delete newState[optionId];
+      return newState;
+    });
+    if (selectedOptionId === optionId) {
+      setSelectedOptionId(undefined);
+    }
+  }, [selectedOptionId]);
+
+  const addOptionValue = useCallback((optionId: string, name: string) => {
+    const valueId = `value-${nextOptionValueIdRef.current++}`;
+    setOptions(prev => prev.map(opt => {
+      if (opt.id === optionId) {
+        return {
+          ...opt,
+          values: [...opt.values, { id: valueId, name }],
+        };
+      }
+      return opt;
+    }));
+  }, []);
+
+  const updateOptionValue = useCallback((optionId: string, valueId: string, name: string) => {
+    setOptions(prev => prev.map(opt => {
+      if (opt.id === optionId) {
+        return {
+          ...opt,
+          values: opt.values.map(val => 
+            val.id === valueId ? { ...val, name } : val
+          ),
+        };
+      }
+      return opt;
+    }));
+  }, []);
+
+  const deleteOptionValue = useCallback((optionId: string, valueId: string) => {
+    setOptions(prev => prev.map(opt => {
+      if (opt.id === optionId) {
+        const newValues = opt.values.filter(val => val.id !== valueId);
+        // Ensure at least 2 values remain
+        if (newValues.length >= 2) {
+          return { ...opt, values: newValues };
+        }
+      }
+      return opt;
+    }));
+    
+    // If the deleted value was active, switch to first remaining value
+    if (activeOptionState[optionId] === valueId) {
+      const option = options.find(opt => opt.id === optionId);
+      if (option && option.values.length > 1) {
+        const newFirstValue = option.values.find(val => val.id !== valueId);
+        if (newFirstValue) {
+          setActiveOptionState(prev => ({ ...prev, [optionId]: newFirstValue.id }));
+        }
+      }
+    }
+  }, [options, activeOptionState]);
+
+  const setActiveOptionValue = useCallback((optionId: string, valueId: string) => {
+    setActiveOptionState(prev => ({ ...prev, [optionId]: valueId }));
+  }, []);
+
   return {
     rooms,
     edges,
@@ -834,6 +1108,9 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     componentTemplates,
     componentInstances,
     links,
+    options,
+    activeOptionState,
+    selectedOptionId,
     creationMode,
     isEditingTemplate,
     editingTemplateId,
@@ -870,6 +1147,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     selectOrigin,
     cancelOriginSelection,
     setTemplateOrigin,
+    updateTemplateOrigin,
     deleteTemplate,
     updateTemplate,
     placeInstance,
@@ -884,5 +1162,13 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     exitTemplateEditMode,
     saveTemplateEdits,
     discardTemplateEdits,
+    createOption,
+    updateOption,
+    deleteOption,
+    addOptionValue,
+    updateOptionValue,
+    deleteOptionValue,
+    setActiveOptionValue,
+    setSelectedOptionId,
   };
 }

@@ -10,6 +10,14 @@ export const edgeFightingModeSchema = z.enum([
   'chronological', 'priority', 'matrix'
 ]);
 
+// Room condition schema - logical condition based on option values
+export const roomConditionSchema = z.object({
+  id: z.string(),
+  optionId: z.string(),
+  valueId: z.string(),
+  operator: z.enum(['equals', 'notEquals']),
+});
+
 // Room schema
 export const roomSchema = z.object({
   id: z.string(),
@@ -20,6 +28,7 @@ export const roomSchema = z.object({
   height: z.number(),
   color: roomColorSchema,
   createdAt: z.number(), // timestamp for chronological ordering
+  conditions: z.array(roomConditionSchema).optional(), // Optional conditions for this room
 });
 
 // Edge schema
@@ -72,6 +81,19 @@ export const linkSchema = z.object({
   hasUpdates: z.boolean(), // Whether the source file has been updated
 });
 
+// Option Value schema - a possible value for an option
+export const optionValueSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
+// Option schema - a configurable option with multiple values
+export const optionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  values: z.array(optionValueSchema).min(2), // At least 2 values required
+});
+
 // File Metadata schema - for published files
 export const fileMetadataSchema = z.object({
   id: z.string(),
@@ -99,10 +121,13 @@ export const appStateSchema = z.object({
   componentTemplates: z.array(componentTemplateSchema),
   componentInstances: z.array(componentInstanceSchema),
   links: z.array(linkSchema),
+  options: z.array(optionSchema),
+  activeOptionState: z.record(z.string(), z.string()), // Maps option ID to selected value ID
 });
 
 export type Room = z.infer<typeof roomSchema>;
 export type Edge = z.infer<typeof edgeSchema>;
+export type RoomCondition = z.infer<typeof roomConditionSchema>;
 export type ConflictMatrixEntry = z.infer<typeof conflictMatrixEntrySchema>;
 export type AppState = z.infer<typeof appStateSchema>;
 export type RoomColor = z.infer<typeof roomColorSchema>;
@@ -112,3 +137,5 @@ export type ComponentTemplate = z.infer<typeof componentTemplateSchema>;
 export type ComponentInstance = z.infer<typeof componentInstanceSchema>;
 export type Link = z.infer<typeof linkSchema>;
 export type FileMetadata = z.infer<typeof fileMetadataSchema>;
+export type Option = z.infer<typeof optionSchema>;
+export type OptionValue = z.infer<typeof optionValueSchema>;

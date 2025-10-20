@@ -24,6 +24,7 @@ interface DrawingCanvasProps {
   isSelectingOrigin: boolean;
   templateOriginX?: number;
   templateOriginY?: number;
+  draggedTemplateId: string | null;
   onAddRoom: (x: number, y: number, width: number, height: number) => void;
   onMoveRoom: (roomId: string, x: number, y: number) => void;
   onDeleteRoom: (roomId: string) => void;
@@ -38,6 +39,7 @@ interface DrawingCanvasProps {
   onEnterTemplateEditMode: (templateId: string, instanceId?: string) => void;
   onSelectOrigin: (x: number, y: number) => void;
   onSetTemplateOrigin: (x: number, y: number) => void;
+  onUpdateTemplateOrigin: (templateId: string, x: number, y: number) => void;
   getEdgeColor: (edge: Edge) => string;
   getRoomAt: (x: number, y: number) => Room | undefined;
   getEdgeAt: (x: number, y: number) => Edge | undefined;
@@ -64,6 +66,7 @@ export function DrawingCanvas({
   isSelectingOrigin,
   templateOriginX,
   templateOriginY,
+  draggedTemplateId,
   onAddRoom,
   onMoveRoom,
   onDeleteRoom,
@@ -78,6 +81,7 @@ export function DrawingCanvas({
   onEnterTemplateEditMode,
   onSelectOrigin,
   onSetTemplateOrigin,
+  onUpdateTemplateOrigin,
   getEdgeColor,
   getRoomAt,
   getEdgeAt,
@@ -95,8 +99,16 @@ export function DrawingCanvas({
   const [mousePos, setMousePos] = useState<Point | null>(null);
   const [hoveredDot, setHoveredDot] = useState<string | null>(null);
   const [hoveredCorner, setHoveredCorner] = useState<{x: number, y: number} | null>(null);
-  const [draggedTemplateId, setDraggedTemplateId] = useState<string | null>(null);
   const [dragPreviewPos, setDragPreviewPos] = useState<Point | null>(null);
+  
+  // Marquee selection state
+  const [isMarqueeSelecting, setIsMarqueeSelecting] = useState(false);
+  const [marqueeStart, setMarqueeStart] = useState<Point | null>(null);
+  const [marqueeEnd, setMarqueeEnd] = useState<Point | null>(null);
+  
+  // Origin dragging state
+  const [draggedOriginTemplateId, setDraggedOriginTemplateId] = useState<string | null>(null);
+  const [hoveredOriginTemplateId, setHoveredOriginTemplateId] = useState<string | null>(null);
 
   const gridSize = 20; // 20px = 1ft
 
@@ -197,7 +209,12 @@ export function DrawingCanvas({
             ctx.globalAlpha = 0.08;
           }
           
-          // Calculate bounding box of original template
+          // Use template origin as reference point (not bounding box)
+          // If origin is not set, fall back to bounding box for backward compatibility
+          const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
+          const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
+          
+          // Calculate bounding box for selection and overlay purposes
           const minX = Math.min(...templateRooms.map(r => r.x));
           const minY = Math.min(...templateRooms.map(r => r.y));
           const maxX = Math.max(...templateRooms.map(r => r.x + r.width));
@@ -205,8 +222,9 @@ export function DrawingCanvas({
           
           // Draw room edges with colors at the instance position (same as originals)
           templateRooms.forEach(room => {
-            const offsetX = room.x - minX;
-            const offsetY = room.y - minY;
+            // Calculate offset from origin (not bounding box)
+            const offsetX = room.x - originX;
+            const offsetY = room.y - originY;
             
             // Get edges for this room and draw them at instance position
             const roomEdges = edges.filter(e => e.roomId === room.id);
@@ -214,12 +232,13 @@ export function DrawingCanvas({
               // In edit mode, use grey color for instances
               const color = isEditingTemplate ? '#9CA3AF' : getEdgeColor(edge);
               // Create a translated edge at the instance position
+              // Position relative to instance position + offset from origin
               const instanceEdge = {
                 ...edge,
-                x1: edge.x1 - minX + instance.x,
-                y1: edge.y1 - minY + instance.y,
-                x2: edge.x2 - minX + instance.x,
-                y2: edge.y2 - minY + instance.y,
+                x1: edge.x1 - originX + instance.x,
+                y1: edge.y1 - originY + instance.y,
+                x2: edge.x2 - originX + instance.x,
+                y2: edge.y2 - originY + instance.y,
               };
               CanvasUtils.drawEdge(ctx, instanceEdge, gridSize, color, cornerPriorities, rooms);
             });
@@ -231,8 +250,8 @@ export function DrawingCanvas({
           // First, create a clipping region from all rooms (this prevents overlapping fills)
           ctx.beginPath();
           templateRooms.forEach(room => {
-            const offsetX = room.x - minX;
-            const offsetY = room.y - minY;
+            const offsetX = room.x - originX;
+            const offsetY = room.y - originY;
             const instanceX = (instance.x + offsetX) * gridSize;
             const instanceY = (instance.y + offsetY) * gridSize;
             const width = room.width * gridSize;
@@ -242,10 +261,10 @@ export function DrawingCanvas({
           ctx.clip();
           
           // Calculate bounding box to fill the entire clipped region at once
-          const minInstanceX = Math.min(...templateRooms.map(r => (instance.x + (r.x - minX)) * gridSize));
-          const minInstanceY = Math.min(...templateRooms.map(r => (instance.y + (r.y - minY)) * gridSize));
-          const maxInstanceX = Math.max(...templateRooms.map(r => (instance.x + (r.x - minX) + r.width) * gridSize));
-          const maxInstanceY = Math.max(...templateRooms.map(r => (instance.y + (r.y - minY) + r.height) * gridSize));
+          const minInstanceX = Math.min(...templateRooms.map(r => (instance.x + (r.x - originX)) * gridSize));
+          const minInstanceY = Math.min(...templateRooms.map(r => (instance.y + (r.y - originY)) * gridSize));
+          const maxInstanceX = Math.max(...templateRooms.map(r => (instance.x + (r.x - originX) + r.width) * gridSize));
+          const maxInstanceY = Math.max(...templateRooms.map(r => (instance.y + (r.y - originY) + r.height) * gridSize));
           
           // Fill with transparent overlay - blue normally, grey during edit mode
           const fillColor = isEditingTemplate ? 'rgba(156, 163, 175, 0.15)' : 'rgba(59, 130, 246, 0.25)';
@@ -259,8 +278,8 @@ export function DrawingCanvas({
             // Build a set of all occupied grid cells
             const occupiedCells = new Set<string>();
             templateRooms.forEach(room => {
-              const offsetX = room.x - minX;
-              const offsetY = room.y - minY;
+              const offsetX = room.x - originX;
+              const offsetY = room.y - originY;
               for (let x = instance.x + offsetX; x < instance.x + offsetX + room.width; x++) {
                 for (let y = instance.y + offsetY; y < instance.y + offsetY + room.height; y++) {
                   occupiedCells.add(`${x},${y}`);
@@ -272,8 +291,8 @@ export function DrawingCanvas({
             const externalEdges: { x1: number, y1: number, x2: number, y2: number }[] = [];
             
             templateRooms.forEach(room => {
-              const offsetX = room.x - minX;
-              const offsetY = room.y - minY;
+              const offsetX = room.x - originX;
+              const offsetY = room.y - originY;
               const roomLeft = instance.x + offsetX;
               const roomTop = instance.y + offsetY;
               
@@ -411,9 +430,9 @@ export function DrawingCanvas({
       if (instance && template) {
         const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
         if (templateRooms.length > 0) {
-          // Calculate template origin
-          const minX = Math.min(...templateRooms.map(r => r.x));
-          const minY = Math.min(...templateRooms.map(r => r.y));
+          // Use template origin as reference point
+          const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
+          const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
           
           // Calculate preview position
           const currentGridPos = CanvasUtils.getGridCoordinates(mousePos, gridSize);
@@ -432,12 +451,12 @@ export function DrawingCanvas({
               if (otherTemplate) {
                 const otherTemplateRooms = rooms.filter(r => otherTemplate.roomIds.includes(r.id));
                 if (otherTemplateRooms.length > 0) {
-                  const otherMinX = Math.min(...otherTemplateRooms.map(r => r.x));
-                  const otherMinY = Math.min(...otherTemplateRooms.map(r => r.y));
+                  const otherOriginX = otherTemplate.originX ?? Math.min(...otherTemplateRooms.map(r => r.x));
+                  const otherOriginY = otherTemplate.originY ?? Math.min(...otherTemplateRooms.map(r => r.y));
                   
                   otherTemplateRooms.forEach(room => {
-                    const offsetX = room.x - otherMinX;
-                    const offsetY = room.y - otherMinY;
+                    const offsetX = room.x - otherOriginX;
+                    const offsetY = room.y - otherOriginY;
                     otherInstanceRooms.push({
                       ...room,
                       id: `virtual-${otherInstance.id}-${room.id}`,
@@ -455,14 +474,23 @@ export function DrawingCanvas({
           componentTemplates.forEach(t => t.roomIds.forEach(id => allTemplateRoomIds.add(id)));
           const regularRooms = rooms.filter(r => !allTemplateRoomIds.has(r.id));
           
-          // Combine regular rooms and other instance rooms for collision detection
-          const roomsToCheckAgainst = [...regularRooms, ...otherInstanceRooms];
+          // In "template-is-first-instance" mode, also check against template rooms
+          const templateRoomsToCheck: Room[] = [];
+          if (creationMode === 'template-is-first-instance') {
+            componentTemplates.forEach(t => {
+              const tRooms = rooms.filter(r => t.roomIds.includes(r.id));
+              templateRoomsToCheck.push(...tRooms);
+            });
+          }
+          
+          // Combine regular rooms, template rooms, and other instance rooms for collision detection
+          const roomsToCheckAgainst = [...regularRooms, ...templateRoomsToCheck, ...otherInstanceRooms];
           
           // Helper function to check if an instance position is valid
           const isInstancePositionValid = (x: number, y: number): boolean => {
             for (const templateRoom of templateRooms) {
-              const offsetX = templateRoom.x - minX;
-              const offsetY = templateRoom.y - minY;
+              const offsetX = templateRoom.x - originX;
+              const offsetY = templateRoom.y - originY;
               const movedRoom: Room = {
                 ...templateRoom,
                 x: x + offsetX,
@@ -520,8 +548,8 @@ export function DrawingCanvas({
           // Build a set of all occupied grid cells for the preview position
           const previewOccupiedCells = new Set<string>();
           templateRooms.forEach(room => {
-            const offsetX = room.x - minX;
-            const offsetY = room.y - minY;
+            const offsetX = room.x - originX;
+            const offsetY = room.y - originY;
             for (let x = bestX + offsetX; x < bestX + offsetX + room.width; x++) {
               for (let y = bestY + offsetY; y < bestY + offsetY + room.height; y++) {
                 previewOccupiedCells.add(`${x},${y}`);
@@ -533,8 +561,8 @@ export function DrawingCanvas({
           const previewExternalEdges: { x1: number, y1: number, x2: number, y2: number }[] = [];
           
           templateRooms.forEach(room => {
-            const offsetX = room.x - minX;
-            const offsetY = room.y - minY;
+            const offsetX = room.x - originX;
+            const offsetY = room.y - originY;
             const roomLeft = bestX + offsetX;
             const roomTop = bestY + offsetY;
             
@@ -741,29 +769,61 @@ export function DrawingCanvas({
       if (template) {
         const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
         if (templateRooms.length > 0) {
-          // Calculate bounding box of template
-          const minX = Math.min(...templateRooms.map(r => r.x));
-          const minY = Math.min(...templateRooms.map(r => r.y));
+          // Use template origin as reference point
+          const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
+          const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
           
-          // Draw each room in the template at the preview position
+          ctx.save();
+          ctx.globalAlpha = 0.5; // Make the entire preview semi-transparent
+          
+          // Draw edges (walls) for each room in the preview
           templateRooms.forEach(room => {
-            const offsetX = room.x - minX;
-            const offsetY = room.y - minY;
+            const offsetX = room.x - originX;
+            const offsetY = room.y - originY;
+            
+            // Get edges for this room
+            const roomEdges = edges.filter(e => e.roomId === room.id);
+            roomEdges.forEach(edge => {
+              const color = getEdgeColor(edge);
+              // Create a translated edge at the preview position
+              const previewEdge = {
+                ...edge,
+                x1: edge.x1 - originX + dragPreviewPos.x,
+                y1: edge.y1 - originY + dragPreviewPos.y,
+                x2: edge.x2 - originX + dragPreviewPos.x,
+                y2: edge.y2 - originY + dragPreviewPos.y,
+              };
+              CanvasUtils.drawEdge(ctx, previewEdge, gridSize, color, cornerPriorities, rooms);
+            });
+          });
+          
+          // Draw the semi-transparent overlay fill
+          ctx.globalAlpha = 0.15;
+          
+          // Create clipping region from all preview rooms
+          ctx.beginPath();
+          templateRooms.forEach(room => {
+            const offsetX = room.x - originX;
+            const offsetY = room.y - originY;
             const previewX = (dragPreviewPos.x + offsetX) * gridSize;
             const previewY = (dragPreviewPos.y + offsetY) * gridSize;
             const width = room.width * gridSize;
             const height = room.height * gridSize;
-            
-            // Draw semi-transparent preview
-            ctx.fillStyle = room.color + '40'; // Add transparency
-            ctx.fillRect(previewX, previewY, width, height);
-            
-            ctx.strokeStyle = room.color;
-            ctx.lineWidth = 2;
-            ctx.setLineDash([5, 5]);
-            ctx.strokeRect(previewX, previewY, width, height);
-            ctx.setLineDash([]);
+            ctx.rect(previewX, previewY, width, height);
           });
+          ctx.clip();
+          
+          // Calculate bounding box to fill
+          const minPreviewX = Math.min(...templateRooms.map(r => (dragPreviewPos.x + (r.x - originX)) * gridSize));
+          const minPreviewY = Math.min(...templateRooms.map(r => (dragPreviewPos.y + (r.y - originY)) * gridSize));
+          const maxPreviewX = Math.max(...templateRooms.map(r => (dragPreviewPos.x + (r.x - originX) + r.width) * gridSize));
+          const maxPreviewY = Math.max(...templateRooms.map(r => (dragPreviewPos.y + (r.y - originY) + r.height) * gridSize));
+          
+          // Fill the entire preview region with light grey
+          ctx.fillStyle = '#D1D5DB';
+          ctx.fillRect(minPreviewX, minPreviewY, maxPreviewX - minPreviewX, maxPreviewY - minPreviewY);
+          
+          ctx.restore();
         }
       }
     }
@@ -804,15 +864,21 @@ export function DrawingCanvas({
           const shouldShowOrigin = creationMode !== 'all-instances-are-templates' && templateRooms.length > 0;
           
           if (shouldShowOrigin) {
+            const isHovered = hoveredOriginTemplateId === template.id;
+            const isDragging = draggedOriginTemplateId === template.id;
+            
             ctx.save();
+            
+            // Draw larger circle when hovered or being dragged
+            const radius = (isHovered || isDragging) ? 10 : 8;
             
             // Draw red circle for origin point
             ctx.beginPath();
-            ctx.arc(template.originX * gridSize, template.originY * gridSize, 8, 0, 2 * Math.PI);
+            ctx.arc(template.originX * gridSize, template.originY * gridSize, radius, 0, 2 * Math.PI);
             ctx.fillStyle = '#EF4444'; // Red color
             ctx.fill();
-            ctx.strokeStyle = '#DC2626'; // Darker red border
-            ctx.lineWidth = 2;
+            ctx.strokeStyle = isDragging ? '#991B1B' : '#DC2626'; // Darker border when dragging
+            ctx.lineWidth = isDragging ? 3 : 2;
             ctx.stroke();
             
             // Draw white dot in center
@@ -825,6 +891,52 @@ export function DrawingCanvas({
           }
         }
       });
+    }
+
+    // Draw dragged origin point preview
+    if (draggedOriginTemplateId && mousePos) {
+      const intersectionPoint = CanvasUtils.getGridIntersectionCoordinates(mousePos, gridSize);
+      ctx.save();
+      
+      // Draw preview origin point at snapped position
+      ctx.beginPath();
+      ctx.arc(intersectionPoint.x * gridSize, intersectionPoint.y * gridSize, 10, 0, 2 * Math.PI);
+      ctx.fillStyle = 'rgba(239, 68, 68, 0.5)'; // Semi-transparent red
+      ctx.fill();
+      ctx.strokeStyle = '#991B1B';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      
+      // Draw white dot in center
+      ctx.beginPath();
+      ctx.arc(intersectionPoint.x * gridSize, intersectionPoint.y * gridSize, 3, 0, 2 * Math.PI);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fill();
+      
+      ctx.restore();
+    }
+
+    // Draw marquee selection rectangle
+    if (isMarqueeSelecting && marqueeStart && marqueeEnd) {
+      ctx.save();
+      
+      const x1 = Math.min(marqueeStart.x, marqueeEnd.x);
+      const y1 = Math.min(marqueeStart.y, marqueeEnd.y);
+      const x2 = Math.max(marqueeStart.x, marqueeEnd.x);
+      const y2 = Math.max(marqueeStart.y, marqueeEnd.y);
+      
+      // Draw semi-transparent blue fill
+      ctx.fillStyle = 'rgba(59, 130, 246, 0.1)';
+      ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+      
+      // Draw blue dashed border
+      ctx.strokeStyle = '#3B82F6';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+      ctx.setLineDash([]);
+      
+      ctx.restore();
     }
   }, [
     rooms,
@@ -851,6 +963,11 @@ export function DrawingCanvas({
     isSelectingOrigin,
     templateOriginX,
     templateOriginY,
+    isMarqueeSelecting,
+    marqueeStart,
+    marqueeEnd,
+    hoveredOriginTemplateId,
+    draggedOriginTemplateId,
   ]);
 
   const handleMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -866,6 +983,52 @@ export function DrawingCanvas({
       const intersectionPoint = CanvasUtils.getGridIntersectionCoordinates(point, gridSize);
       onSetTemplateOrigin(intersectionPoint.x, intersectionPoint.y);
       return;
+    }
+    
+    // Handle dragging template origin points
+    if (draggedOriginTemplateId) {
+      const intersectionPoint = CanvasUtils.getGridIntersectionCoordinates(point, gridSize);
+      const template = componentTemplates.find(t => t.id === draggedOriginTemplateId);
+      if (template) {
+        // Update the template's origin temporarily during drag
+        // This will be saved on mouse up
+        setMousePos(point);
+      }
+      return;
+    }
+
+    // Update marquee selection rectangle
+    if (isMarqueeSelecting) {
+      setMarqueeEnd(point);
+      return;
+    }
+    
+    // Check for origin point hover when not dragging anything
+    if (!canvasState.isDragging && !isMarqueeSelecting && !draggedOriginTemplateId) {
+      let foundHoveredOrigin: string | null = null;
+      
+      // Check template origin points
+      if (!isSelectingOrigin && !isEditingTemplate && creationMode !== 'all-instances-are-templates') {
+        for (const template of componentTemplates) {
+          if (template.originX !== undefined && template.originY !== undefined) {
+            const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+            if (templateRooms.length > 0) {
+              const originPixelX = template.originX * gridSize;
+              const originPixelY = template.originY * gridSize;
+              const distance = Math.sqrt(Math.pow(point.x - originPixelX, 2) + Math.pow(point.y - originPixelY, 2));
+              
+              if (distance <= 12) { // Slightly larger hover detection radius
+                foundHoveredOrigin = template.id;
+                break;
+              }
+            }
+          }
+        }
+      }
+      
+      setHoveredOriginTemplateId(foundHoveredOrigin);
+    } else {
+      setHoveredOriginTemplateId(null);
     }
 
     // Check for corner hover
@@ -981,7 +1144,7 @@ export function DrawingCanvas({
         }));
       }
     }
-  }, [selectedTool, canvasState.dragStart, canvasState.isDragging, selectedRoomId, gridSize, true, rooms, edges]);
+  }, [selectedTool, canvasState.dragStart, canvasState.isDragging, canvasState.isDraggingOrigin, selectedRoomId, selectedInstanceId, selectedEdgeId, gridSize, isEditingTemplate, editingTemplateId, isMarqueeSelecting, rooms, edges, componentTemplates, componentInstances, onSetTemplateOrigin]);
 
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -1003,6 +1166,26 @@ export function DrawingCanvas({
           isDraggingOrigin: true,
         }));
         return;
+      }
+    }
+    
+    // Check for template origin point drag (when not in editing mode)
+    if (!isEditingTemplate && !isSelectingOrigin && creationMode !== 'all-instances-are-templates') {
+      // Check if clicking on any template origin point
+      for (const template of componentTemplates) {
+        if (template.originX !== undefined && template.originY !== undefined) {
+          const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+          if (templateRooms.length > 0) {
+            const originPixelX = template.originX * gridSize;
+            const originPixelY = template.originY * gridSize;
+            const distance = Math.sqrt(Math.pow(point.x - originPixelX, 2) + Math.pow(point.y - originPixelY, 2));
+            
+            if (distance <= 12) { // 12 pixel radius for click detection
+              setDraggedOriginTemplateId(template.id);
+              return;
+            }
+          }
+        }
       }
     }
 
@@ -1173,17 +1356,25 @@ export function DrawingCanvas({
               }
             }));
           } else {
-            // Clicking empty space clears all selections
-            onSelectInstance(undefined);
-            onSelectRoom(undefined);
-            if (onSelectRoomIds) {
-              onSelectRoomIds([]);
+            // Clicking empty space starts marquee selection
+            if (!isMultiSelect) {
+              // Clear selections first if not multi-selecting
+              onSelectInstance(undefined);
+              onSelectRoom(undefined);
+              if (onSelectRoomIds) {
+                onSelectRoomIds([]);
+              }
             }
+            
+            // Start marquee selection
+            setIsMarqueeSelecting(true);
+            setMarqueeStart(point);
+            setMarqueeEnd(point);
           }
         }
         break;
     }
-  }, [selectedTool, getRoomAt, getInstanceAt, onSelectRoom, onSelectRoomIds, onSelectInstance, onDeleteRoom, onToggleCornerPriority, gridSize, rooms, selectedRoomIds]);
+  }, [selectedTool, getRoomAt, getInstanceAt, onSelectRoom, onSelectRoomIds, onSelectInstance, onDeleteRoom, onToggleCornerPriority, gridSize, rooms, selectedRoomIds, isEditingTemplate, isSelectingOrigin, creationMode, componentTemplates, templateOriginX, templateOriginY]);
 
   const handleMouseUp = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -1198,6 +1389,14 @@ export function DrawingCanvas({
         ...prev,
         isDraggingOrigin: false,
       }));
+      return;
+    }
+    
+    // Handle template origin dragging stop
+    if (draggedOriginTemplateId) {
+      const intersectionPoint = CanvasUtils.getGridIntersectionCoordinates(point, gridSize);
+      onUpdateTemplateOrigin(draggedOriginTemplateId, intersectionPoint.x, intersectionPoint.y);
+      setDraggedOriginTemplateId(null);
       return;
     }
 
@@ -1231,9 +1430,9 @@ export function DrawingCanvas({
             let constrainedX = Math.max(0, targetX);
             let constrainedY = Math.max(0, targetY);
             
-            // Calculate template origin
-            const minX = Math.min(...templateRooms.map(r => r.x));
-            const minY = Math.min(...templateRooms.map(r => r.y));
+            // Use template origin as reference point
+            const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
+            const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
             
             // Create virtual rooms for all OTHER instances
             const otherInstanceRooms: Room[] = [];
@@ -1243,12 +1442,12 @@ export function DrawingCanvas({
                 if (otherTemplate) {
                   const otherTemplateRooms = rooms.filter(r => otherTemplate.roomIds.includes(r.id));
                   if (otherTemplateRooms.length > 0) {
-                    const otherMinX = Math.min(...otherTemplateRooms.map(r => r.x));
-                    const otherMinY = Math.min(...otherTemplateRooms.map(r => r.y));
+                    const otherOriginX = otherTemplate.originX ?? Math.min(...otherTemplateRooms.map(r => r.x));
+                    const otherOriginY = otherTemplate.originY ?? Math.min(...otherTemplateRooms.map(r => r.y));
                     
                     otherTemplateRooms.forEach(room => {
-                      const offsetX = room.x - otherMinX;
-                      const offsetY = room.y - otherMinY;
+                      const offsetX = room.x - otherOriginX;
+                      const offsetY = room.y - otherOriginY;
                       otherInstanceRooms.push({
                         ...room,
                         id: `virtual-${otherInstance.id}-${room.id}`,
@@ -1266,14 +1465,23 @@ export function DrawingCanvas({
             componentTemplates.forEach(t => t.roomIds.forEach(id => allTemplateRoomIds.add(id)));
             const regularRooms = rooms.filter(r => !allTemplateRoomIds.has(r.id));
             
-            // Combine regular rooms and other instance rooms for collision detection
-            const roomsToCheckAgainst = [...regularRooms, ...otherInstanceRooms];
+            // In "template-is-first-instance" mode, also check against template rooms
+            const templateRoomsToCheck: Room[] = [];
+            if (creationMode === 'template-is-first-instance') {
+              componentTemplates.forEach(t => {
+                const tRooms = rooms.filter(r => t.roomIds.includes(r.id));
+                templateRoomsToCheck.push(...tRooms);
+              });
+            }
+            
+            // Combine regular rooms, template rooms, and other instance rooms for collision detection
+            const roomsToCheckAgainst = [...regularRooms, ...templateRoomsToCheck, ...otherInstanceRooms];
             
             // Helper function to check if an instance position is valid
             const isInstancePositionValid = (x: number, y: number): boolean => {
               for (const templateRoom of templateRooms) {
-                const offsetX = templateRoom.x - minX;
-                const offsetY = templateRoom.y - minY;
+                const offsetX = templateRoom.x - originX;
+                const offsetY = templateRoom.y - originY;
                 const movedRoom: Room = {
                   ...templateRoom,
                   x: x + offsetX,
@@ -1347,6 +1555,104 @@ export function DrawingCanvas({
       }
     }
 
+    // Handle marquee selection completion
+    if (isMarqueeSelecting && marqueeStart && marqueeEnd) {
+      const x1 = Math.min(marqueeStart.x, marqueeEnd.x);
+      const y1 = Math.min(marqueeStart.y, marqueeEnd.y);
+      const x2 = Math.max(marqueeStart.x, marqueeEnd.x);
+      const y2 = Math.max(marqueeStart.y, marqueeEnd.y);
+      
+      const selectedRoomIdsFromMarquee: string[] = [];
+      const selectedInstanceIdsFromMarquee: string[] = [];
+      
+      // Check which rooms intersect with marquee
+      rooms.forEach(room => {
+        // Skip template rooms in all-instances-are-templates mode
+        const isTemplateRoom = componentTemplates.some(t => t.roomIds.includes(room.id));
+        if (creationMode === 'all-instances-are-templates' && isTemplateRoom) {
+          return;
+        }
+        
+        const roomX1 = room.x * gridSize;
+        const roomY1 = room.y * gridSize;
+        const roomX2 = (room.x + room.width) * gridSize;
+        const roomY2 = (room.y + room.height) * gridSize;
+        
+        // Check if room intersects with marquee
+        if (!(roomX2 < x1 || roomX1 > x2 || roomY2 < y1 || roomY1 > y2)) {
+          selectedRoomIdsFromMarquee.push(room.id);
+        }
+      });
+      
+      // Check which instances intersect with marquee
+      componentInstances.forEach(instance => {
+        const template = componentTemplates.find(t => t.id === instance.templateId);
+        if (template) {
+          const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+          if (templateRooms.length > 0) {
+            // Use template origin as reference point
+            const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
+            const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
+            
+            // Calculate actual bounding box when rendered at instance position
+            const instanceRoomPositions = templateRooms.map(r => ({
+              x1: instance.x + (r.x - originX),
+              y1: instance.y + (r.y - originY),
+              x2: instance.x + (r.x - originX) + r.width,
+              y2: instance.y + (r.y - originY) + r.height,
+            }));
+            
+            const instanceX1 = Math.min(...instanceRoomPositions.map(p => p.x1)) * gridSize;
+            const instanceY1 = Math.min(...instanceRoomPositions.map(p => p.y1)) * gridSize;
+            const instanceX2 = Math.max(...instanceRoomPositions.map(p => p.x2)) * gridSize;
+            const instanceY2 = Math.max(...instanceRoomPositions.map(p => p.y2)) * gridSize;
+            
+            // Check if instance intersects with marquee
+            if (!(instanceX2 < x1 || instanceX1 > x2 || instanceY2 < y1 || instanceY1 > y2)) {
+              selectedInstanceIdsFromMarquee.push(instance.id);
+            }
+          }
+        }
+      });
+      
+      // Apply selection based on multi-select mode
+      const isMultiSelect = event.ctrlKey || event.metaKey || event.shiftKey;
+      
+      if (selectedInstanceIdsFromMarquee.length > 0) {
+        // TODO: Currently we can only select one instance at a time
+        // For now, just select the first one
+        onSelectInstance(selectedInstanceIdsFromMarquee[0]);
+        onSelectRoom(undefined);
+        if (onSelectRoomIds) {
+          onSelectRoomIds([]);
+        }
+      } else if (selectedRoomIdsFromMarquee.length > 0) {
+        // Select rooms
+        onSelectInstance(undefined);
+        if (isMultiSelect && onSelectRoomIds) {
+          // Add to existing selection
+          const combined = Array.from(new Set([...selectedRoomIds, ...selectedRoomIdsFromMarquee]));
+          onSelectRoomIds(combined);
+          if (combined.length > 0) {
+            onSelectRoom(combined[0]);
+          }
+        } else {
+          // Replace selection
+          if (onSelectRoomIds) {
+            onSelectRoomIds(selectedRoomIdsFromMarquee);
+          }
+          if (selectedRoomIdsFromMarquee.length > 0) {
+            onSelectRoom(selectedRoomIdsFromMarquee[0]);
+          }
+        }
+      }
+      
+      // Clear marquee state
+      setIsMarqueeSelecting(false);
+      setMarqueeStart(null);
+      setMarqueeEnd(null);
+    }
+
     setCanvasState(prev => ({
       ...prev,
       isDrawing: false,
@@ -1359,11 +1665,23 @@ export function DrawingCanvas({
     canvasState,
     selectedRoomId,
     selectedInstanceId,
+    selectedRoomIds,
     rooms,
     componentInstances,
+    componentTemplates,
+    creationMode,
+    isEditingTemplate,
+    isMarqueeSelecting,
+    marqueeStart,
+    marqueeEnd,
+    draggedOriginTemplateId,
     onAddRoom,
     onMoveRoom,
     onMoveInstance,
+    onSelectRoom,
+    onSelectRoomIds,
+    onSelectInstance,
+    onUpdateTemplateOrigin,
     gridSize,
   ]);
 
@@ -1484,11 +1802,6 @@ export function DrawingCanvas({
   // Handle keyboard events for arrow key movement
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (!selectedRoomId) return;
-      
-      const room = rooms.find(r => r.id === selectedRoomId);
-      if (!room) return;
-
       let deltaX = 0;
       let deltaY = 0;
 
@@ -1509,20 +1822,105 @@ export function DrawingCanvas({
           return; // Don't prevent default for other keys
       }
 
-      event.preventDefault();
+      // Handle room movement
+      if (selectedRoomId) {
+        const room = rooms.find(r => r.id === selectedRoomId);
+        if (!room) return;
+
+        event.preventDefault();
+        
+        const newX = room.x + deltaX;
+        const newY = room.y + deltaY;
+        
+        // Only move if exact target position is valid (no snapping for arrow keys)
+        if (RoomValidation.isValidArrowKeyMove(room, newX, newY, rooms)) {
+          onMoveRoom(selectedRoomId, newX, newY);
+        }
+        return;
+      }
       
-      const newX = room.x + deltaX;
-      const newY = room.y + deltaY;
-      
-      // Only move if exact target position is valid (no snapping for arrow keys)
-      if (RoomValidation.isValidArrowKeyMove(room, newX, newY, rooms)) {
-        onMoveRoom(selectedRoomId, newX, newY);
+      // Handle instance movement
+      if (selectedInstanceId) {
+        const instance = componentInstances.find(i => i.id === selectedInstanceId);
+        if (!instance) return;
+        
+        const template = componentTemplates.find(t => t.id === instance.templateId);
+        if (!template) return;
+        
+        const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+        if (templateRooms.length === 0) return;
+        
+        event.preventDefault();
+        
+        const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
+        const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
+        
+        const newX = Math.max(0, instance.x + deltaX);
+        const newY = Math.max(0, instance.y + deltaY);
+        
+        // Create virtual rooms for the instance at the new position
+        const movedInstanceRooms: Room[] = templateRooms.map(room => ({
+          ...room,
+          id: `arrow-move-${room.id}`,
+          x: newX + (room.x - originX),
+          y: newY + (room.y - originY),
+        }));
+        
+        // Create virtual rooms for all OTHER instances
+        const otherInstanceRooms: Room[] = [];
+        componentInstances.forEach(otherInstance => {
+          if (otherInstance.id !== selectedInstanceId) {
+            const otherTemplate = componentTemplates.find(t => t.id === otherInstance.templateId);
+            if (otherTemplate) {
+              const otherTemplateRooms = rooms.filter(r => otherTemplate.roomIds.includes(r.id));
+              if (otherTemplateRooms.length > 0) {
+                const otherOriginX = otherTemplate.originX ?? Math.min(...otherTemplateRooms.map(r => r.x));
+                const otherOriginY = otherTemplate.originY ?? Math.min(...otherTemplateRooms.map(r => r.y));
+                
+                otherTemplateRooms.forEach(room => {
+                  otherInstanceRooms.push({
+                    ...room,
+                    id: `virtual-${otherInstance.id}-${room.id}`,
+                    x: otherInstance.x + (room.x - otherOriginX),
+                    y: otherInstance.y + (room.y - otherOriginY),
+                  });
+                });
+              }
+            }
+          }
+        });
+        
+        // In "template-is-first-instance" mode, also check against template rooms
+        const templateRoomsToCheck: Room[] = [];
+        if (creationMode === 'template-is-first-instance') {
+          componentTemplates.forEach(t => {
+            const tRooms = rooms.filter(r => t.roomIds.includes(r.id));
+            templateRoomsToCheck.push(...tRooms);
+          });
+        }
+        
+        // Combine all rooms to check against
+        const allRoomsToCheck = [...otherInstanceRooms, ...templateRoomsToCheck];
+        
+        // Validate each room of the moved instance
+        let isValid = true;
+        for (const movedRoom of movedInstanceRooms) {
+          if (!RoomValidation.isValidRoomPlacement(movedRoom, allRoomsToCheck)) {
+            isValid = false;
+            break;
+          }
+        }
+        
+        // Only move if valid
+        if (isValid) {
+          onMoveInstance(selectedInstanceId, newX, newY);
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedRoomId, rooms, onMoveRoom]);
+  }, [selectedRoomId, selectedInstanceId, rooms, componentInstances, componentTemplates, creationMode, onMoveRoom, onMoveInstance]);
 
   const handleDragOver = useCallback((event: React.DragEvent<HTMLCanvasElement>) => {
     event.preventDefault();
@@ -1534,12 +1932,11 @@ export function DrawingCanvas({
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
     
-    // During dragover, we can't access getData, so we check types
-    if (event.dataTransfer.types.includes('templateid')) {
-      setDraggedTemplateId('temp');
+    // Update drag preview position
+    if (draggedTemplateId) {
       setDragPreviewPos(gridPoint);
     }
-  }, [gridSize]);
+  }, [gridSize, draggedTemplateId]);
 
   const handleDrop = useCallback((event: React.DragEvent<HTMLCanvasElement>) => {
     event.preventDefault();
@@ -1555,12 +1952,12 @@ export function DrawingCanvas({
     
     onPlaceInstance(templateId, gridPoint.x, gridPoint.y);
     
-    setDraggedTemplateId(null);
+    // Clear drag preview (the parent will clear draggedTemplateId via onDragEnd)
     setDragPreviewPos(null);
   }, [gridSize, onPlaceInstance]);
 
   const handleDragLeave = useCallback(() => {
-    setDraggedTemplateId(null);
+    // Clear drag preview (the parent will clear draggedTemplateId via onDragEnd)
     setDragPreviewPos(null);
   }, []);
 
