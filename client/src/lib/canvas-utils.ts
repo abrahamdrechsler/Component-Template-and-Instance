@@ -175,6 +175,13 @@ export class CanvasUtils {
     };
   }
 
+  static getGridIntersectionCoordinates(point: Point, gridSize: number): Point {
+    return {
+      x: Math.round(point.x / gridSize),
+      y: Math.round(point.y / gridSize),
+    };
+  }
+
   static isPointInRoom(point: Point, room: Room): boolean {
     return (
       point.x >= room.x &&

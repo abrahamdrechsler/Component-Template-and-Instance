@@ -435,8 +435,8 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
     
     if (bounds.minX !== Infinity) {
-      const centerX = Math.floor((bounds.minX + bounds.maxX) / 2);
-      const centerY = Math.floor((bounds.minY + bounds.maxY) / 2);
+      const centerX = Math.round((bounds.minX + bounds.maxX) / 2);
+      const centerY = Math.round((bounds.minY + bounds.maxY) / 2);
       setTemplateOriginX(centerX);
       setTemplateOriginY(centerY);
     }
@@ -531,8 +531,9 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       }, { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
       
       if (bounds.minX !== Infinity) {
-        const centerX = Math.floor((bounds.minX + bounds.maxX) / 2);
-        const centerY = Math.floor((bounds.minY + bounds.maxY) / 2);
+        // Calculate center and snap to grid intersection (not grid square center)
+        const centerX = Math.round((bounds.minX + bounds.maxX) / 2);
+        const centerY = Math.round((bounds.minY + bounds.maxY) / 2);
         setTemplateOriginX(centerX);
         setTemplateOriginY(centerY);
       }
@@ -690,8 +691,8 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
             maxY: Math.max(acc.maxY, room.y + room.height),
           }), { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity });
           
-          const centerX = Math.floor((bounds.minX + bounds.maxX) / 2);
-          const centerY = Math.floor((bounds.minY + bounds.maxY) / 2);
+          const centerX = Math.round((bounds.minX + bounds.maxX) / 2);
+          const centerY = Math.round((bounds.minY + bounds.maxY) / 2);
           setTemplateOriginX(centerX);
           setTemplateOriginY(centerY);
           

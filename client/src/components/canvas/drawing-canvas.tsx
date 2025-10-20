@@ -769,6 +769,8 @@ export function DrawingCanvas({
     }
 
     // Draw template origin points
+    // Show origin points on templates (not instances) based on creation mode
+    
     // During origin selection or template editing, show the temporary origin point
     if ((isSelectingOrigin || isEditingTemplate) && templateOriginX !== undefined && templateOriginY !== undefined) {
       ctx.save();
@@ -791,28 +793,22 @@ export function DrawingCanvas({
       ctx.restore();
     }
     
-    // In "template-is-first-instance" mode, always show origin for first instance (the template)
-    if (creationMode === 'template-is-first-instance' && !isSelectingOrigin && !isEditingTemplate) {
+    // Show origin points on actual template rooms (not on instances)
+    if (!isSelectingOrigin && !isEditingTemplate) {
       componentTemplates.forEach(template => {
-        // Find the first instance of this template (represents the template itself)
-        const firstInstance = componentInstances.find(inst => inst.templateId === template.id);
-        
-        if (firstInstance && template.originX !== undefined && template.originY !== undefined) {
-          // Calculate the absolute position of the origin relative to the first instance
+        if (template.originX !== undefined && template.originY !== undefined) {
+          // Only show origin on the actual template rooms when they are visible
           const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
-          if (templateRooms.length > 0) {
-            const minX = Math.min(...templateRooms.map(r => r.x));
-            const minY = Math.min(...templateRooms.map(r => r.y));
-            
-            // Origin is relative to template position, so we need to translate it to the instance position
-            const originX = firstInstance.x + (template.originX - minX);
-            const originY = firstInstance.y + (template.originY - minY);
-            
+          
+          // Only show origin if template rooms are actually visible (not in "all-instances-are-templates" mode)
+          const shouldShowOrigin = creationMode !== 'all-instances-are-templates' && templateRooms.length > 0;
+          
+          if (shouldShowOrigin) {
             ctx.save();
             
             // Draw red circle for origin point
             ctx.beginPath();
-            ctx.arc(originX * gridSize, originY * gridSize, 8, 0, 2 * Math.PI);
+            ctx.arc(template.originX * gridSize, template.originY * gridSize, 8, 0, 2 * Math.PI);
             ctx.fillStyle = '#EF4444'; // Red color
             ctx.fill();
             ctx.strokeStyle = '#DC2626'; // Darker red border
@@ -821,7 +817,7 @@ export function DrawingCanvas({
             
             // Draw white dot in center
             ctx.beginPath();
-            ctx.arc(originX * gridSize, originY * gridSize, 3, 0, 2 * Math.PI);
+            ctx.arc(template.originX * gridSize, template.originY * gridSize, 3, 0, 2 * Math.PI);
             ctx.fillStyle = '#FFFFFF';
             ctx.fill();
             
@@ -865,9 +861,10 @@ export function DrawingCanvas({
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
     setMousePos(point);
 
-    // Handle origin dragging
+    // Handle origin dragging - snap to grid line intersections
     if (canvasState.isDraggingOrigin) {
-      onSetTemplateOrigin(gridPoint.x, gridPoint.y);
+      const intersectionPoint = CanvasUtils.getGridIntersectionCoordinates(point, gridSize);
+      onSetTemplateOrigin(intersectionPoint.x, intersectionPoint.y);
       return;
     }
 
@@ -1377,9 +1374,10 @@ export function DrawingCanvas({
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
 
-    // Handle origin selection
+    // Handle origin selection - snap to grid line intersections, not grid squares
     if (isSelectingOrigin) {
-      onSelectOrigin(gridPoint.x, gridPoint.y);
+      const intersectionPoint = CanvasUtils.getGridIntersectionCoordinates(point, gridSize);
+      onSelectOrigin(intersectionPoint.x, intersectionPoint.y);
       return;
     }
 
