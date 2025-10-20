@@ -139,3 +139,30 @@ export type Link = z.infer<typeof linkSchema>;
 export type FileMetadata = z.infer<typeof fileMetadataSchema>;
 export type Option = z.infer<typeof optionSchema>;
 export type OptionValue = z.infer<typeof optionValueSchema>;
+
+// Utility function to check if a room should be visible based on its conditions
+export function isRoomVisible(room: Room, activeOptionState: Record<string, string>): boolean {
+  // If room has no conditions, it's always visible
+  if (!room.conditions || room.conditions.length === 0) {
+    return true;
+  }
+
+  // All conditions must be satisfied (AND logic)
+  return room.conditions.every(condition => {
+    const activeValueId = activeOptionState[condition.optionId];
+    
+    // If the option isn't in active state, the condition can't be evaluated
+    // In this case, we'll consider the room visible (fail-open)
+    if (!activeValueId) {
+      return true;
+    }
+
+    if (condition.operator === 'equals') {
+      return activeValueId === condition.valueId;
+    } else if (condition.operator === 'notEquals') {
+      return activeValueId !== condition.valueId;
+    }
+
+    return true;
+  });
+}

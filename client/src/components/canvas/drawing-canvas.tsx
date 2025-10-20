@@ -1,6 +1,6 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { CanvasUtils } from '@/lib/canvas-utils';
-import { Room, Edge, ComponentTemplate, ComponentInstance } from '@shared/schema';
+import { Room, Edge, ComponentTemplate, ComponentInstance, isRoomVisible } from '@shared/schema';
 import { Point, CanvasState } from '@/types/room';
 import { RoomValidation } from '@/lib/room-validation';
 
@@ -44,6 +44,8 @@ interface DrawingCanvasProps {
   getRoomAt: (x: number, y: number) => Room | undefined;
   getEdgeAt: (x: number, y: number) => Edge | undefined;
   getInstanceAt: (x: number, y: number) => ComponentInstance | undefined;
+  onDeselectOption?: () => void;
+  activeOptionState: Record<string, string>;
 }
 
 export function DrawingCanvas({
@@ -86,6 +88,8 @@ export function DrawingCanvas({
   getRoomAt,
   getEdgeAt,
   getInstanceAt,
+  onDeselectOption,
+  activeOptionState,
 }: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [canvasState, setCanvasState] = useState<CanvasState>({
@@ -162,6 +166,12 @@ export function DrawingCanvas({
         return;
       }
       
+      // Skip edges for rooms that don't meet visibility conditions
+      const room = rooms.find(r => r.id === edge.roomId);
+      if (room && !isRoomVisible(room, activeOptionState)) {
+        return;
+      }
+      
       // In template editing mode, handle edges differently
       if (isEditingTemplate && editingTemplateId) {
         if (edge.roomId.startsWith('editing-')) {
@@ -202,7 +212,9 @@ export function DrawingCanvas({
     componentInstances.forEach(instance => {
       const template = componentTemplates.find(t => t.id === instance.templateId);
       if (template) {
-        const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+        const templateRooms = rooms.filter(r => 
+          template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+        );
         if (templateRooms.length > 0) {
           // In edit mode, grey out ALL instances heavily with no color
           if (isEditingTemplate) {
@@ -353,7 +365,16 @@ export function DrawingCanvas({
         const targetY = currentGridPos.y - canvasState.dragStartOffset.y;
         
         // Use constrained position for preview edges (same as room outline)
-        const otherRooms = rooms.filter(r => r.id !== room.id);
+        let otherRooms = rooms.filter(r => r.id !== room.id);
+        
+        // In template editing mode, exclude original template rooms from collision detection
+        if (isEditingTemplate && editingTemplateId) {
+          const template = componentTemplates.find(t => t.id === editingTemplateId);
+          if (template) {
+            otherRooms = otherRooms.filter(r => !template.roomIds.includes(r.id));
+          }
+        }
+        
         const constrainedPos = RoomValidation.getValidDragPosition(room, targetX, targetY, otherRooms);
         
         const previewRoom = {
@@ -403,7 +424,16 @@ export function DrawingCanvas({
           const targetY = currentGridPos.y - canvasState.dragStartOffset.y;
           
           // Only show valid preview positions - constrain to valid locations
-          const otherRooms = rooms.filter(r => r.id !== room.id);
+          let otherRooms = rooms.filter(r => r.id !== room.id);
+          
+          // In template editing mode, exclude original template rooms from collision detection
+          if (isEditingTemplate && editingTemplateId) {
+            const template = componentTemplates.find(t => t.id === editingTemplateId);
+            if (template) {
+              otherRooms = otherRooms.filter(r => !template.roomIds.includes(r.id));
+            }
+          }
+          
           const constrainedPos = RoomValidation.getValidDragPosition(room, targetX, targetY, otherRooms);
           
           roomX = constrainedPos.x;
@@ -428,7 +458,9 @@ export function DrawingCanvas({
       const template = instance ? componentTemplates.find(t => t.id === instance.templateId) : undefined;
       
       if (instance && template) {
-        const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+        const templateRooms = rooms.filter(r => 
+          template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+        );
         if (templateRooms.length > 0) {
           // Use template origin as reference point
           const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
@@ -449,7 +481,9 @@ export function DrawingCanvas({
             if (otherInstance.id !== selectedInstanceId) {
               const otherTemplate = componentTemplates.find(t => t.id === otherInstance.templateId);
               if (otherTemplate) {
-                const otherTemplateRooms = rooms.filter(r => otherTemplate.roomIds.includes(r.id));
+                const otherTemplateRooms = rooms.filter(r => 
+                  otherTemplate.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+                );
                 if (otherTemplateRooms.length > 0) {
                   const otherOriginX = otherTemplate.originX ?? Math.min(...otherTemplateRooms.map(r => r.x));
                   const otherOriginY = otherTemplate.originY ?? Math.min(...otherTemplateRooms.map(r => r.y));
@@ -748,7 +782,17 @@ export function DrawingCanvas({
       };
       
       // Get valid position (may snap to nearest valid location)
-      const validPosition = RoomValidation.getNearestValidPosition(previewRoom, x, y, rooms);
+      let roomsToCheck = rooms;
+      
+      // In template editing mode, exclude original template rooms from collision detection
+      if (isEditingTemplate && editingTemplateId) {
+        const template = componentTemplates.find(t => t.id === editingTemplateId);
+        if (template) {
+          roomsToCheck = rooms.filter(r => !template.roomIds.includes(r.id));
+        }
+      }
+      
+      const validPosition = RoomValidation.getNearestValidPosition(previewRoom, x, y, roomsToCheck);
       
       // Draw preview rectangle at valid position
       ctx.strokeStyle = selectedColor;
@@ -767,7 +811,9 @@ export function DrawingCanvas({
     if (draggedTemplateId && dragPreviewPos) {
       const template = componentTemplates.find(t => t.id === draggedTemplateId);
       if (template) {
-        const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+        const templateRooms = rooms.filter(r => 
+          template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+        );
         if (templateRooms.length > 0) {
           // Use template origin as reference point
           const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
@@ -858,7 +904,9 @@ export function DrawingCanvas({
       componentTemplates.forEach(template => {
         if (template.originX !== undefined && template.originY !== undefined) {
           // Only show origin on the actual template rooms when they are visible
-          const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+          const templateRooms = rooms.filter(r => 
+            template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+          );
           
           // Only show origin if template rooms are actually visible (not in "all-instances-are-templates" mode)
           const shouldShowOrigin = creationMode !== 'all-instances-are-templates' && templateRooms.length > 0;
@@ -968,6 +1016,7 @@ export function DrawingCanvas({
     marqueeEnd,
     hoveredOriginTemplateId,
     draggedOriginTemplateId,
+    activeOptionState,
   ]);
 
   const handleMouseMove = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1011,7 +1060,9 @@ export function DrawingCanvas({
       if (!isSelectingOrigin && !isEditingTemplate && creationMode !== 'all-instances-are-templates') {
         for (const template of componentTemplates) {
           if (template.originX !== undefined && template.originY !== undefined) {
-            const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+            const templateRooms = rooms.filter(r => 
+              template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+            );
             if (templateRooms.length > 0) {
               const originPixelX = template.originX * gridSize;
               const originPixelY = template.originY * gridSize;
@@ -1174,7 +1225,9 @@ export function DrawingCanvas({
       // Check if clicking on any template origin point
       for (const template of componentTemplates) {
         if (template.originX !== undefined && template.originY !== undefined) {
-          const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+          const templateRooms = rooms.filter(r => 
+            template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+          );
           if (templateRooms.length > 0) {
             const originPixelX = template.originX * gridSize;
             const originPixelY = template.originY * gridSize;
@@ -1268,6 +1321,15 @@ export function DrawingCanvas({
         } else {
           const roomToMove = getRoomAt(gridPoint.x, gridPoint.y);
           if (roomToMove) {
+            // In "template-is-first-instance" mode, prevent moving template rooms
+            if (creationMode === 'template-is-first-instance') {
+              const isTemplateRoom = componentTemplates.some(t => t.roomIds.includes(roomToMove.id));
+              if (isTemplateRoom && !isEditingTemplate) {
+                // Don't allow moving template rooms unless in edit mode
+                break;
+              }
+            }
+            
             onSelectInstance(undefined);
             onSelectRoom(roomToMove.id);
             setCanvasState(prev => ({
@@ -1325,6 +1387,15 @@ export function DrawingCanvas({
           // No instance, check for rooms
           const roomToSelect = getRoomAt(gridPoint.x, gridPoint.y);
           if (roomToSelect) {
+            // In "template-is-first-instance" mode, prevent selection of template rooms
+            if (creationMode === 'template-is-first-instance') {
+              const isTemplateRoom = componentTemplates.some(t => t.roomIds.includes(roomToSelect.id));
+              if (isTemplateRoom && !isEditingTemplate) {
+                // Don't allow selection of template rooms unless in edit mode
+                break;
+              }
+            }
+            
             // Clear instance selection when selecting a room
             onSelectInstance(undefined);
             
@@ -1420,7 +1491,9 @@ export function DrawingCanvas({
         const template = instance ? componentTemplates.find(t => t.id === instance.templateId) : undefined;
         
         if (instance && template) {
-          const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+          const templateRooms = rooms.filter(r => 
+            template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+          );
           
           if (templateRooms.length > 0) {
             const targetX = gridPoint.x - canvasState.dragStartOffset.x;
@@ -1440,7 +1513,9 @@ export function DrawingCanvas({
               if (otherInstance.id !== selectedInstanceId) {
                 const otherTemplate = componentTemplates.find(t => t.id === otherInstance.templateId);
                 if (otherTemplate) {
-                  const otherTemplateRooms = rooms.filter(r => otherTemplate.roomIds.includes(r.id));
+                  const otherTemplateRooms = rooms.filter(r => 
+                    otherTemplate.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+                  );
                   if (otherTemplateRooms.length > 0) {
                     const otherOriginX = otherTemplate.originX ?? Math.min(...otherTemplateRooms.map(r => r.x));
                     const otherOriginY = otherTemplate.originY ?? Math.min(...otherTemplateRooms.map(r => r.y));
@@ -1546,7 +1621,16 @@ export function DrawingCanvas({
           const targetY = gridPoint.y - canvasState.dragStartOffset.y;
           
           // Use the same constrained position logic as the preview
-          const otherRooms = rooms.filter(r => r.id !== room.id);
+          let otherRooms = rooms.filter(r => r.id !== room.id);
+          
+          // In template editing mode, exclude original template rooms from collision detection
+          if (isEditingTemplate && editingTemplateId) {
+            const template = componentTemplates.find(t => t.id === editingTemplateId);
+            if (template) {
+              otherRooms = otherRooms.filter(r => !template.roomIds.includes(r.id));
+            }
+          }
+          
           const finalPosition = RoomValidation.getValidDragPosition(room, targetX, targetY, otherRooms);
           
           // Move to the constrained position (same as what was previewed)
@@ -1588,7 +1672,9 @@ export function DrawingCanvas({
       componentInstances.forEach(instance => {
         const template = componentTemplates.find(t => t.id === instance.templateId);
         if (template) {
-          const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+          const templateRooms = rooms.filter(r => 
+            template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+          );
           if (templateRooms.length > 0) {
             // Use template origin as reference point
             const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
@@ -1689,6 +1775,9 @@ export function DrawingCanvas({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // Clear selected option when clicking canvas
+    onDeselectOption?.();
+
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
 
@@ -1771,7 +1860,7 @@ export function DrawingCanvas({
       onSelectRoom(undefined);
       onSelectEdge(undefined);
     }
-  }, [selectedTool, getRoomAt, getEdgeAt, onSelectRoom, onSelectEdge, onToggleCornerPriority, gridSize, selectedRoomId, selectedEdgeId, rooms, edges]);
+  }, [selectedTool, getRoomAt, getEdgeAt, onSelectRoom, onSelectEdge, onToggleCornerPriority, gridSize, selectedRoomId, selectedEdgeId, rooms, edges, onDeselectOption]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1833,7 +1922,17 @@ export function DrawingCanvas({
         const newY = room.y + deltaY;
         
         // Only move if exact target position is valid (no snapping for arrow keys)
-        if (RoomValidation.isValidArrowKeyMove(room, newX, newY, rooms)) {
+        let roomsToCheck = rooms;
+        
+        // In template editing mode, exclude original template rooms from collision detection
+        if (isEditingTemplate && editingTemplateId) {
+          const template = componentTemplates.find(t => t.id === editingTemplateId);
+          if (template) {
+            roomsToCheck = rooms.filter(r => !template.roomIds.includes(r.id));
+          }
+        }
+        
+        if (RoomValidation.isValidArrowKeyMove(room, newX, newY, roomsToCheck)) {
           onMoveRoom(selectedRoomId, newX, newY);
         }
         return;
@@ -1847,7 +1946,9 @@ export function DrawingCanvas({
         const template = componentTemplates.find(t => t.id === instance.templateId);
         if (!template) return;
         
-        const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+        const templateRooms = rooms.filter(r => 
+          template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+        );
         if (templateRooms.length === 0) return;
         
         event.preventDefault();
@@ -1872,7 +1973,9 @@ export function DrawingCanvas({
           if (otherInstance.id !== selectedInstanceId) {
             const otherTemplate = componentTemplates.find(t => t.id === otherInstance.templateId);
             if (otherTemplate) {
-              const otherTemplateRooms = rooms.filter(r => otherTemplate.roomIds.includes(r.id));
+              const otherTemplateRooms = rooms.filter(r => 
+                otherTemplate.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+              );
               if (otherTemplateRooms.length > 0) {
                 const otherOriginX = otherTemplate.originX ?? Math.min(...otherTemplateRooms.map(r => r.x));
                 const otherOriginY = otherTemplate.originY ?? Math.min(...otherTemplateRooms.map(r => r.y));
@@ -1962,9 +2065,6 @@ export function DrawingCanvas({
   }, []);
 
   const handleDoubleClick = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
-    // Only handle double-click on instances in "all-instances-are-templates" mode
-    if (creationMode !== 'all-instances-are-templates') return;
-    
     // Prevent double-clicks when already in template editing mode
     if (isEditingTemplate) return;
     
@@ -1974,11 +2074,24 @@ export function DrawingCanvas({
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
 
-    const instance = getInstanceAt(gridPoint.x, gridPoint.y);
-    if (instance) {
-      onEnterTemplateEditMode(instance.templateId, instance.id);
+    if (creationMode === 'all-instances-are-templates') {
+      // Original behavior: double-click on instances to edit template
+      const instance = getInstanceAt(gridPoint.x, gridPoint.y);
+      if (instance) {
+        onEnterTemplateEditMode(instance.templateId, instance.id);
+      }
+    } else if (creationMode === 'template-is-first-instance') {
+      // New behavior: double-click on template rooms to edit template
+      const room = getRoomAt(gridPoint.x, gridPoint.y);
+      if (room) {
+        // Check if this room belongs to a template
+        const template = componentTemplates.find(t => t.roomIds.includes(room.id));
+        if (template) {
+          onEnterTemplateEditMode(template.id);
+        }
+      }
     }
-  }, [creationMode, isEditingTemplate, gridSize, getInstanceAt, onEnterTemplateEditMode]);
+  }, [creationMode, isEditingTemplate, gridSize, getInstanceAt, getRoomAt, componentTemplates, onEnterTemplateEditMode]);
 
   return (
     <div className="relative w-full h-full bg-canvas-background">

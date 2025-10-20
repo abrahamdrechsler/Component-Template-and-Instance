@@ -39,6 +39,7 @@ const CREATION_MODE_LABELS: Record<CreationMode, string> = {
   'template-is-first-instance': 'Template is first Instance',
   'all-instances-are-templates': 'All instances are Templates',
   'template-is-separate-file': 'Template is Separate File',
+  'template-always-live': 'Template always Live',
 };
 
 export function ProjectInspectorPanel({
@@ -115,6 +116,9 @@ export function ProjectInspectorPanel({
               </SelectItem>
               <SelectItem value="template-is-separate-file" data-testid="option-template-is-separate-file">
                 {CREATION_MODE_LABELS['template-is-separate-file']}
+              </SelectItem>
+              <SelectItem value="template-always-live" data-testid="option-template-always-live">
+                {CREATION_MODE_LABELS['template-always-live']}
               </SelectItem>
             </SelectContent>
           </Select>

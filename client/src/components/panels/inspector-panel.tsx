@@ -2,8 +2,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Room, Edge, RoomColor, ComponentInstance, ComponentTemplate, Option, RoomCondition } from '@shared/schema';
+import { CreationMode } from '@/hooks/use-units-editor';
 import { ROOM_COLORS } from '@/types/room';
 import { MousePointer, Trash2, Package, ChevronDown, Plus, X } from 'lucide-react';
 import { useState } from 'react';
@@ -15,10 +17,14 @@ interface InspectorPanelProps {
   rooms: Room[];
   componentTemplates: ComponentTemplate[];
   options: Option[];
+  creationMode: CreationMode;
   onUpdateRoom: (roomId: string, updates: Partial<Room>) => void;
   onUpdateEdge: (edgeId: string, updates: Partial<Edge>) => void;
   onDeleteRoom: (roomId: string) => void;
   onDeleteInstance?: (instanceId: string) => void;
+  onAddRoomToTemplate?: (roomId: string, templateId: string) => void;
+  onRemoveRoomFromTemplate?: (roomId: string) => void;
+  getRoomTemplateAssociation?: (roomId: string) => string | undefined;
 }
 
 export function InspectorPanel({
@@ -28,12 +34,20 @@ export function InspectorPanel({
   rooms,
   componentTemplates,
   options,
+  creationMode,
   onUpdateRoom,
   onUpdateEdge,
   onDeleteRoom,
   onDeleteInstance,
+  onAddRoomToTemplate,
+  onRemoveRoomFromTemplate,
+  getRoomTemplateAssociation,
 }: InspectorPanelProps) {
   const [conditionsExpanded, setConditionsExpanded] = useState(true);
+  const [isEditingRoomName, setIsEditingRoomName] = useState(false);
+  const [tempRoomName, setTempRoomName] = useState('');
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState('');
   
   const colorNames = {
     skyBlue: 'Blue',
@@ -112,6 +126,36 @@ export function InspectorPanel({
     updateCondition(conditionId, { operator: newOperator });
   };
 
+  // Template management functions
+  const handleAddToTemplate = () => {
+    if (!selectedRoom || !onAddRoomToTemplate) return;
+    
+    if (componentTemplates.length === 1) {
+      // Only one template, add directly
+      onAddRoomToTemplate(selectedRoom.id, componentTemplates[0].id);
+    } else if (componentTemplates.length > 1) {
+      // Multiple templates, show selection dialog
+      setShowTemplateDialog(true);
+    }
+  };
+
+  const handleRemoveFromTemplate = () => {
+    if (!selectedRoom || !onRemoveRoomFromTemplate) return;
+    onRemoveRoomFromTemplate(selectedRoom.id);
+  };
+
+  const handleTemplateSelection = () => {
+    if (!selectedRoom || !selectedTemplateId || !onAddRoomToTemplate) return;
+    onAddRoomToTemplate(selectedRoom.id, selectedTemplateId);
+    setShowTemplateDialog(false);
+    setSelectedTemplateId('');
+  };
+
+  const getRoomTemplateId = () => {
+    if (!selectedRoom || !getRoomTemplateAssociation) return undefined;
+    return getRoomTemplateAssociation(selectedRoom.id);
+  };
+
   if (!selectedRoom && !selectedEdge && !selectedInstance) {
     return (
       <div className="w-full h-full bg-white border-l border-gray-200 flex flex-col">
@@ -132,109 +176,52 @@ export function InspectorPanel({
   return (
     <div className="w-full h-full bg-white border-l border-gray-200 flex flex-col">
       <div className="p-4 border-b border-gray-200">
-        <h2 className="text-base font-semibold text-gray-900">
-          {selectedInstance ? 'Component Instance' : selectedEdge ? 'Edge' : selectedRoom ? 'Room' : 'Inspector'}
-        </h2>
+        {selectedRoom ? (
+          <div className="flex items-center">
+            {isEditingRoomName ? (
+              <Input
+                value={tempRoomName}
+                onChange={(e) => setTempRoomName(e.target.value)}
+                onBlur={() => {
+                  handleRoomUpdate('name', tempRoomName);
+                  setIsEditingRoomName(false);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleRoomUpdate('name', tempRoomName);
+                    setIsEditingRoomName(false);
+                  } else if (e.key === 'Escape') {
+                    setTempRoomName(selectedRoom.name);
+                    setIsEditingRoomName(false);
+                  }
+                }}
+                className="text-base font-semibold text-gray-900 border-none p-0 h-auto focus:ring-0 focus:border-none"
+                autoFocus
+              />
+            ) : (
+              <h2 
+                className="text-base font-semibold text-gray-900 cursor-pointer hover:text-blue-600 transition-colors"
+                onClick={() => {
+                  setTempRoomName(selectedRoom.name);
+                  setIsEditingRoomName(true);
+                }}
+              >
+                {selectedRoom.name}
+              </h2>
+            )}
+          </div>
+        ) : (
+          <h2 className="text-base font-semibold text-gray-900">
+            {selectedInstance ? 'Component Instance' : selectedEdge ? 'Edge' : 'Inspector'}
+          </h2>
+        )}
       </div>
 
       {/* Room Inspector */}
       {selectedRoom && (
         <div className="flex-1 p-4 space-y-4">
+          {/* Conditions Section - First section */}
           <div>
-            <Label htmlFor="room-name" className="text-sm font-medium text-gray-700 mb-2 block">
-              Room Name
-            </Label>
-            <Input
-              id="room-name"
-              value={selectedRoom.name}
-              onChange={(e) => handleRoomUpdate('name', e.target.value)}
-              className="text-sm"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <Label htmlFor="room-width" className="text-sm font-medium text-gray-700 mb-2 block">
-                Width (ft)
-              </Label>
-              <Input
-                id="room-width"
-                type="number"
-                min="1"
-                value={selectedRoom.width}
-                onChange={(e) => handleRoomUpdate('width', parseInt(e.target.value) || 1)}
-                className="text-sm"
-              />
-            </div>
-            <div>
-              <Label htmlFor="room-height" className="text-sm font-medium text-gray-700 mb-2 block">
-                Height (ft)
-              </Label>
-              <Input
-                id="room-height"
-                type="number"
-                min="1"
-                value={selectedRoom.height}
-                onChange={(e) => handleRoomUpdate('height', parseInt(e.target.value) || 1)}
-                className="text-sm"
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium text-gray-700 mb-2 block">Room Color</Label>
-            <div className="flex items-center space-x-2">
-              <div
-                className="w-8 h-8 rounded border border-gray-300"
-                style={{ backgroundColor: ROOM_COLORS[selectedRoom.color] }}
-              />
-              <Select
-                value={selectedRoom.color}
-                onValueChange={(value: RoomColor) => handleRoomUpdate('color', value)}
-              >
-                <SelectTrigger className="flex-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {Object.entries(colorNames).map(([colorKey, colorName]) => (
-                    <SelectItem key={colorKey} value={colorKey}>
-                      {colorName}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div>
-            <Label className="text-sm font-medium text-gray-700 mb-2 block">Position</Label>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="room-x" className="text-xs text-gray-500 mb-1 block">X (ft)</Label>
-                <Input
-                  id="room-x"
-                  type="number"
-                  value={selectedRoom.x}
-                  onChange={(e) => handleRoomUpdate('x', parseInt(e.target.value) || 0)}
-                  className="text-sm"
-                />
-              </div>
-              <div>
-                <Label htmlFor="room-y" className="text-xs text-gray-500 mb-1 block">Y (ft)</Label>
-                <Input
-                  id="room-y"
-                  type="number"
-                  value={selectedRoom.y}
-                  onChange={(e) => handleRoomUpdate('y', parseInt(e.target.value) || 0)}
-                  className="text-sm"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Conditions Section */}
-          {options.length > 0 && (
-            <div className="border-t border-gray-200 pt-4">
               <div className="flex items-center justify-between mb-3">
                 <button
                   onClick={() => setConditionsExpanded(!conditionsExpanded)}
@@ -258,7 +245,11 @@ export function InspectorPanel({
 
               {conditionsExpanded && (
                 <div className="space-y-2">
-                  {(!selectedRoom.conditions || selectedRoom.conditions.length === 0) ? (
+                  {options.length === 0 ? (
+                    <p className="text-xs text-gray-500 text-center py-3">
+                      No options exist. Create options in the project panel to add conditions.
+                    </p>
+                  ) : (!selectedRoom.conditions || selectedRoom.conditions.length === 0) ? (
                     <p className="text-xs text-gray-500 text-center py-3">
                       No conditions. Click + to add.
                     </p>
@@ -335,6 +326,163 @@ export function InspectorPanel({
                   )}
                 </div>
               )}
+            </div>
+
+          {/* Width and Height as separate horizontal lines */}
+          <div>
+            <Label htmlFor="room-width" className="text-sm font-medium text-gray-700 mb-2 block">
+              Width (ft)
+            </Label>
+            <Input
+              id="room-width"
+              type="number"
+              min="1"
+              value={selectedRoom.width}
+              onChange={(e) => handleRoomUpdate('width', parseInt(e.target.value) || 1)}
+              className="text-sm w-full"
+            />
+          </div>
+          
+          <div>
+            <Label htmlFor="room-height" className="text-sm font-medium text-gray-700 mb-2 block">
+              Height (ft)
+            </Label>
+            <Input
+              id="room-height"
+              type="number"
+              min="1"
+              value={selectedRoom.height}
+              onChange={(e) => handleRoomUpdate('height', parseInt(e.target.value) || 1)}
+              className="text-sm w-full"
+            />
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">Room Color</Label>
+            <div className="flex items-center space-x-2">
+              <div
+                className="w-8 h-8 rounded border border-gray-300"
+                style={{ backgroundColor: ROOM_COLORS[selectedRoom.color] }}
+              />
+              <Select
+                value={selectedRoom.color}
+                onValueChange={(value: RoomColor) => handleRoomUpdate('color', value)}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(colorNames).map(([colorKey, colorName]) => (
+                    <SelectItem key={colorKey} value={colorKey}>
+                      {colorName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">Position</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label htmlFor="room-x" className="text-xs text-gray-500 mb-1 block">X (ft)</Label>
+                <Input
+                  id="room-x"
+                  type="number"
+                  value={selectedRoom.x}
+                  onChange={(e) => handleRoomUpdate('x', parseInt(e.target.value) || 0)}
+                  className="text-sm"
+                />
+              </div>
+              <div>
+                <Label htmlFor="room-y" className="text-xs text-gray-500 mb-1 block">Y (ft)</Label>
+                <Input
+                  id="room-y"
+                  type="number"
+                  value={selectedRoom.y}
+                  onChange={(e) => handleRoomUpdate('y', parseInt(e.target.value) || 0)}
+                  className="text-sm"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Template management for "template-always-live" mode */}
+          {creationMode === 'template-always-live' && onAddRoomToTemplate && onRemoveRoomFromTemplate && (
+            <div className="border-t border-gray-200 pt-4">
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">Template Association</Label>
+              {getRoomTemplateId() ? (
+                <div className="space-y-2">
+                  <div className="text-sm text-gray-600">
+                    Room is part of template: {componentTemplates.find(t => t.id === getRoomTemplateId())?.name || 'Unknown'}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleRemoveFromTemplate}
+                    className="w-full"
+                  >
+                    Remove from Template
+                  </Button>
+                </div>
+              ) : componentTemplates.length > 0 ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleAddToTemplate}
+                  className="w-full"
+                >
+                  Add to Template
+                </Button>
+              ) : (
+                <div className="text-sm text-gray-500 text-center py-2">
+                  No templates available. Create a template first.
+                </div>
+              )}
+              
+              {/* Template Selection Dialog */}
+              <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Select Template</DialogTitle>
+                    <DialogDescription>
+                      Choose which template to add this room to.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a template" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {componentTemplates.map((template) => (
+                          <SelectItem key={template.id} value={template.id}>
+                            {template.name} ({template.roomIds.length} room{template.roomIds.length !== 1 ? 's' : ''})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setShowTemplateDialog(false);
+                          setSelectedTemplateId('');
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleTemplateSelection}
+                        disabled={!selectedTemplateId}
+                      >
+                        Add to Template
+                      </Button>
+                    </div>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
 

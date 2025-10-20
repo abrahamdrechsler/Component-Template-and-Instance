@@ -86,6 +86,9 @@ export default function EdgeConflictPage() {
     deleteOptionValue,
     setActiveOptionValue,
     setSelectedOptionId,
+    addRoomToTemplate,
+    removeRoomFromTemplate,
+    getRoomTemplateAssociation,
   } = useUnitsEditor();
 
   // Resizing handlers
@@ -341,6 +344,8 @@ export default function EdgeConflictPage() {
                   getRoomAt={getRoomAt}
                   getEdgeAt={getEdgeAt}
                   getInstanceAt={getInstanceAt}
+                  onDeselectOption={() => setSelectedOptionId(undefined)}
+                  activeOptionState={activeOptionState}
                 />
               </div>
             </div>
@@ -373,10 +378,14 @@ export default function EdgeConflictPage() {
               rooms={rooms}
               componentTemplates={componentTemplates}
               options={options}
+              creationMode={creationMode}
               onUpdateRoom={updateRoom}
               onUpdateEdge={updateEdge}
               onDeleteRoom={deleteRoom}
               onDeleteInstance={deleteInstance}
+              onAddRoomToTemplate={addRoomToTemplate}
+              onRemoveRoomFromTemplate={removeRoomFromTemplate}
+              getRoomTemplateAssociation={getRoomTemplateAssociation}
             />
           )}
         </div>
