@@ -25,6 +25,7 @@ export default function EdgeConflictPage() {
     selectedEdgeId,
     selectedRoomIds,
     selectedInstanceId,
+    selectedTemplateId,
     showGrid,
     cornerPriorities,
     fileName,
@@ -41,6 +42,7 @@ export default function EdgeConflictPage() {
     isSelectingOrigin,
     templateOriginX,
     templateOriginY,
+    newRoomsInEdit,
     addRoom,
     deleteRoom,
     moveRoom,
@@ -52,6 +54,7 @@ export default function EdgeConflictPage() {
     setSelectedEdgeId,
     setSelectedRoomIds,
     setSelectedInstanceId,
+    setSelectedTemplateId,
     setShowGrid,
     setFileName,
     setCreationMode,
@@ -62,6 +65,7 @@ export default function EdgeConflictPage() {
     getRoomAt,
     getEdgeAt,
     getInstanceAt,
+    getTemplateAt,
     createTemplate,
     startOriginSelection,
     selectOrigin,
@@ -71,6 +75,7 @@ export default function EdgeConflictPage() {
     deleteTemplate,
     placeInstance,
     moveInstance,
+    moveTemplate,
     deleteInstance,
     duplicateInstance,
     addLink,
@@ -86,9 +91,6 @@ export default function EdgeConflictPage() {
     deleteOptionValue,
     setActiveOptionValue,
     setSelectedOptionId,
-    addRoomToTemplate,
-    removeRoomFromTemplate,
-    getRoomTemplateAssociation,
   } = useUnitsEditor();
 
   // Resizing handlers
@@ -223,6 +225,7 @@ export default function EdgeConflictPage() {
   const selectedRoom = selectedRoomId ? rooms.find(r => r.id === selectedRoomId) : undefined;
   const selectedEdge = selectedEdgeId ? edges.find(e => e.id === selectedEdgeId) : undefined;
   const selectedInstance = selectedInstanceId ? componentInstances.find(i => i.id === selectedInstanceId) : undefined;
+  const selectedTemplate = selectedTemplateId ? componentTemplates.find(t => t.id === selectedTemplateId) : undefined;
 
   return (
     <div className="h-screen flex flex-col bg-gray-50">
@@ -279,8 +282,8 @@ export default function EdgeConflictPage() {
           {isEditingTemplate && (
             <div className="absolute top-0 left-0 right-0 z-10 bg-blue-500 text-white px-4 py-2 flex items-center justify-between shadow-lg">
               <div className="flex items-center gap-2">
-                <div className="text-sm font-medium">Editing Template</div>
-                <div className="text-xs opacity-90">Make changes to the template rooms, then save or discard</div>
+                <div className="text-sm font-medium">Editing Modeling Component</div>
+                <div className="text-xs opacity-90">Make changes to the modeling component rooms, then save or discard</div>
               </div>
               <div className="flex gap-2">
                 <button
@@ -313,6 +316,7 @@ export default function EdgeConflictPage() {
                   selectedEdgeId={selectedEdgeId}
                   selectedRoomIds={selectedRoomIds}
                   selectedInstanceId={selectedInstanceId}
+                  selectedTemplateId={selectedTemplateId}
                   showGrid={showGrid}
                   cornerPriorities={cornerPriorities}
                   componentTemplates={componentTemplates}
@@ -324,6 +328,7 @@ export default function EdgeConflictPage() {
                   isSelectingOrigin={isSelectingOrigin}
                   templateOriginX={templateOriginX}
                   templateOriginY={templateOriginY}
+                  newRoomsInEdit={newRoomsInEdit}
                   draggedTemplateId={draggedTemplateId}
                   onAddRoom={addRoom}
                   onMoveRoom={moveRoom}
@@ -333,7 +338,9 @@ export default function EdgeConflictPage() {
                   onSelectEdge={setSelectedEdgeId}
                   onSelectRoomIds={setSelectedRoomIds}
                   onSelectInstance={setSelectedInstanceId}
+                  onSelectTemplate={setSelectedTemplateId}
                   onMoveInstance={moveInstance}
+                  onMoveTemplate={moveTemplate}
                   onToggleCornerPriority={toggleCornerPriority}
                   onPlaceInstance={placeInstance}
                   onEnterTemplateEditMode={enterTemplateEditMode}
@@ -344,6 +351,7 @@ export default function EdgeConflictPage() {
                   getRoomAt={getRoomAt}
                   getEdgeAt={getEdgeAt}
                   getInstanceAt={getInstanceAt}
+                  getTemplateAt={getTemplateAt}
                   onDeselectOption={() => setSelectedOptionId(undefined)}
                   activeOptionState={activeOptionState}
                 />
@@ -375,6 +383,7 @@ export default function EdgeConflictPage() {
               selectedRoom={selectedRoom}
               selectedEdge={selectedEdge}
               selectedInstance={selectedInstance}
+              selectedTemplate={selectedTemplate}
               rooms={rooms}
               componentTemplates={componentTemplates}
               options={options}
@@ -383,9 +392,7 @@ export default function EdgeConflictPage() {
               onUpdateEdge={updateEdge}
               onDeleteRoom={deleteRoom}
               onDeleteInstance={deleteInstance}
-              onAddRoomToTemplate={addRoomToTemplate}
-              onRemoveRoomFromTemplate={removeRoomFromTemplate}
-              getRoomTemplateAssociation={getRoomTemplateAssociation}
+              onUpdateTemplate={updateTemplate}
             />
           )}
         </div>

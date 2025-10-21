@@ -95,54 +95,59 @@ export function Toolbar({
           </Button>
         </div>
 
-        {/* File Operations */}
-        <div className="flex items-center space-x-1 border-r border-border pr-3">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onExport}
-            className="flex items-center space-x-2"
-            data-testid="button-export"
-          >
-            <Download className="w-4 h-4" />
-            <span>Export</span>
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleImportClick}
-            className="flex items-center space-x-2"
-            data-testid="button-import"
-          >
-            <Upload className="w-4 h-4" />
-            <span>Import</span>
-          </Button>
-          <Button
-            variant="default"
-            size="sm"
-            onClick={onPublish}
-            className="flex items-center space-x-2"
-            data-testid="button-publish"
-          >
-            <Cloud className="w-4 h-4" />
-            <span>Publish</span>
-          </Button>
-        </div>
+        {/* File Operations - TEMPORARILY HIDDEN - TODO: Revisit and add back to UI later */}
+        {/* Functionality is preserved but UI elements are hidden for now */}
+        {false && (
+          <>
+            <div className="flex items-center space-x-1 border-r border-border pr-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onExport}
+                className="flex items-center space-x-2"
+                data-testid="button-export"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleImportClick}
+                className="flex items-center space-x-2"
+                data-testid="button-import"
+              >
+                <Upload className="w-4 h-4" />
+                <span>Import</span>
+              </Button>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={onPublish}
+                className="flex items-center space-x-2"
+                data-testid="button-publish"
+              >
+                <Cloud className="w-4 h-4" />
+                <span>Publish</span>
+              </Button>
+            </div>
 
-        {/* Database Link */}
-        <div className="flex items-center space-x-2">
-          <Link href="/database">
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center space-x-2"
-              data-testid="button-database"
-            >
-              <Database className="w-4 h-4" />
-              <span>View Database</span>
-            </Button>
-          </Link>
-        </div>
+            {/* Database Link - TEMPORARILY HIDDEN - TODO: Revisit and add back to UI later */}
+            <div className="flex items-center space-x-2">
+              <Link href="/database">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center space-x-2"
+                  data-testid="button-database"
+                >
+                  <Database className="w-4 h-4" />
+                  <span>View Database</span>
+                </Button>
+              </Link>
+            </div>
+          </>
+        )}
       </div>
 
       {/* Project Name */}
@@ -157,29 +162,10 @@ export function Toolbar({
         />
       </div>
 
-      {/* Grid Controls and Shortcuts */}
+      {/* Grid Controls and Shortcuts - TEMPORARILY HIDDEN - TODO: Revisit UI hints later */}
+      {/* Multi-select hint and show grid checkbox are hidden for cleaner UI */}
       <div className="flex items-center space-x-3">
-        {selectedTool === 'select' ? (
-          <div className="text-xs text-muted-foreground hidden md:block">
-            Hold <kbd className="px-1 py-0.5 bg-muted text-muted-foreground rounded-sm text-xs">Ctrl</kbd>, <kbd className="px-1 py-0.5 bg-muted text-muted-foreground rounded-sm text-xs">Cmd</kbd>, or <kbd className="px-1 py-0.5 bg-muted text-muted-foreground rounded-sm text-xs">Shift</kbd> to multi-select
-          </div>
-        ) : (
-          <div className="text-xs text-muted-foreground hidden md:block">
-            <kbd className="px-1 py-0.5 bg-muted text-muted-foreground rounded-sm text-xs">Del</kbd> to delete selected room
-          </div>
-        )}
-        <div className="flex items-center space-x-3">
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="show-grid"
-              checked={showGrid}
-              onCheckedChange={onToggleGrid}
-            />
-            <label htmlFor="show-grid" className="text-sm text-muted-foreground">
-              Show Grid
-            </label>
-          </div>
-        </div>
+        {/* Shortcuts hidden but keyboard functionality still works */}
       </div>
     </div>
   );

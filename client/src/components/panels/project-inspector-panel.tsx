@@ -36,10 +36,10 @@ interface ProjectInspectorPanelProps {
 }
 
 const CREATION_MODE_LABELS: Record<CreationMode, string> = {
-  'template-is-first-instance': 'Template is first Instance',
-  'all-instances-are-templates': 'All instances are Templates',
-  'template-is-separate-file': 'Template is Separate File',
-  'template-always-live': 'Template always Live',
+  'template-is-first-instance': 'Modeling Component is first Instance',
+  'all-instances-are-templates': 'All instances are Modeling Components',
+  'template-is-separate-file': 'Modeling Component is Separate File',
+  'template-always-live': 'Modeling Component always Live',
 };
 
 export function ProjectInspectorPanel({
@@ -166,7 +166,7 @@ export function ProjectInspectorPanel({
             <div className="flex items-center justify-between mb-3">
               <Label className="text-xs font-semibold text-foreground/70 uppercase tracking-wide flex items-center gap-2">
                 <Package className="w-4 h-4" />
-                Templates ({componentTemplates.length})
+                Modeling Components ({componentTemplates.length})
               </Label>
             </div>
 
@@ -175,7 +175,7 @@ export function ProjectInspectorPanel({
                 <Input
                   value={templateName}
                   onChange={(e) => setTemplateName(e.target.value)}
-                  placeholder="Template name"
+                  placeholder="Modeling Component name"
                   className="text-sm"
                   data-testid="input-template-name"
                   onKeyDown={(e) => {
@@ -217,8 +217,8 @@ export function ProjectInspectorPanel({
                   Select Origin Point
                 </div>
                 <div className="text-xs text-red-600">
-                  Click on the canvas to set the origin point for your template. 
-                  The red dot shows where the template will anchor when placed.
+                  Click on the canvas to set the origin point for your modeling component. 
+                  The red dot shows where the modeling component will anchor when placed.
                 </div>
                 <Button
                   size="sm"
@@ -227,7 +227,7 @@ export function ProjectInspectorPanel({
                   className="w-full text-red-600 border-red-200 hover:bg-red-100"
                   data-testid="button-cancel-origin"
                 >
-                  Cancel Template Creation
+                  Cancel Modeling Component Creation
                 </Button>
               </div>
             )}
@@ -240,12 +240,12 @@ export function ProjectInspectorPanel({
               data-testid="button-save-template"
             >
               <Plus className="w-4 h-4 mr-2" />
-              {showTemplateInput ? 'Save Template' : 'Save as Template'}
+              {showTemplateInput ? 'Save Modeling Component' : 'Save as Modeling Component'}
             </Button>
 
             {componentTemplates.length === 0 ? (
               <div className="text-sm text-muted-foreground text-center py-4">
-                No templates yet. Select rooms and save as template.
+                No modeling components yet. Select rooms and save as modeling component.
               </div>
             ) : (
               <div className="space-y-2">

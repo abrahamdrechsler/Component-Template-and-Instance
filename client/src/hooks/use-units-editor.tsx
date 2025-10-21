@@ -5,7 +5,7 @@ import { CanvasUtils } from '@/lib/canvas-utils';
 import { EdgeFightingResolver } from '@/lib/edge-fighting';
 import { RoomValidation } from '@/lib/room-validation';
 
-export type CreationMode = 'template-is-first-instance' | 'all-instances-are-templates' | 'template-is-separate-file';
+export type CreationMode = 'template-is-first-instance' | 'all-instances-are-templates' | 'template-is-separate-file' | 'template-always-live';
 
 export interface UseUnitsEditorReturn {
   rooms: Room[];
@@ -104,6 +104,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | undefined>();
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>();
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>();
   const [showGrid, setShowGrid] = useState(true);
   const [cornerPriorities, setCornerPriorities] = useState<Record<string, CornerPriority>>({});
   const [fileName, setFileName] = useState('Untitled Project');
@@ -118,6 +119,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   const [editingTemplateId, setEditingTemplateId] = useState<string | undefined>();
   const [editingInstanceId, setEditingInstanceId] = useState<string | undefined>();
   const [preEditState, setPreEditState] = useState<{ rooms: Room[], edges: Edge[], templates: ComponentTemplate[] } | null>(null);
+  const [newRoomsInEdit, setNewRoomsInEdit] = useState<string[]>([]); // Track new rooms created during editing
   const [isSelectingOrigin, setIsSelectingOrigin] = useState(false);
   const [pendingTemplateName, setPendingTemplateName] = useState('');
   const [pendingTemplateRoomIds, setPendingTemplateRoomIds] = useState<string[]>([]);
@@ -170,14 +172,37 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       createdAt: Date.now(),
     };
 
-    if (!RoomValidation.isValidRoomPlacement(newRoom, rooms)) {
-      const validPosition = RoomValidation.getNearestValidPosition(newRoom, x, y, rooms);
+    // Determine which rooms to check for collisions
+    let roomsToCheck = rooms;
+    if (isEditingTemplate && editingTemplateId) {
+      const template = componentTemplates.find(t => t.id === editingTemplateId);
+      if (template) {
+        const hasEditingRooms = rooms.some(r => r.id.startsWith('editing-'));
+        if (hasEditingRooms) {
+          // Only check collision with editing rooms
+          roomsToCheck = rooms.filter(r => r.id.startsWith('editing-'));
+        } else {
+          // Only check collision with template rooms and any new rooms created during editing
+          roomsToCheck = rooms.filter(r => 
+            template.roomIds.includes(r.id) || newRoomsInEdit.includes(r.id)
+          );
+        }
+      }
+    }
+
+    if (!RoomValidation.isValidRoomPlacement(newRoom, roomsToCheck)) {
+      const validPosition = RoomValidation.getNearestValidPosition(newRoom, x, y, roomsToCheck);
       newRoom.x = validPosition.x;
       newRoom.y = validPosition.y;
     }
 
     const updatedRooms = [...rooms, newRoom];
     setRooms(updatedRooms);
+    
+    // If we're in template editing mode, track this new room
+    if (isEditingTemplate && editingTemplateId) {
+      setNewRoomsInEdit(prev => [...prev, roomId]);
+    }
     
     const allEdges: Edge[] = [];
     for (const room of updatedRooms) {
@@ -187,7 +212,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     setEdges(allEdges);
     
     updateColorPriorityForUsedColors(updatedRooms, allEdges);
-  }, [selectedColor, rooms, updateColorPriorityForUsedColors]);
+  }, [selectedColor, rooms, updateColorPriorityForUsedColors, isEditingTemplate, editingTemplateId, componentTemplates, newRoomsInEdit]);
 
   const deleteRoom = useCallback((roomId: string) => {
     const updatedRooms = rooms.filter(room => room.id !== roomId);
@@ -304,11 +329,24 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
 
   const getRoomAt = useCallback((x: number, y: number): Room | undefined => {
     return rooms.find(room => {
-      // In template editing mode, only detect temporary editing rooms
+      // In template editing mode, only detect editing rooms or template rooms being edited
       if (isEditingTemplate && editingTemplateId) {
-        // Only allow interaction with temporary editing rooms
-        if (!room.id.startsWith('editing-')) {
-          return false;
+        const template = componentTemplates.find(t => t.id === editingTemplateId);
+        if (template) {
+          // Check if there are temporary editing rooms
+          const hasEditingRooms = rooms.some(r => r.id.startsWith('editing-'));
+          
+          if (hasEditingRooms) {
+            // Only allow interaction with temporary editing rooms or new rooms created during editing
+            if (!room.id.startsWith('editing-') && !newRoomsInEdit.includes(room.id)) {
+              return false;
+            }
+          } else {
+            // No temporary editing rooms - only allow interaction with template rooms or new rooms
+            if (!template.roomIds.includes(room.id) && !newRoomsInEdit.includes(room.id)) {
+              return false;
+            }
+          }
         }
       } else if (creationMode === 'all-instances-are-templates') {
         // In normal "all-instances-are-templates" mode, ignore original template rooms
@@ -320,16 +358,29 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       
       return CanvasUtils.isPointInRoom({ x, y }, room);
     });
-  }, [rooms, creationMode, isEditingTemplate, editingTemplateId, componentTemplates]);
+  }, [rooms, creationMode, isEditingTemplate, editingTemplateId, componentTemplates, newRoomsInEdit]);
 
   const getEdgeAt = useCallback((x: number, y: number): Edge | undefined => {
     const tolerance = 0.5;
     return edges.find(edge => {
-      // In template editing mode, only detect temporary editing edges
+      // In template editing mode, only detect editing edges or template edges being edited
       if (isEditingTemplate && editingTemplateId) {
-        // Only allow interaction with temporary editing edges
-        if (!edge.roomId.startsWith('editing-')) {
-          return false;
+        const template = componentTemplates.find(t => t.id === editingTemplateId);
+        if (template) {
+          // Check if there are temporary editing rooms
+          const hasEditingRooms = rooms.some(r => r.id.startsWith('editing-'));
+          
+          if (hasEditingRooms) {
+            // Only allow interaction with temporary editing edges or edges from new rooms
+            if (!edge.roomId.startsWith('editing-') && !newRoomsInEdit.includes(edge.roomId)) {
+              return false;
+            }
+          } else {
+            // No temporary editing rooms - only allow interaction with template edges or edges from new rooms
+            if (!template.roomIds.includes(edge.roomId) && !newRoomsInEdit.includes(edge.roomId)) {
+              return false;
+            }
+          }
         }
       } else if (creationMode === 'all-instances-are-templates') {
         // In normal "all-instances-are-templates" mode, ignore original template edges
@@ -347,7 +398,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       );
       return distanceToLine < tolerance;
     });
-  }, [edges, creationMode, isEditingTemplate, editingTemplateId, componentTemplates]);
+  }, [edges, creationMode, isEditingTemplate, editingTemplateId, componentTemplates, rooms, newRoomsInEdit]);
 
   const getInstanceAt = useCallback((x: number, y: number): ComponentInstance | undefined => {
     for (const instance of componentInstances) {
@@ -380,6 +431,70 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     }
     return undefined;
   }, [componentInstances, componentTemplates, rooms]);
+
+  const getTemplateAt = useCallback((x: number, y: number): ComponentTemplate | undefined => {
+    // In "template-is-first-instance" mode, check if clicking on a template
+    if (creationMode !== 'template-is-first-instance') {
+      return undefined;
+    }
+    
+    // Don't allow template selection during editing
+    if (isEditingTemplate) {
+      return undefined;
+    }
+    
+    for (const template of componentTemplates) {
+      const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+      if (templateRooms.length > 0) {
+        // Check if the point is within any of the template's rooms
+        for (const room of templateRooms) {
+          if (CanvasUtils.isPointInRoom({ x, y }, room)) {
+            return template;
+          }
+        }
+      }
+    }
+    return undefined;
+  }, [componentTemplates, rooms, creationMode, isEditingTemplate]);
+
+  const moveTemplate = useCallback((templateId: string, deltaX: number, deltaY: number) => {
+    const template = componentTemplates.find(t => t.id === templateId);
+    if (!template) return;
+    
+    const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+    if (templateRooms.length === 0) return;
+    
+    // Move all rooms in the template
+    const updatedRooms = rooms.map(room => {
+      if (template.roomIds.includes(room.id)) {
+        return {
+          ...room,
+          x: room.x + deltaX,
+          y: room.y + deltaY,
+        };
+      }
+      return room;
+    });
+    
+    setRooms(updatedRooms);
+    
+    // Also move the origin point to maintain relative positioning of instances
+    if (template.originX !== undefined && template.originY !== undefined) {
+      setComponentTemplates(prev => prev.map(t => 
+        t.id === templateId 
+          ? { ...t, originX: t.originX! + deltaX, originY: t.originY! + deltaY }
+          : t
+      ));
+    }
+    
+    // Regenerate edges for all rooms (not just template rooms, to handle interactions)
+    const allEdges: Edge[] = [];
+    for (const room of updatedRooms) {
+      const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, updatedRooms);
+      allEdges.push(...roomEdges);
+    }
+    setEdges(allEdges);
+  }, [componentTemplates, rooms]);
 
   const exportData = useCallback(() => {
     const data = {
@@ -859,8 +974,20 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       // Set the template origin for editing/display
       // Handle legacy templates that don't have origin points
       if (template.originX !== undefined && template.originY !== undefined) {
-        setTemplateOriginX(template.originX);
-        setTemplateOriginY(template.originY);
+        // If editing through an instance, translate the origin to the instance position
+        if (instanceId) {
+          const instance = componentInstances.find(i => i.id === instanceId);
+          if (instance) {
+            setTemplateOriginX(instance.x);
+            setTemplateOriginY(instance.y);
+          } else {
+            setTemplateOriginX(template.originX);
+            setTemplateOriginY(template.originY);
+          }
+        } else {
+          setTemplateOriginX(template.originX);
+          setTemplateOriginY(template.originY);
+        }
       } else {
         // Calculate default origin (center of template bounds) for legacy templates
         const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
@@ -874,8 +1001,23 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
           
           const centerX = Math.round((bounds.minX + bounds.maxX) / 2);
           const centerY = Math.round((bounds.minY + bounds.maxY) / 2);
-          setTemplateOriginX(centerX);
-          setTemplateOriginY(centerY);
+          
+          // If editing through an instance, translate the center to instance position
+          if (instanceId) {
+            const instance = componentInstances.find(i => i.id === instanceId);
+            if (instance) {
+              const originX = bounds.minX;
+              const originY = bounds.minY;
+              setTemplateOriginX(instance.x);
+              setTemplateOriginY(instance.y);
+            } else {
+              setTemplateOriginX(centerX);
+              setTemplateOriginY(centerY);
+            }
+          } else {
+            setTemplateOriginX(centerX);
+            setTemplateOriginY(centerY);
+          }
           
           // Update the template with the calculated origin
           setComponentTemplates(prev => prev.map(t => 
@@ -893,14 +1035,17 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
         const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
         
         if (templateRooms.length > 0) {
-          // Create temporary editing rooms at their current positions
-          // Don't reposition them - let them stay where they are
+          // Calculate the offset from template origin to instance position
+          const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
+          const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
+          
+          // Create temporary editing rooms at the instance position (not template position)
           const editingRooms = templateRooms.map(room => ({
             ...room,
             id: `editing-${room.id}`, // Temporary ID to avoid conflicts
-            // Keep original positions - no translation
-            x: room.x,
-            y: room.y,
+            // Translate from template position to instance position
+            x: instance.x + (room.x - originX),
+            y: instance.y + (room.y - originY),
           }));
           
           // Add temporary rooms to the rooms array
@@ -934,15 +1079,32 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     setTemplateOriginX(undefined);
     setTemplateOriginY(undefined);
     setPreEditState(null);
+    setNewRoomsInEdit([]); // Clear new rooms tracking
   }, []);
 
-  const saveTemplateEdits = useCallback(() => {
-    if (!editingTemplateId) return;
+  const saveTemplateEdits = useCallback((): { hasOverlaps: boolean; overlappingInstances: string[] } => {
+    if (!editingTemplateId) return { hasOverlaps: false, overlappingInstances: [] };
+    
+    let finalRooms = rooms;
+    let updatedTemplate = componentTemplates.find(t => t.id === editingTemplateId);
+    
+    if (!updatedTemplate) return { hasOverlaps: false, overlappingInstances: [] };
+    
+    // Add any new rooms created during editing to the template
+    if (newRoomsInEdit.length > 0) {
+      updatedTemplate = {
+        ...updatedTemplate,
+        roomIds: [...updatedTemplate.roomIds, ...newRoomsInEdit],
+      };
+      setComponentTemplates(prev => prev.map(t => 
+        t.id === editingTemplateId ? updatedTemplate! : t
+      ));
+    }
     
     if (editingInstanceId && preEditState) {
       // Editing through an instance - need to save changes back to template
       const instance = componentInstances.find(i => i.id === editingInstanceId);
-      const template = componentTemplates.find(t => t.id === editingTemplateId);
+      const template = updatedTemplate;
       
       if (instance && template) {
         // Get the temporary editing rooms and original template rooms
@@ -950,23 +1112,46 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
         const originalTemplateRooms = preEditState.rooms.filter(r => template.roomIds.includes(r.id));
         
         if (editingRooms.length > 0) {
-          // Since editing rooms are at their original positions, directly copy changes back
-          const updatedRooms = rooms.filter(r => !r.id.startsWith('editing-')).map(room => {
+          // Calculate the template origin
+          const originX = template.originX ?? Math.min(...originalTemplateRooms.map(r => r.x));
+          const originY = template.originY ?? Math.min(...originalTemplateRooms.map(r => r.y));
+          
+          // Translate editing rooms from instance position back to template position
+          let updatedRooms = rooms.filter(r => !r.id.startsWith('editing-')).map(room => {
             if (!template.roomIds.includes(room.id)) {
               return room; // Not a template room, leave unchanged
             }
             
             const matchingEditingRoom = editingRooms.find(er => er.id === `editing-${room.id}`);
             if (matchingEditingRoom) {
-              // Copy the editing room's changes back to the original template room
+              // Copy the editing room's changes and translate back to template position
               return {
                 ...matchingEditingRoom, // Copy all properties (width, height, color, etc.)
                 id: room.id, // Restore original ID
+                // Translate from instance position back to template position
+                x: originX + (matchingEditingRoom.x - instance.x),
+                y: originY + (matchingEditingRoom.y - instance.y),
               };
             }
             
             return room;
           });
+          
+          // Also translate any new rooms created during editing back to template position
+          if (newRoomsInEdit.length > 0) {
+            updatedRooms = updatedRooms.map(room => {
+              if (newRoomsInEdit.includes(room.id)) {
+                return {
+                  ...room,
+                  x: originX + (room.x - instance.x),
+                  y: originY + (room.y - instance.y),
+                };
+              }
+              return room;
+            });
+          }
+          
+          finalRooms = updatedRooms;
           
           // Update rooms state
           setRooms(updatedRooms);
@@ -982,14 +1167,80 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       }
     }
     
+    // Check for overlaps between instances after template changes
+    const template = componentTemplates.find(t => t.id === editingTemplateId);
+    const overlappingInstances: string[] = [];
+    
+    if (template) {
+      const templateInstances = componentInstances.filter(i => i.templateId === editingTemplateId);
+      const templateRooms = finalRooms.filter(r => template.roomIds.includes(r.id));
+      
+      if (templateRooms.length > 0 && templateInstances.length > 0) {
+        const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
+        const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
+        
+        // Check each instance against all other instances
+        for (let i = 0; i < templateInstances.length; i++) {
+          const instance1 = templateInstances[i];
+          
+          // Create virtual rooms for instance1
+          const instance1Rooms = templateRooms.map(r => ({
+            ...r,
+            id: `virtual-${instance1.id}-${r.id}`,
+            x: instance1.x + (r.x - originX),
+            y: instance1.y + (r.y - originY),
+          }));
+          
+          // Check against all other instances
+          for (let j = i + 1; j < templateInstances.length; j++) {
+            const instance2 = templateInstances[j];
+            
+            // Create virtual rooms for instance2
+            const instance2Rooms = templateRooms.map(r => ({
+              ...r,
+              id: `virtual-${instance2.id}-${r.id}`,
+              x: instance2.x + (r.x - originX),
+              y: instance2.y + (r.y - originY),
+            }));
+            
+            // Check if any room from instance1 overlaps with any room from instance2
+            let hasOverlap = false;
+            for (const room1 of instance1Rooms) {
+              for (const room2 of instance2Rooms) {
+                if (!RoomValidation.isValidRoomPlacement(room1, [room2])) {
+                  hasOverlap = true;
+                  break;
+                }
+              }
+              if (hasOverlap) break;
+            }
+            
+            if (hasOverlap) {
+              if (!overlappingInstances.includes(instance1.id)) {
+                overlappingInstances.push(instance1.id);
+              }
+              if (!overlappingInstances.includes(instance2.id)) {
+                overlappingInstances.push(instance2.id);
+              }
+            }
+          }
+        }
+      }
+    }
+    
     // Exit edit mode and clean up
     exitTemplateEditMode();
-  }, [editingTemplateId, editingInstanceId, componentInstances, componentTemplates, rooms, preEditState, exitTemplateEditMode]);
+    
+    return {
+      hasOverlaps: overlappingInstances.length > 0,
+      overlappingInstances,
+    };
+  }, [editingTemplateId, editingInstanceId, componentInstances, componentTemplates, rooms, preEditState, exitTemplateEditMode, newRoomsInEdit]);
 
   const discardTemplateEdits = useCallback(() => {
     if (!preEditState) return;
     
-    // Restore the previous state
+    // Restore the previous state (this will remove any new rooms created during editing)
     setRooms(preEditState.rooms);
     setEdges(preEditState.edges);
     setComponentTemplates(preEditState.templates);
@@ -1103,6 +1354,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     selectedEdgeId,
     selectedRoomIds,
     selectedInstanceId,
+    selectedTemplateId,
     showGrid,
     fileName,
     componentTemplates,
@@ -1118,6 +1370,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     isSelectingOrigin,
     templateOriginX,
     templateOriginY,
+    newRoomsInEdit,
     addRoom,
     deleteRoom,
     moveRoom,
@@ -1132,6 +1385,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     setSelectedEdgeId,
     setSelectedRoomIds,
     setSelectedInstanceId,
+    setSelectedTemplateId,
     setShowGrid,
     setFileName,
     setCreationMode,
@@ -1142,6 +1396,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     getRoomAt,
     getEdgeAt,
     getInstanceAt,
+    getTemplateAt,
     createTemplate,
     startOriginSelection,
     selectOrigin,
@@ -1152,6 +1407,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     updateTemplate,
     placeInstance,
     moveInstance,
+    moveTemplate,
     deleteInstance,
     duplicateInstance,
     addLink,

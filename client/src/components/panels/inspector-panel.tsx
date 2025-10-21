@@ -14,6 +14,7 @@ interface InspectorPanelProps {
   selectedRoom?: Room;
   selectedEdge?: Edge;
   selectedInstance?: ComponentInstance;
+  selectedTemplate?: ComponentTemplate;
   rooms: Room[];
   componentTemplates: ComponentTemplate[];
   options: Option[];
@@ -22,6 +23,7 @@ interface InspectorPanelProps {
   onUpdateEdge: (edgeId: string, updates: Partial<Edge>) => void;
   onDeleteRoom: (roomId: string) => void;
   onDeleteInstance?: (instanceId: string) => void;
+  onUpdateTemplate?: (templateId: string, updates: Partial<ComponentTemplate>) => void;
   onAddRoomToTemplate?: (roomId: string, templateId: string) => void;
   onRemoveRoomFromTemplate?: (roomId: string) => void;
   getRoomTemplateAssociation?: (roomId: string) => string | undefined;
@@ -31,6 +33,7 @@ export function InspectorPanel({
   selectedRoom,
   selectedEdge,
   selectedInstance,
+  selectedTemplate,
   rooms,
   componentTemplates,
   options,
@@ -39,6 +42,7 @@ export function InspectorPanel({
   onUpdateEdge,
   onDeleteRoom,
   onDeleteInstance,
+  onUpdateTemplate,
   onAddRoomToTemplate,
   onRemoveRoomFromTemplate,
   getRoomTemplateAssociation,
@@ -156,7 +160,7 @@ export function InspectorPanel({
     return getRoomTemplateAssociation(selectedRoom.id);
   };
 
-  if (!selectedRoom && !selectedEdge && !selectedInstance) {
+  if (!selectedRoom && !selectedEdge && !selectedInstance && !selectedTemplate) {
     return (
       <div className="w-full h-full bg-white border-l border-gray-200 flex flex-col">
         <div className="p-4 border-b border-gray-200">
@@ -408,14 +412,14 @@ export function InspectorPanel({
             </div>
           </div>
 
-          {/* Template management for "template-always-live" mode */}
-          {creationMode === 'template-always-live' && onAddRoomToTemplate && onRemoveRoomFromTemplate && (
+          {/* Modeling Component management for "template-always-live" mode - Not implemented yet */}
+          {false && creationMode === 'template-is-first-instance' && onAddRoomToTemplate && onRemoveRoomFromTemplate && (
             <div className="border-t border-gray-200 pt-4">
-              <Label className="text-sm font-medium text-gray-700 mb-2 block">Template Association</Label>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">Modeling Component Association</Label>
               {getRoomTemplateId() ? (
                 <div className="space-y-2">
                   <div className="text-sm text-gray-600">
-                    Room is part of template: {componentTemplates.find(t => t.id === getRoomTemplateId())?.name || 'Unknown'}
+                    Room is part of modeling component: {componentTemplates.find(t => t.id === getRoomTemplateId())?.name || 'Unknown'}
                   </div>
                   <Button
                     variant="outline"
@@ -423,7 +427,7 @@ export function InspectorPanel({
                     onClick={handleRemoveFromTemplate}
                     className="w-full"
                   >
-                    Remove from Template
+                    Remove from Modeling Component
                   </Button>
                 </div>
               ) : componentTemplates.length > 0 ? (
@@ -433,27 +437,27 @@ export function InspectorPanel({
                   onClick={handleAddToTemplate}
                   className="w-full"
                 >
-                  Add to Template
+                  Add to Modeling Component
                 </Button>
               ) : (
                 <div className="text-sm text-gray-500 text-center py-2">
-                  No templates available. Create a template first.
+                  No modeling components available. Create a modeling component first.
                 </div>
               )}
               
-              {/* Template Selection Dialog */}
+              {/* Modeling Component Selection Dialog */}
               <Dialog open={showTemplateDialog} onOpenChange={setShowTemplateDialog}>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Select Template</DialogTitle>
+                    <DialogTitle>Select Modeling Component</DialogTitle>
                     <DialogDescription>
-                      Choose which template to add this room to.
+                      Choose which modeling component to add this room to.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
                     <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Select a template" />
+                        <SelectValue placeholder="Select a modeling component" />
                       </SelectTrigger>
                       <SelectContent>
                         {componentTemplates.map((template) => (
@@ -477,7 +481,7 @@ export function InspectorPanel({
                         onClick={handleTemplateSelection}
                         disabled={!selectedTemplateId}
                       >
-                        Add to Template
+                        Add to Modeling Component
                       </Button>
                     </div>
                   </div>
@@ -500,6 +504,65 @@ export function InspectorPanel({
         </div>
       )}
 
+      {/* Modeling Component Inspector */}
+      {selectedTemplate && (
+        <div className="flex-1 p-4 space-y-4">
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">
+              <Package className="w-4 h-4 inline mr-1" />
+              Modeling Component
+            </Label>
+            <div className="bg-gray-50 p-3 rounded border border-gray-200">
+              <p className="text-sm font-medium">{selectedTemplate.name}</p>
+              <p className="text-xs text-gray-500 mt-1">ID: {selectedTemplate.id}</p>
+            </div>
+          </div>
+
+          {/* Origin Point */}
+          {selectedTemplate.originX !== undefined && selectedTemplate.originY !== undefined && (
+            <div>
+              <Label className="text-sm font-medium text-gray-700 mb-2 block">
+                Origin Point
+              </Label>
+              <div className="bg-gray-50 p-3 rounded border border-gray-200">
+                <p className="text-xs text-gray-600">
+                  X: {selectedTemplate.originX}, Y: {selectedTemplate.originY}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Child Rooms */}
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">
+              Child Rooms ({selectedTemplate.roomIds.length})
+            </Label>
+            <div className="space-y-2 max-h-60 overflow-y-auto">
+              {selectedTemplate.roomIds.map(roomId => {
+                const room = rooms.find(r => r.id === roomId);
+                if (!room) return null;
+                
+                return (
+                  <div key={roomId} className="bg-gray-50 p-3 rounded border border-gray-200">
+                    <p className="text-sm font-medium">{room.name || `Room ${roomId}`}</p>
+                    <div className="flex gap-4 mt-1 text-xs text-gray-600">
+                      <span>X: {room.x}</span>
+                      <span>Y: {room.y}</span>
+                      <span>W: {room.width}</span>
+                      <span>H: {room.height}</span>
+                    </div>
+                    <div 
+                      className="w-4 h-4 rounded mt-2 border border-gray-300"
+                      style={{ backgroundColor: ROOM_COLORS[room.color] }}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Component Instance Inspector */}
       {selectedInstance && (
         <div className="flex-1 p-4 space-y-4">
@@ -512,10 +575,10 @@ export function InspectorPanel({
                 <div>
                   <Label className="text-sm font-medium text-gray-700 mb-2 block">
                     <Package className="w-4 h-4 inline mr-1" />
-                    Template
+                    Modeling Component
                   </Label>
                   <div className="bg-gray-50 p-3 rounded border border-gray-200">
-                    <p className="text-sm font-medium">{template?.name || 'Unknown Template'}</p>
+                    <p className="text-sm font-medium">{template?.name || 'Unknown Modeling Component'}</p>
                     <p className="text-xs text-gray-500 mt-1">{templateRooms.length} room{templateRooms.length !== 1 ? 's' : ''}</p>
                   </div>
                 </div>
@@ -547,7 +610,7 @@ export function InspectorPanel({
 
                 {template && templateRooms.length > 0 && (
                   <div>
-                    <Label className="text-sm font-medium text-gray-700 mb-2 block">Template Rooms</Label>
+                    <Label className="text-sm font-medium text-gray-700 mb-2 block">Modeling Component Rooms</Label>
                     <div className="space-y-2">
                       {templateRooms.map(room => (
                         <div key={room.id} className="flex items-center space-x-2 text-sm">
