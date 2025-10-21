@@ -103,6 +103,7 @@ export function DrawingCanvas({
   activeOptionState,
 }: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const justFinishedDrawingRef = useRef<boolean>(false);
   const [canvasState, setCanvasState] = useState<CanvasState>({
     zoom: 1,
     pan: { x: 0, y: 0 },
@@ -1511,11 +1512,22 @@ export function DrawingCanvas({
           } else {
             const roomToMove = getRoomAt(gridPoint.x, gridPoint.y);
             if (roomToMove) {
-              // In "template-is-first-instance" mode, prevent moving template rooms (unless editing)
-              if (creationMode === 'template-is-first-instance') {
-                const isTemplateRoom = componentTemplates.some(t => t.roomIds.includes(roomToMove.id));
-                if (isTemplateRoom && !isEditingTemplate) {
-                  // Don't allow moving template rooms unless in edit mode
+              // In "template-is-first-instance" mode, check if room belongs to a template
+              if (creationMode === 'template-is-first-instance' && !isEditingTemplate) {
+                const template = componentTemplates.find(t => t.roomIds.includes(roomToMove.id));
+                if (template) {
+                  // Select the template instead to allow template movement
+                  onSelectTemplate(template.id);
+                  onSelectInstance(undefined);
+                  onSelectRoom(undefined);
+                  if (onSelectRoomIds) {
+                    onSelectRoomIds([]);
+                  }
+                  setCanvasState(prev => ({
+                    ...prev,
+                    isDragging: false,
+                    dragStart: gridPoint,
+                  }));
                   break;
                 }
               }
@@ -1598,11 +1610,22 @@ export function DrawingCanvas({
             // No instance or template, check for rooms
             const roomToSelect = getRoomAt(gridPoint.x, gridPoint.y);
             if (roomToSelect) {
-              // In "template-is-first-instance" mode, prevent selection of template rooms (unless editing)
-              if (creationMode === 'template-is-first-instance') {
-                const isTemplateRoom = componentTemplates.some(t => t.roomIds.includes(roomToSelect.id));
-                if (isTemplateRoom && !isEditingTemplate) {
-                  // Don't allow selection of template rooms unless in edit mode
+              // In "template-is-first-instance" mode, check if room belongs to a template
+              if (creationMode === 'template-is-first-instance' && !isEditingTemplate) {
+                const template = componentTemplates.find(t => t.roomIds.includes(roomToSelect.id));
+                if (template) {
+                  // Select the template instead of the room
+                  onSelectTemplate(template.id);
+                  onSelectInstance(undefined);
+                  onSelectRoom(undefined);
+                  if (onSelectRoomIds) {
+                    onSelectRoomIds([]);
+                  }
+                  setCanvasState(prev => ({
+                    ...prev,
+                    isDragging: false,
+                    dragStart: gridPoint,
+                  }));
                   break;
                 }
               }
@@ -1695,6 +1718,9 @@ export function DrawingCanvas({
       const y = Math.min(startGrid.y, gridPoint.y);
       
       onAddRoom(x, y, width, height);
+      
+      // Set flag to prevent the subsequent click event from changing the selection
+      justFinishedDrawingRef.current = true;
     }
 
     if (canvasState.isDragging && canvasState.dragStartOffset) {
@@ -2007,6 +2033,12 @@ export function DrawingCanvas({
     const canvas = canvasRef.current;
     if (!canvas) return;
 
+    // If we just finished drawing a room, skip selection logic to keep the room selected
+    if (justFinishedDrawingRef.current) {
+      justFinishedDrawingRef.current = false;
+      return;
+    }
+
     // Clear selected option when clicking canvas
     onDeselectOption?.();
 
@@ -2110,6 +2142,18 @@ export function DrawingCanvas({
           }
         }
       } else {
+        // In "template-is-first-instance" mode, check if room belongs to a template
+        if (creationMode === 'template-is-first-instance') {
+          const template = componentTemplates.find(t => t.roomIds.includes(room.id));
+          if (template) {
+            // Select the template instead of the room
+            onSelectTemplate(template.id);
+            onSelectRoom(undefined);
+            onSelectEdge(undefined);
+            return;
+          }
+        }
+        
         // Normal mode - allow any room selection
         onSelectRoom(room.id);
         onSelectEdge(undefined);
@@ -2118,7 +2162,7 @@ export function DrawingCanvas({
       onSelectRoom(undefined);
       onSelectEdge(undefined);
     }
-  }, [selectedTool, getRoomAt, getEdgeAt, onSelectRoom, onSelectEdge, onToggleCornerPriority, gridSize, selectedRoomId, selectedEdgeId, rooms, edges, onDeselectOption]);
+  }, [selectedTool, getRoomAt, getEdgeAt, onSelectRoom, onSelectEdge, onSelectTemplate, onToggleCornerPriority, gridSize, selectedRoomId, selectedEdgeId, rooms, edges, onDeselectOption, creationMode, componentTemplates, isEditingTemplate, editingTemplateId, newRoomsInEdit, canvasState.isDragging, isSelectingOrigin, onSelectOrigin]);
 
   useEffect(() => {
     const canvas = canvasRef.current;

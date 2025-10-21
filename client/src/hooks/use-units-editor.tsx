@@ -217,6 +217,10 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     setEdges(allEdges);
     
     updateColorPriorityForUsedColors(updatedRooms, allEdges);
+    
+    // Select the newly created room
+    setSelectedEdgeId(undefined);
+    setSelectedRoomId(roomId);
   }, [selectedColor, rooms, updateColorPriorityForUsedColors, isEditingTemplate, editingTemplateId, componentTemplates, newRoomsInEdit]);
 
   const deleteRoom = useCallback((roomId: string) => {
