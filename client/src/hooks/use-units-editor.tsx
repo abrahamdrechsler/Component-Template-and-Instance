@@ -20,6 +20,7 @@ export interface UseUnitsEditorReturn {
   selectedEdgeId: string | undefined;
   selectedRoomIds: string[];
   selectedInstanceId: string | undefined;
+  selectedTemplateId: string | undefined;
   showGrid: boolean;
   fileName: string;
   componentTemplates: ComponentTemplate[];
@@ -35,6 +36,7 @@ export interface UseUnitsEditorReturn {
   isSelectingOrigin: boolean;
   templateOriginX: number | undefined;
   templateOriginY: number | undefined;
+  newRoomsInEdit: string[];
   
   addRoom: (x: number, y: number, width: number, height: number) => void;
   deleteRoom: (roomId: string) => void;
@@ -50,6 +52,7 @@ export interface UseUnitsEditorReturn {
   setSelectedEdgeId: (edgeId: string | undefined) => void;
   setSelectedRoomIds: (roomIds: string[]) => void;
   setSelectedInstanceId: (instanceId: string | undefined) => void;
+  setSelectedTemplateId: (templateId: string | undefined) => void;
   setShowGrid: (show: boolean) => void;
   setFileName: (name: string) => void;
   setCreationMode: (mode: CreationMode) => void;
@@ -60,6 +63,7 @@ export interface UseUnitsEditorReturn {
   getRoomAt: (x: number, y: number) => Room | undefined;
   getEdgeAt: (x: number, y: number) => Edge | undefined;
   getInstanceAt: (x: number, y: number) => ComponentInstance | undefined;
+  getTemplateAt: (x: number, y: number) => ComponentTemplate | undefined;
   
   createTemplate: (name: string, roomIds: string[]) => void;
   startOriginSelection: (name: string, roomIds: string[]) => void;
@@ -71,6 +75,7 @@ export interface UseUnitsEditorReturn {
   updateTemplate: (templateId: string, updates: Partial<ComponentTemplate>) => void;
   placeInstance: (templateId: string, x: number, y: number) => void;
   moveInstance: (instanceId: string, x: number, y: number) => void;
+  moveTemplate: (templateId: string, deltaX: number, deltaY: number) => void;
   deleteInstance: (instanceId: string) => void;
   duplicateInstance: (instanceId: string) => void;
   addLink: (linkedFileId: string, linkedFileName: string) => void;

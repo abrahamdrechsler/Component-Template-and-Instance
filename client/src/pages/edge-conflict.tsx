@@ -73,6 +73,7 @@ export default function EdgeConflictPage() {
     setTemplateOrigin,
     updateTemplateOrigin,
     deleteTemplate,
+    updateTemplate,
     placeInstance,
     moveInstance,
     moveTemplate,
