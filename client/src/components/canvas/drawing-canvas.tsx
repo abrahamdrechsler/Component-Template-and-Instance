@@ -302,7 +302,7 @@ export function DrawingCanvas({
       const template = componentTemplates.find(t => t.id === instance.templateId);
       if (template) {
         const templateRooms = rooms.filter(r => 
-          template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+          template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState, instance.id)
         );
         if (templateRooms.length > 0) {
           // In edit mode, grey out ALL instances heavily with no color
@@ -450,35 +450,14 @@ export function DrawingCanvas({
       const room = rooms.find(r => r.id === selectedRoomId);
       if (room) {
         const currentGridPos = CanvasUtils.getGridCoordinates(mousePos, gridSize);
-        const targetX = currentGridPos.x - canvasState.dragStartOffset.x;
-        const targetY = currentGridPos.y - canvasState.dragStartOffset.y;
+        const targetX = Math.max(0, currentGridPos.x - canvasState.dragStartOffset.x);
+        const targetY = Math.max(0, currentGridPos.y - canvasState.dragStartOffset.y);
         
-        // Use constrained position for preview edges (same as room outline)
-        let otherRooms = rooms.filter(r => r.id !== room.id);
-        
-        // In template editing mode, only check collision with template rooms being edited
-        if (isEditingTemplate && editingTemplateId) {
-          const template = componentTemplates.find(t => t.id === editingTemplateId);
-          if (template) {
-            // Check if we have temporary editing rooms
-            const hasEditingRooms = rooms.some(r => r.id.startsWith('editing-'));
-            
-            if (hasEditingRooms) {
-              // Using temporary editing rooms - only collide with other editing rooms
-              otherRooms = otherRooms.filter(r => r.id.startsWith('editing-'));
-            } else {
-              // Editing original template rooms - only collide with other template rooms
-              otherRooms = otherRooms.filter(r => template.roomIds.includes(r.id));
-            }
-          }
-        }
-        
-        const constrainedPos = RoomValidation.getValidDragPosition(room, targetX, targetY, otherRooms);
-        
+        // No collision detection - rooms can overlap freely
         const previewRoom = {
           ...room,
-          x: constrainedPos.x,
-          y: constrainedPos.y,
+          x: targetX,
+          y: targetY,
         };
         
         // Generate preview edges with preserved custom properties
@@ -521,30 +500,9 @@ export function DrawingCanvas({
           const targetX = currentGridPos.x - canvasState.dragStartOffset.x;
           const targetY = currentGridPos.y - canvasState.dragStartOffset.y;
           
-          // Only show valid preview positions - constrain to valid locations
-          let otherRooms = rooms.filter(r => r.id !== room.id);
-          
-          // In template editing mode, only check collision with template rooms being edited
-          if (isEditingTemplate && editingTemplateId) {
-            const template = componentTemplates.find(t => t.id === editingTemplateId);
-            if (template) {
-              // Check if we have temporary editing rooms
-              const hasEditingRooms = rooms.some(r => r.id.startsWith('editing-'));
-              
-              if (hasEditingRooms) {
-                // Using temporary editing rooms - only collide with other editing rooms
-                otherRooms = otherRooms.filter(r => r.id.startsWith('editing-'));
-              } else {
-                // Editing original template rooms - only collide with other template rooms
-                otherRooms = otherRooms.filter(r => template.roomIds.includes(r.id));
-              }
-            }
-          }
-          
-          const constrainedPos = RoomValidation.getValidDragPosition(room, targetX, targetY, otherRooms);
-          
-          roomX = constrainedPos.x;
-          roomY = constrainedPos.y;
+          // No collision detection - rooms can overlap freely
+          roomX = Math.max(0, targetX);
+          roomY = Math.max(0, targetY);
         }
         
         ctx.strokeStyle = '#3B82F6';
@@ -566,7 +524,7 @@ export function DrawingCanvas({
       
       if (instance && template) {
         const templateRooms = rooms.filter(r => 
-          template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+          template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState, instance.id)
         );
         if (templateRooms.length > 0) {
           // Use template origin as reference point
@@ -578,108 +536,9 @@ export function DrawingCanvas({
           const previewX = currentGridPos.x - canvasState.dragStartOffset.x;
           const previewY = currentGridPos.y - canvasState.dragStartOffset.y;
           
-          // Constrain to grid (no negative coordinates)
-          let targetX = Math.max(0, previewX);
-          let targetY = Math.max(0, previewY);
-          
-          // Create virtual rooms for all OTHER instances
-          const otherInstanceRooms: Room[] = [];
-          componentInstances.forEach(otherInstance => {
-            if (otherInstance.id !== selectedInstanceId) {
-              const otherTemplate = componentTemplates.find(t => t.id === otherInstance.templateId);
-              if (otherTemplate) {
-                const otherTemplateRooms = rooms.filter(r => 
-                  otherTemplate.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
-                );
-                if (otherTemplateRooms.length > 0) {
-                  const otherOriginX = otherTemplate.originX ?? Math.min(...otherTemplateRooms.map(r => r.x));
-                  const otherOriginY = otherTemplate.originY ?? Math.min(...otherTemplateRooms.map(r => r.y));
-                  
-                  otherTemplateRooms.forEach(room => {
-                    const offsetX = room.x - otherOriginX;
-                    const offsetY = room.y - otherOriginY;
-                    otherInstanceRooms.push({
-                      ...room,
-                      id: `virtual-${otherInstance.id}-${room.id}`,
-                      x: otherInstance.x + offsetX,
-                      y: otherInstance.y + offsetY,
-                    });
-                  });
-                }
-              }
-            }
-          });
-          
-          // Get all regular rooms (not part of any template)
-          const allTemplateRoomIds = new Set<string>();
-          componentTemplates.forEach(t => t.roomIds.forEach(id => allTemplateRoomIds.add(id)));
-          const regularRooms = rooms.filter(r => !allTemplateRoomIds.has(r.id));
-          
-          // In "template-is-first-instance" and "template-always-live" modes, also check against template rooms
-          const templateRoomsToCheck: Room[] = [];
-          if (creationMode === 'template-is-first-instance' || creationMode === 'template-always-live') {
-            componentTemplates.forEach(t => {
-              const tRooms = rooms.filter(r => t.roomIds.includes(r.id));
-              templateRoomsToCheck.push(...tRooms);
-            });
-          }
-          
-          // Combine regular rooms, template rooms, and other instance rooms for collision detection
-          const roomsToCheckAgainst = [...regularRooms, ...templateRoomsToCheck, ...otherInstanceRooms];
-          
-          // Helper function to check if an instance position is valid
-          const isInstancePositionValid = (x: number, y: number): boolean => {
-            for (const templateRoom of templateRooms) {
-              const offsetX = templateRoom.x - originX;
-              const offsetY = templateRoom.y - originY;
-              const movedRoom: Room = {
-                ...templateRoom,
-                x: x + offsetX,
-                y: y + offsetY,
-              };
-              if (!RoomValidation.isValidRoomPlacement(movedRoom, roomsToCheckAgainst)) {
-                return false;
-              }
-            }
-            return true;
-          };
-          
-          // Find nearest valid position (similar to room drag behavior)
-          let bestX = targetX;
-          let bestY = targetY;
-          
-          if (!isInstancePositionValid(targetX, targetY)) {
-            // Search in expanding grid for nearest valid position
-            const searchRadius = 10;
-            let found = false;
-            let bestDistance = Infinity;
-            
-            for (let dx = -searchRadius; dx <= searchRadius; dx++) {
-              for (let dy = -searchRadius; dy <= searchRadius; dy++) {
-                const testX = targetX + dx;
-                const testY = targetY + dy;
-                
-                // Skip negative positions
-                if (testX < 0 || testY < 0) continue;
-                
-                if (isInstancePositionValid(testX, testY)) {
-                  const distance = Math.abs(dx) + Math.abs(dy);
-                  if (distance < bestDistance) {
-                    bestDistance = distance;
-                    bestX = testX;
-                    bestY = testY;
-                    found = true;
-                  }
-                }
-              }
-            }
-            
-            // If no valid position found in search radius, keep at current position
-            if (!found) {
-              bestX = instance.x;
-              bestY = instance.y;
-            }
-          }
+          // No collision detection - instances can overlap freely
+          const bestX = Math.max(0, previewX);
+          const bestY = Math.max(0, previewY);
           
           // Draw blue dashed border preview around outer perimeter only at validated position
           ctx.strokeStyle = '#3B82F6';
@@ -743,6 +602,41 @@ export function DrawingCanvas({
           });
           
           ctx.setLineDash([]);
+        }
+      }
+    }
+
+    // Show drag preview for selected template (in template-is-first-instance mode)
+    if (selectedTemplateId && canvasState.isDragging && canvasState.dragStart && mousePos && creationMode === 'template-is-first-instance') {
+      const template = componentTemplates.find(t => t.id === selectedTemplateId);
+      if (template) {
+        const templateRooms = rooms.filter(r => 
+          template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+        );
+        if (templateRooms.length > 0) {
+          // Calculate delta from drag start
+          const currentGridPos = CanvasUtils.getGridCoordinates(mousePos, gridSize);
+          const deltaX = currentGridPos.x - canvasState.dragStart.x;
+          const deltaY = currentGridPos.y - canvasState.dragStart.y;
+          
+          // Draw preview of template at new position
+          ctx.save();
+          ctx.strokeStyle = '#3B82F6';
+          ctx.lineWidth = 3;
+          ctx.setLineDash([5, 5]);
+          
+          // Draw each room's outline at the new position
+          templateRooms.forEach(room => {
+            const previewX = (room.x + deltaX) * gridSize;
+            const previewY = (room.y + deltaY) * gridSize;
+            const width = room.width * gridSize;
+            const height = room.height * gridSize;
+            
+            ctx.strokeRect(previewX, previewY, width, height);
+          });
+          
+          ctx.setLineDash([]);
+          ctx.restore();
         }
       }
     }
@@ -889,44 +783,13 @@ export function DrawingCanvas({
       const x = Math.min(snappedStart.x, snappedEnd.x) / gridSize;
       const y = Math.min(snappedStart.y, snappedEnd.y) / gridSize;
       
-      // Create preview room to check validity
-      const previewRoom: Room = {
-        id: 'preview',
-        name: 'Preview',
-        x, y, width, height,
-        color: 'skyBlue',
-        createdAt: Date.now(),
-      };
-      
-      // Get valid position (may snap to nearest valid location)
-      let roomsToCheck = rooms;
-      
-      // In template editing mode, only check collision with template rooms being edited
-      if (isEditingTemplate && editingTemplateId) {
-        const template = componentTemplates.find(t => t.id === editingTemplateId);
-        if (template) {
-          // Check if we have temporary editing rooms
-          const hasEditingRooms = rooms.some(r => r.id.startsWith('editing-'));
-          
-          if (hasEditingRooms) {
-            // Using temporary editing rooms - only collide with other editing rooms
-            roomsToCheck = rooms.filter(r => r.id.startsWith('editing-'));
-          } else {
-            // Editing original template rooms - only collide with other template rooms
-            roomsToCheck = rooms.filter(r => template.roomIds.includes(r.id));
-          }
-        }
-      }
-      
-      const validPosition = RoomValidation.getNearestValidPosition(previewRoom, x, y, roomsToCheck);
-      
-      // Draw preview rectangle at valid position
+      // No collision detection - draw preview at target position
       ctx.strokeStyle = selectedColor;
       ctx.lineWidth = 2;
       ctx.setLineDash([3, 3]);
       ctx.strokeRect(
-        validPosition.x * gridSize, 
-        validPosition.y * gridSize, 
+        x * gridSize, 
+        y * gridSize, 
         width * gridSize, 
         height * gridSize
       );
@@ -1350,7 +1213,7 @@ export function DrawingCanvas({
     }
 
     // Start dragging when mouse moves after mousedown in move or select mode
-    if ((selectedTool === 'move' || selectedTool === 'select') && canvasState.dragStart && !canvasState.isDragging && (selectedRoomId || selectedInstanceId)) {
+    if ((selectedTool === 'move' || selectedTool === 'select') && canvasState.dragStart && !canvasState.isDragging && (selectedRoomId || selectedInstanceId || selectedTemplateId)) {
       const deltaX = Math.abs(gridPoint.x - canvasState.dragStart.x);
       const deltaY = Math.abs(gridPoint.y - canvasState.dragStart.y);
       
@@ -1362,7 +1225,7 @@ export function DrawingCanvas({
         }));
       }
     }
-  }, [selectedTool, canvasState.dragStart, canvasState.isDragging, canvasState.isDraggingOrigin, selectedRoomId, selectedInstanceId, selectedEdgeId, gridSize, isEditingTemplate, editingTemplateId, isMarqueeSelecting, rooms, edges, componentTemplates, componentInstances, onSetTemplateOrigin, isSelectingOrigin, creationMode, activeOptionState, draggedOriginTemplateId]);
+  }, [selectedTool, canvasState.dragStart, canvasState.isDragging, canvasState.isDraggingOrigin, selectedRoomId, selectedInstanceId, selectedTemplateId, selectedEdgeId, gridSize, isEditingTemplate, editingTemplateId, isMarqueeSelecting, rooms, edges, componentTemplates, componentInstances, onSetTemplateOrigin, isSelectingOrigin, creationMode, activeOptionState, draggedOriginTemplateId]);
 
   const handleMouseDown = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -1723,6 +1586,17 @@ export function DrawingCanvas({
       justFinishedDrawingRef.current = true;
     }
 
+    // Handle template dragging (only uses dragStart, not dragStartOffset)
+    if (canvasState.isDragging && selectedTemplateId && canvasState.dragStart) {
+      // Moving a template (all rooms together)
+      const deltaX = gridPoint.x - canvasState.dragStart.x;
+      const deltaY = gridPoint.y - canvasState.dragStart.y;
+      
+      if (deltaX !== 0 || deltaY !== 0) {
+        onMoveTemplate(selectedTemplateId, deltaX, deltaY);
+      }
+    }
+
     if (canvasState.isDragging && canvasState.dragStartOffset) {
       if (selectedInstanceId) {
         // Moving a component instance
@@ -1731,134 +1605,19 @@ export function DrawingCanvas({
         
         if (instance && template) {
           const templateRooms = rooms.filter(r => 
-            template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+            template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState, instance.id)
           );
           
           if (templateRooms.length > 0) {
             const targetX = gridPoint.x - canvasState.dragStartOffset.x;
             const targetY = gridPoint.y - canvasState.dragStartOffset.y;
             
-            // Apply basic grid constraints (no negative coordinates)
-            let constrainedX = Math.max(0, targetX);
-            let constrainedY = Math.max(0, targetY);
+            // No collision detection - instances can overlap freely
+            const constrainedX = Math.max(0, targetX);
+            const constrainedY = Math.max(0, targetY);
             
-            // Use template origin as reference point
-            const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
-            const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
-            
-            // Create virtual rooms for all OTHER instances
-            const otherInstanceRooms: Room[] = [];
-            componentInstances.forEach(otherInstance => {
-              if (otherInstance.id !== selectedInstanceId) {
-                const otherTemplate = componentTemplates.find(t => t.id === otherInstance.templateId);
-                if (otherTemplate) {
-                  const otherTemplateRooms = rooms.filter(r => 
-                    otherTemplate.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
-                  );
-                  if (otherTemplateRooms.length > 0) {
-                    const otherOriginX = otherTemplate.originX ?? Math.min(...otherTemplateRooms.map(r => r.x));
-                    const otherOriginY = otherTemplate.originY ?? Math.min(...otherTemplateRooms.map(r => r.y));
-                    
-                    otherTemplateRooms.forEach(room => {
-                      const offsetX = room.x - otherOriginX;
-                      const offsetY = room.y - otherOriginY;
-                      otherInstanceRooms.push({
-                        ...room,
-                        id: `virtual-${otherInstance.id}-${room.id}`,
-                        x: otherInstance.x + offsetX,
-                        y: otherInstance.y + offsetY,
-                      });
-                    });
-                  }
-                }
-              }
-            });
-            
-            // Get all regular rooms (not part of any template)
-            const allTemplateRoomIds = new Set<string>();
-            componentTemplates.forEach(t => t.roomIds.forEach(id => allTemplateRoomIds.add(id)));
-            const regularRooms = rooms.filter(r => !allTemplateRoomIds.has(r.id));
-            
-            // In "template-is-first-instance" mode, also check against template rooms
-            const templateRoomsToCheck: Room[] = [];
-            if (creationMode === 'template-is-first-instance') {
-              componentTemplates.forEach(t => {
-                const tRooms = rooms.filter(r => t.roomIds.includes(r.id));
-                templateRoomsToCheck.push(...tRooms);
-              });
-            }
-            
-            // Combine regular rooms, template rooms, and other instance rooms for collision detection
-            const roomsToCheckAgainst = [...regularRooms, ...templateRoomsToCheck, ...otherInstanceRooms];
-            
-            // Helper function to check if an instance position is valid
-            const isInstancePositionValid = (x: number, y: number): boolean => {
-              for (const templateRoom of templateRooms) {
-                const offsetX = templateRoom.x - originX;
-                const offsetY = templateRoom.y - originY;
-                const movedRoom: Room = {
-                  ...templateRoom,
-                  x: x + offsetX,
-                  y: y + offsetY,
-                };
-                if (!RoomValidation.isValidRoomPlacement(movedRoom, roomsToCheckAgainst)) {
-                  return false;
-                }
-              }
-              return true;
-            };
-            
-            // Find nearest valid position (same logic as preview)
-            if (!isInstancePositionValid(constrainedX, constrainedY)) {
-              // Search in expanding grid for nearest valid position
-              const searchRadius = 10;
-              let found = false;
-              let bestDistance = Infinity;
-              let bestX = constrainedX;
-              let bestY = constrainedY;
-              
-              for (let dx = -searchRadius; dx <= searchRadius; dx++) {
-                for (let dy = -searchRadius; dy <= searchRadius; dy++) {
-                  const testX = constrainedX + dx;
-                  const testY = constrainedY + dy;
-                  
-                  // Skip negative positions
-                  if (testX < 0 || testY < 0) continue;
-                  
-                  if (isInstancePositionValid(testX, testY)) {
-                    const distance = Math.abs(dx) + Math.abs(dy);
-                    if (distance < bestDistance) {
-                      bestDistance = distance;
-                      bestX = testX;
-                      bestY = testY;
-                      found = true;
-                    }
-                  }
-                }
-              }
-              
-              // If found a valid position nearby, use it; otherwise stay at current position
-              if (found) {
-                constrainedX = bestX;
-                constrainedY = bestY;
-              } else {
-                // No valid position found - don't move
-                constrainedX = instance.x;
-                constrainedY = instance.y;
-              }
-            }
-            
-            // Move to the validated position (matches preview)
             onMoveInstance(selectedInstanceId, constrainedX, constrainedY);
           }
-        }
-      } else if (selectedTemplateId && canvasState.dragStart) {
-        // Moving a template (all rooms together)
-        const deltaX = gridPoint.x - canvasState.dragStart.x;
-        const deltaY = gridPoint.y - canvasState.dragStart.y;
-        
-        if (deltaX !== 0 || deltaY !== 0) {
-          onMoveTemplate(selectedTemplateId, deltaX, deltaY);
         }
       } else if (selectedRoomId) {
         // Moving a room
@@ -1867,30 +1626,11 @@ export function DrawingCanvas({
           const targetX = gridPoint.x - canvasState.dragStartOffset.x;
           const targetY = gridPoint.y - canvasState.dragStartOffset.y;
           
-          // Use the same constrained position logic as the preview
-          let otherRooms = rooms.filter(r => r.id !== room.id);
+          // No collision detection - rooms can overlap freely
+          const finalX = Math.max(0, targetX);
+          const finalY = Math.max(0, targetY);
           
-          // In template editing mode, only check collision with template rooms being edited
-          if (isEditingTemplate && editingTemplateId) {
-            const template = componentTemplates.find(t => t.id === editingTemplateId);
-            if (template) {
-              // Check if we have temporary editing rooms
-              const hasEditingRooms = rooms.some(r => r.id.startsWith('editing-'));
-              
-              if (hasEditingRooms) {
-                // Using temporary editing rooms - only collide with other editing rooms
-                otherRooms = otherRooms.filter(r => r.id.startsWith('editing-'));
-              } else {
-                // Editing original template rooms - only collide with other template rooms
-                otherRooms = otherRooms.filter(r => template.roomIds.includes(r.id));
-              }
-            }
-          }
-          
-          const finalPosition = RoomValidation.getValidDragPosition(room, targetX, targetY, otherRooms);
-          
-          // Move to the constrained position (same as what was previewed)
-          onMoveRoom(selectedRoomId, finalPosition.x, finalPosition.y);
+          onMoveRoom(selectedRoomId, finalX, finalY);
         }
       }
     }
@@ -1929,7 +1669,7 @@ export function DrawingCanvas({
         const template = componentTemplates.find(t => t.id === instance.templateId);
         if (template) {
           const templateRooms = rooms.filter(r => 
-            template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+            template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState, instance.id)
           );
           if (templateRooms.length > 0) {
             // Use template origin as reference point
@@ -2220,32 +1960,11 @@ export function DrawingCanvas({
 
         event.preventDefault();
         
-        const newX = room.x + deltaX;
-        const newY = room.y + deltaY;
+        const newX = Math.max(0, room.x + deltaX);
+        const newY = Math.max(0, room.y + deltaY);
         
-        // Only move if exact target position is valid (no snapping for arrow keys)
-        let roomsToCheck = rooms.filter(r => r.id !== room.id);
-        
-        // In template editing mode, only check collision with template rooms being edited
-        if (isEditingTemplate && editingTemplateId) {
-          const template = componentTemplates.find(t => t.id === editingTemplateId);
-          if (template) {
-            // Check if we have temporary editing rooms
-            const hasEditingRooms = rooms.some(r => r.id.startsWith('editing-'));
-            
-            if (hasEditingRooms) {
-              // Using temporary editing rooms - only collide with other editing rooms
-              roomsToCheck = roomsToCheck.filter(r => r.id.startsWith('editing-'));
-            } else {
-              // Editing original template rooms - only collide with other template rooms
-              roomsToCheck = roomsToCheck.filter(r => template.roomIds.includes(r.id));
-            }
-          }
-        }
-        
-        if (RoomValidation.isValidArrowKeyMove(room, newX, newY, roomsToCheck)) {
-          onMoveRoom(selectedRoomId, newX, newY);
-        }
+        // No collision detection - rooms can overlap freely
+        onMoveRoom(selectedRoomId, newX, newY);
         return;
       }
       
@@ -2254,81 +1973,13 @@ export function DrawingCanvas({
         const instance = componentInstances.find(i => i.id === selectedInstanceId);
         if (!instance) return;
         
-        const template = componentTemplates.find(t => t.id === instance.templateId);
-        if (!template) return;
-        
-        const templateRooms = rooms.filter(r => 
-          template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
-        );
-        if (templateRooms.length === 0) return;
-        
         event.preventDefault();
-        
-        const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
-        const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
         
         const newX = Math.max(0, instance.x + deltaX);
         const newY = Math.max(0, instance.y + deltaY);
         
-        // Create virtual rooms for the instance at the new position
-        const movedInstanceRooms: Room[] = templateRooms.map(room => ({
-          ...room,
-          id: `arrow-move-${room.id}`,
-          x: newX + (room.x - originX),
-          y: newY + (room.y - originY),
-        }));
-        
-        // Create virtual rooms for all OTHER instances
-        const otherInstanceRooms: Room[] = [];
-        componentInstances.forEach(otherInstance => {
-          if (otherInstance.id !== selectedInstanceId) {
-            const otherTemplate = componentTemplates.find(t => t.id === otherInstance.templateId);
-            if (otherTemplate) {
-              const otherTemplateRooms = rooms.filter(r => 
-                otherTemplate.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
-              );
-              if (otherTemplateRooms.length > 0) {
-                const otherOriginX = otherTemplate.originX ?? Math.min(...otherTemplateRooms.map(r => r.x));
-                const otherOriginY = otherTemplate.originY ?? Math.min(...otherTemplateRooms.map(r => r.y));
-                
-                otherTemplateRooms.forEach(room => {
-                  otherInstanceRooms.push({
-                    ...room,
-                    id: `virtual-${otherInstance.id}-${room.id}`,
-                    x: otherInstance.x + (room.x - otherOriginX),
-                    y: otherInstance.y + (room.y - otherOriginY),
-                  });
-                });
-              }
-            }
-          }
-        });
-        
-        // In "template-is-first-instance" mode, also check against template rooms
-        const templateRoomsToCheck: Room[] = [];
-        if (creationMode === 'template-is-first-instance') {
-          componentTemplates.forEach(t => {
-            const tRooms = rooms.filter(r => t.roomIds.includes(r.id));
-            templateRoomsToCheck.push(...tRooms);
-          });
-        }
-        
-        // Combine all rooms to check against
-        const allRoomsToCheck = [...otherInstanceRooms, ...templateRoomsToCheck];
-        
-        // Validate each room of the moved instance
-        let isValid = true;
-        for (const movedRoom of movedInstanceRooms) {
-          if (!RoomValidation.isValidRoomPlacement(movedRoom, allRoomsToCheck)) {
-            isValid = false;
-            break;
-          }
-        }
-        
-        // Only move if valid
-        if (isValid) {
-          onMoveInstance(selectedInstanceId, newX, newY);
-        }
+        // No collision detection - instances can overlap freely
+        onMoveInstance(selectedInstanceId, newX, newY);
       }
     };
 

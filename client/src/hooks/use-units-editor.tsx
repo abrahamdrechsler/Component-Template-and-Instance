@@ -1,11 +1,12 @@
 import { useState, useCallback, useRef } from 'react';
-import { Room, Edge, ConflictMatrixEntry, RoomColor, EdgeFightingMode, CornerPriority, ComponentTemplate, ComponentInstance, Link, Option, OptionValue } from '@shared/schema';
+import { Room, Edge, ConflictMatrixEntry, RoomColor, EdgeFightingMode, CornerPriority, ComponentTemplate, ComponentInstance, Link, Option, OptionValue, OptionComponent, isRoomVisible } from '@shared/schema';
 import { ROOM_COLORS } from '@/types/room';
 import { CanvasUtils } from '@/lib/canvas-utils';
 import { EdgeFightingResolver } from '@/lib/edge-fighting';
 import { RoomValidation } from '@/lib/room-validation';
 
 export type CreationMode = 'template-is-first-instance' | 'all-instances-are-templates' | 'template-is-separate-file' | 'template-always-live';
+export type OptionMode = 'option-component' | 'special-option';
 
 export interface UseUnitsEditorReturn {
   rooms: Room[];
@@ -30,6 +31,7 @@ export interface UseUnitsEditorReturn {
   activeOptionState: Record<string, string>;
   selectedOptionId: string | undefined;
   creationMode: CreationMode;
+  optionMode: OptionMode;
   isEditingTemplate: boolean;
   editingTemplateId: string | undefined;
   editingInstanceId: string | undefined;
@@ -56,6 +58,7 @@ export interface UseUnitsEditorReturn {
   setShowGrid: (show: boolean) => void;
   setFileName: (name: string) => void;
   setCreationMode: (mode: CreationMode) => void;
+  setOptionMode: (mode: OptionMode) => void;
   toggleCornerPriority: (x: number, y: number) => void;
   exportData: () => void;
   importData: (data: any) => void;
@@ -95,6 +98,16 @@ export interface UseUnitsEditorReturn {
   deleteOptionValue: (optionId: string, valueId: string) => void;
   setActiveOptionValue: (optionId: string, valueId: string) => void;
   setSelectedOptionId: (optionId: string | undefined) => void;
+  
+  optionComponents: OptionComponent[];
+  selectedOptionComponentId: string | undefined;
+  createOptionComponent: (name: string) => void;
+  updateOptionComponent: (optionComponentId: string, name: string) => void;
+  deleteOptionComponent: (optionComponentId: string) => void;
+  addOptionToComponent: (optionComponentId: string, optionId: string) => void;
+  removeOptionFromComponent: (optionComponentId: string, optionId: string) => void;
+  setSelectedOptionComponentId: (optionComponentId: string | undefined) => void;
+  getSpecialOptions: () => Array<{ option: Option; instances: ComponentInstance[] }>;
 }
 
 export function useUnitsEditor(): UseUnitsEditorReturn {
@@ -119,7 +132,10 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   const [options, setOptions] = useState<Option[]>([]);
   const [activeOptionState, setActiveOptionState] = useState<Record<string, string>>({});
   const [selectedOptionId, setSelectedOptionId] = useState<string | undefined>();
+  const [optionComponents, setOptionComponents] = useState<OptionComponent[]>([]);
+  const [selectedOptionComponentId, setSelectedOptionComponentId] = useState<string | undefined>();
   const [creationMode, setCreationMode] = useState<CreationMode>('template-is-first-instance');
+  const [optionMode, setOptionMode] = useState<OptionMode>('option-component');
   const [isEditingTemplate, setIsEditingTemplate] = useState(false);
   const [editingTemplateId, setEditingTemplateId] = useState<string | undefined>();
   const [editingInstanceId, setEditingInstanceId] = useState<string | undefined>();
@@ -137,6 +153,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   const nextLinkIdRef = useRef(1);
   const nextOptionIdRef = useRef(1);
   const nextOptionValueIdRef = useRef(1);
+  const nextOptionComponentIdRef = useRef(1);
 
   const updateColorPriorityForUsedColors = useCallback((roomList: Room[], edgeList?: Edge[]) => {
     const usedColorsSet = new Set(roomList.map(room => room.color));
@@ -177,30 +194,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       createdAt: Date.now(),
     };
 
-    // Determine which rooms to check for collisions
-    let roomsToCheck = rooms;
-    if (isEditingTemplate && editingTemplateId) {
-      const template = componentTemplates.find(t => t.id === editingTemplateId);
-      if (template) {
-        const hasEditingRooms = rooms.some(r => r.id.startsWith('editing-'));
-        if (hasEditingRooms) {
-          // Only check collision with editing rooms
-          roomsToCheck = rooms.filter(r => r.id.startsWith('editing-'));
-        } else {
-          // Only check collision with template rooms and any new rooms created during editing
-          roomsToCheck = rooms.filter(r => 
-            template.roomIds.includes(r.id) || newRoomsInEdit.includes(r.id)
-          );
-        }
-      }
-    }
-
-    if (!RoomValidation.isValidRoomPlacement(newRoom, roomsToCheck)) {
-      const validPosition = RoomValidation.getNearestValidPosition(newRoom, x, y, roomsToCheck);
-      newRoom.x = validPosition.x;
-      newRoom.y = validPosition.y;
-    }
-
+    // No collision detection - rooms can overlap freely
     const updatedRooms = [...rooms, newRoom];
     setRooms(updatedRooms);
     
@@ -209,9 +203,12 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       setNewRoomsInEdit(prev => [...prev, roomId]);
     }
     
+    // Filter to only visible rooms for edge generation
+    const visibleRooms = updatedRooms.filter(r => isRoomVisible(r, activeOptionState));
+    
     const allEdges: Edge[] = [];
-    for (const room of updatedRooms) {
-      const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, updatedRooms);
+    for (const room of visibleRooms) {
+      const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, visibleRooms);
       allEdges.push(...roomEdges);
     }
     setEdges(allEdges);
@@ -221,15 +218,18 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     // Select the newly created room
     setSelectedEdgeId(undefined);
     setSelectedRoomId(roomId);
-  }, [selectedColor, rooms, updateColorPriorityForUsedColors, isEditingTemplate, editingTemplateId, componentTemplates, newRoomsInEdit]);
+  }, [selectedColor, rooms, updateColorPriorityForUsedColors, isEditingTemplate, editingTemplateId, componentTemplates, newRoomsInEdit, activeOptionState]);
 
   const deleteRoom = useCallback((roomId: string) => {
     const updatedRooms = rooms.filter(room => room.id !== roomId);
     setRooms(updatedRooms);
     
+    // Filter to only visible rooms for edge generation
+    const visibleRooms = updatedRooms.filter(r => isRoomVisible(r, activeOptionState));
+    
     const allEdges: Edge[] = [];
-    for (const room of updatedRooms) {
-      const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, updatedRooms);
+    for (const room of visibleRooms) {
+      const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, visibleRooms);
       allEdges.push(...roomEdges);
     }
     setEdges(allEdges);
@@ -241,7 +241,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     }
     
     setSelectedRoomIds(prev => prev.filter(id => id !== roomId));
-  }, [selectedRoomId, rooms, updateColorPriorityForUsedColors]);
+  }, [selectedRoomId, rooms, updateColorPriorityForUsedColors, activeOptionState]);
 
   const moveRoom = useCallback((roomId: string, x: number, y: number) => {
     const room = rooms.find(r => r.id === roomId);
@@ -263,9 +263,12 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       }
     });
     
+    // Filter to only visible rooms for edge generation
+    const visibleRooms = updatedRooms.filter(r => isRoomVisible(r, activeOptionState));
+    
     const allEdges: Edge[] = [];
-    for (const room of updatedRooms) {
-      const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, updatedRooms);
+    for (const room of visibleRooms) {
+      const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, visibleRooms);
       roomEdges.forEach(edge => {
         const key = `${edge.roomId}-${edge.side}`;
         const preserved = existingEdgeProps.get(key);
@@ -277,7 +280,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       allEdges.push(...roomEdges);
     }
     setEdges(allEdges);
-  }, [rooms, edges]);
+  }, [rooms, edges, activeOptionState]);
 
   const updateRoom = useCallback((roomId: string, updates: Partial<Room>) => {
     const updatedRooms = rooms.map(room => 
@@ -289,8 +292,9 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       updateColorPriorityForUsedColors(updatedRooms, edges);
     }
     
+    // Regenerate edges if position, size, or conditions change
     if (updates.width !== undefined || updates.height !== undefined || 
-        updates.x !== undefined || updates.y !== undefined) {
+        updates.x !== undefined || updates.y !== undefined || updates.conditions !== undefined) {
       const existingEdgeProps = new Map<string, { colorOverride?: RoomColor; name?: string }>();
       edges.forEach(edge => {
         const key = `${edge.roomId}-${edge.side}`;
@@ -302,9 +306,12 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
         }
       });
       
+      // Filter to only visible rooms for edge generation
+      const visibleRooms = updatedRooms.filter(r => isRoomVisible(r, activeOptionState));
+      
       const allEdges: Edge[] = [];
-      for (const room of updatedRooms) {
-        const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, updatedRooms);
+      for (const room of visibleRooms) {
+        const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, visibleRooms);
         roomEdges.forEach(edge => {
           const key = `${edge.roomId}-${edge.side}`;
           const preserved = existingEdgeProps.get(key);
@@ -317,7 +324,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       }
       setEdges(allEdges);
     }
-  }, [rooms, edges, updateColorPriorityForUsedColors]);
+  }, [rooms, edges, updateColorPriorityForUsedColors, activeOptionState]);
 
   const updateEdge = useCallback((edgeId: string, updates: Partial<Edge>) => {
     const updatedEdges = edges.map(edge => 
@@ -331,10 +338,12 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   }, [edges, rooms, updateColorPriorityForUsedColors]);
 
   const getEdgeColor = useCallback((edge: Edge): string => {
+    // Filter to only visible rooms for edge color resolution
+    const visibleRooms = rooms.filter(r => isRoomVisible(r, activeOptionState));
     return EdgeFightingResolver.resolveEdgeColor(
-      edge, rooms, mode, colorPriority, conflictMatrix, edges
+      edge, visibleRooms, mode, colorPriority, conflictMatrix, edges
     );
-  }, [rooms, edges, mode, colorPriority, conflictMatrix]);
+  }, [rooms, edges, mode, colorPriority, conflictMatrix, activeOptionState]);
 
   const getRoomAt = useCallback((x: number, y: number): Room | undefined => {
     return rooms.find(room => {
@@ -497,13 +506,16 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     }
     
     // Regenerate edges for all rooms (not just template rooms, to handle interactions)
+    // Filter to only visible rooms for edge generation
+    const visibleRooms = updatedRooms.filter(r => isRoomVisible(r, activeOptionState));
+    
     const allEdges: Edge[] = [];
-    for (const room of updatedRooms) {
-      const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, updatedRooms);
+    for (const room of visibleRooms) {
+      const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, visibleRooms);
       allEdges.push(...roomEdges);
     }
     setEdges(allEdges);
-  }, [componentTemplates, rooms]);
+  }, [componentTemplates, rooms, activeOptionState]);
 
   const exportData = useCallback(() => {
     const data = {
@@ -703,73 +715,15 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
     if (templateRooms.length === 0) return;
     
-    const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
-    const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
-    
-    // Create virtual rooms for the new instance being placed
-    const newInstanceRooms: Room[] = templateRooms.map(room => ({
-      ...room,
-      id: `new-instance-${room.id}`,
-      x: x + (room.x - originX),
-      y: y + (room.y - originY),
-    }));
-    
-    // Create virtual rooms for all existing instances
-    const existingInstanceRooms: Room[] = [];
-    componentInstances.forEach(instance => {
-      const instanceTemplate = componentTemplates.find(t => t.id === instance.templateId);
-      if (instanceTemplate) {
-        const instanceTemplateRooms = rooms.filter(r => instanceTemplate.roomIds.includes(r.id));
-        if (instanceTemplateRooms.length > 0) {
-          const instanceOriginX = instanceTemplate.originX ?? Math.min(...instanceTemplateRooms.map(r => r.x));
-          const instanceOriginY = instanceTemplate.originY ?? Math.min(...instanceTemplateRooms.map(r => r.y));
-          
-          instanceTemplateRooms.forEach(room => {
-            existingInstanceRooms.push({
-              ...room,
-              id: `virtual-${instance.id}-${room.id}`,
-              x: instance.x + (room.x - instanceOriginX),
-              y: instance.y + (room.y - instanceOriginY),
-            });
-          });
-        }
-      }
-    });
-    
-    // In "template-is-first-instance" mode, also check against template rooms
-    const templateRoomsToCheck: Room[] = [];
-    if (creationMode === 'template-is-first-instance') {
-      // Get all template rooms that are visible (not part of instances)
-      componentTemplates.forEach(t => {
-        const tRooms = rooms.filter(r => t.roomIds.includes(r.id));
-        templateRoomsToCheck.push(...tRooms);
-      });
-    }
-    
-    // Combine all rooms to check against
-    const allRoomsToCheck = [...existingInstanceRooms, ...templateRoomsToCheck];
-    
-    // Validate each room of the new instance
-    let isValid = true;
-    for (const newRoom of newInstanceRooms) {
-      if (!RoomValidation.isValidRoomPlacement(newRoom, allRoomsToCheck)) {
-        isValid = false;
-        break;
-      }
-    }
-    
-    // If valid, place the instance
-    if (isValid) {
-      const instanceId = `instance-${nextInstanceIdRef.current++}`;
-      const newInstance: ComponentInstance = {
-        id: instanceId,
-        templateId,
-        x,
-        y,
-      };
-      setComponentInstances(prev => [...prev, newInstance]);
-    }
-    // If not valid, silently reject (don't place the instance)
+    // No collision detection - place instance freely
+    const instanceId = `instance-${nextInstanceIdRef.current++}`;
+    const newInstance: ComponentInstance = {
+      id: instanceId,
+      templateId,
+      x,
+      y,
+    };
+    setComponentInstances(prev => [...prev, newInstance]);
   }, [componentTemplates, componentInstances, rooms, creationMode]);
 
   const moveInstance = useCallback((instanceId: string, x: number, y: number) => {
@@ -870,74 +824,19 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
     const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
     
-    // Try to place at offset position (5 grid units away)
+    // No collision detection - place at offset position (5 grid units away)
     const targetX = instance.x + 5;
     const targetY = instance.y + 5;
     
-    // Create virtual rooms for the new instance
-    const newInstanceRooms: Room[] = templateRooms.map(room => ({
-      ...room,
-      id: `duplicate-${room.id}`,
-      x: targetX + (room.x - originX),
-      y: targetY + (room.y - originY),
-    }));
-    
-    // Create virtual rooms for all existing instances
-    const existingInstanceRooms: Room[] = [];
-    componentInstances.forEach(existingInstance => {
-      const existingTemplate = componentTemplates.find(t => t.id === existingInstance.templateId);
-      if (existingTemplate) {
-        const existingTemplateRooms = rooms.filter(r => existingTemplate.roomIds.includes(r.id));
-        if (existingTemplateRooms.length > 0) {
-          const existingOriginX = existingTemplate.originX ?? Math.min(...existingTemplateRooms.map(r => r.x));
-          const existingOriginY = existingTemplate.originY ?? Math.min(...existingTemplateRooms.map(r => r.y));
-          
-          existingTemplateRooms.forEach(room => {
-            existingInstanceRooms.push({
-              ...room,
-              id: `virtual-${existingInstance.id}-${room.id}`,
-              x: existingInstance.x + (room.x - existingOriginX),
-              y: existingInstance.y + (room.y - existingOriginY),
-            });
-          });
-        }
-      }
-    });
-    
-    // In "template-is-first-instance" mode, also check against template rooms
-    const templateRoomsToCheck: Room[] = [];
-    if (creationMode === 'template-is-first-instance') {
-      componentTemplates.forEach(t => {
-        const tRooms = rooms.filter(r => t.roomIds.includes(r.id));
-        templateRoomsToCheck.push(...tRooms);
-      });
-    }
-    
-    // Combine all rooms to check against
-    const allRoomsToCheck = [...existingInstanceRooms, ...templateRoomsToCheck];
-    
-    // Validate placement
-    let isValid = true;
-    for (const newRoom of newInstanceRooms) {
-      if (!RoomValidation.isValidRoomPlacement(newRoom, allRoomsToCheck)) {
-        isValid = false;
-        break;
-      }
-    }
-    
-    // If valid, create the duplicate
-    if (isValid) {
-      const newInstanceId = `instance-${nextInstanceIdRef.current++}`;
-      const newInstance: ComponentInstance = {
-        id: newInstanceId,
-        templateId: instance.templateId,
-        x: targetX,
-        y: targetY,
-      };
-      setComponentInstances(prev => [...prev, newInstance]);
-      setSelectedInstanceId(newInstanceId);
-    }
-    // If not valid, silently reject the duplicate
+    const newInstanceId = `instance-${nextInstanceIdRef.current++}`;
+    const newInstance: ComponentInstance = {
+      id: newInstanceId,
+      templateId: instance.templateId,
+      x: targetX,
+      y: targetY,
+    };
+    setComponentInstances(prev => [...prev, newInstance]);
+    setSelectedInstanceId(newInstanceId);
   }, [componentInstances, componentTemplates, rooms, creationMode]);
 
   const addLink = useCallback((linkedFileId: string, linkedFileName: string) => {
@@ -1166,9 +1065,12 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
           setRooms(updatedRooms);
           
           // Regenerate edges for the updated rooms
+          // Filter to only visible rooms for edge generation
+          const visibleRooms = updatedRooms.filter(r => isRoomVisible(r, activeOptionState));
+          
           const allEdges: Edge[] = [];
-          for (const room of updatedRooms) {
-            const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, updatedRooms);
+          for (const room of visibleRooms) {
+            const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, visibleRooms);
             allEdges.push(...roomEdges);
           }
           setEdges(allEdges);
@@ -1347,8 +1249,119 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   }, [options, activeOptionState]);
 
   const setActiveOptionValue = useCallback((optionId: string, valueId: string) => {
-    setActiveOptionState(prev => ({ ...prev, [optionId]: valueId }));
+    const newActiveOptionState = { ...activeOptionState, [optionId]: valueId };
+    setActiveOptionState(newActiveOptionState);
+    
+    // Regenerate edges based on new visibility state
+    const existingEdgeProps = new Map<string, { colorOverride?: RoomColor; name?: string }>();
+    edges.forEach(edge => {
+      const key = `${edge.roomId}-${edge.side}`;
+      if (edge.colorOverride || edge.name) {
+        existingEdgeProps.set(key, {
+          colorOverride: edge.colorOverride,
+          name: edge.name
+        });
+      }
+    });
+    
+    // Filter to only visible rooms for edge generation
+    const visibleRooms = rooms.filter(r => isRoomVisible(r, newActiveOptionState));
+    
+    const allEdges: Edge[] = [];
+    for (const room of visibleRooms) {
+      const roomEdges = CanvasUtils.generateSegmentedRoomEdges(room, visibleRooms);
+      roomEdges.forEach(edge => {
+        const key = `${edge.roomId}-${edge.side}`;
+        const preserved = existingEdgeProps.get(key);
+        if (preserved) {
+          if (preserved.colorOverride) edge.colorOverride = preserved.colorOverride;
+          if (preserved.name) edge.name = preserved.name;
+        }
+      });
+      allEdges.push(...roomEdges);
+    }
+    setEdges(allEdges);
+  }, [activeOptionState, rooms, edges]);
+
+  // Option Component management functions
+  const createOptionComponent = useCallback((name: string) => {
+    const optionComponentId = `optionComponent-${nextOptionComponentIdRef.current++}`;
+    const newOptionComponent: OptionComponent = {
+      id: optionComponentId,
+      name,
+      optionIds: [],
+    };
+    setOptionComponents(prev => [...prev, newOptionComponent]);
   }, []);
+
+  const updateOptionComponent = useCallback((optionComponentId: string, name: string) => {
+    setOptionComponents(prev => prev.map(oc => 
+      oc.id === optionComponentId ? { ...oc, name } : oc
+    ));
+  }, []);
+
+  const deleteOptionComponent = useCallback((optionComponentId: string) => {
+    setOptionComponents(prev => prev.filter(oc => oc.id !== optionComponentId));
+    if (selectedOptionComponentId === optionComponentId) {
+      setSelectedOptionComponentId(undefined);
+    }
+  }, [selectedOptionComponentId]);
+
+  const addOptionToComponent = useCallback((optionComponentId: string, optionId: string) => {
+    setOptionComponents(prev => prev.map(oc => {
+      if (oc.id === optionComponentId && !oc.optionIds.includes(optionId)) {
+        return { ...oc, optionIds: [...oc.optionIds, optionId] };
+      }
+      return oc;
+    }));
+  }, []);
+
+  const removeOptionFromComponent = useCallback((optionComponentId: string, optionId: string) => {
+    setOptionComponents(prev => prev.map(oc => {
+      if (oc.id === optionComponentId) {
+        return { ...oc, optionIds: oc.optionIds.filter(id => id !== optionId) };
+      }
+      return oc;
+    }));
+  }, []);
+
+  // Helper to get special options that need instance-specific values
+  const getSpecialOptions = useCallback(() => {
+    const specialOptionsMap = new Map<string, { option: Option; instances: ComponentInstance[] }>();
+    
+    // Find all special conditions in template rooms
+    componentTemplates.forEach(template => {
+      const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
+      
+      templateRooms.forEach(room => {
+        if (room.conditions) {
+          room.conditions.forEach(condition => {
+            if (condition.isSpecial) {
+              const option = options.find(o => o.id === condition.optionId);
+              if (option) {
+                // Find all instances of this template
+                const instances = componentInstances.filter(inst => inst.templateId === template.id);
+                
+                if (!specialOptionsMap.has(option.id)) {
+                  specialOptionsMap.set(option.id, { option, instances: [] });
+                }
+                
+                const entry = specialOptionsMap.get(option.id)!;
+                // Add instances that aren't already in the list
+                instances.forEach(inst => {
+                  if (!entry.instances.find(i => i.id === inst.id)) {
+                    entry.instances.push(inst);
+                  }
+                });
+              }
+            }
+          });
+        }
+      });
+    });
+    
+    return Array.from(specialOptionsMap.values());
+  }, [rooms, componentTemplates, componentInstances, options]);
 
   return {
     rooms,
@@ -1373,6 +1386,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     activeOptionState,
     selectedOptionId,
     creationMode,
+    optionMode,
     isEditingTemplate,
     editingTemplateId,
     editingInstanceId,
@@ -1398,6 +1412,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     setShowGrid,
     setFileName,
     setCreationMode,
+    setOptionMode,
     toggleCornerPriority,
     exportData,
     importData,
@@ -1435,5 +1450,14 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     deleteOptionValue,
     setActiveOptionValue,
     setSelectedOptionId,
+    optionComponents,
+    selectedOptionComponentId,
+    createOptionComponent,
+    updateOptionComponent,
+    deleteOptionComponent,
+    addOptionToComponent,
+    removeOptionFromComponent,
+    setSelectedOptionComponentId,
+    getSpecialOptions,
   };
 }

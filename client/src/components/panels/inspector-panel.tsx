@@ -1,11 +1,12 @@
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Room, Edge, RoomColor, ComponentInstance, ComponentTemplate, Option, RoomCondition } from '@shared/schema';
-import { CreationMode } from '@/hooks/use-units-editor';
+import { CreationMode, OptionMode } from '@/hooks/use-units-editor';
 import { ROOM_COLORS } from '@/types/room';
 import { MousePointer, Trash2, Package, ChevronDown, Plus, X } from 'lucide-react';
 import { useState } from 'react';
@@ -19,6 +20,8 @@ interface InspectorPanelProps {
   componentTemplates: ComponentTemplate[];
   options: Option[];
   creationMode: CreationMode;
+  optionMode: OptionMode;
+  isEditingTemplate: boolean;
   onUpdateRoom: (roomId: string, updates: Partial<Room>) => void;
   onUpdateEdge: (edgeId: string, updates: Partial<Edge>) => void;
   onDeleteRoom: (roomId: string) => void;
@@ -27,6 +30,8 @@ interface InspectorPanelProps {
   onAddRoomToTemplate?: (roomId: string, templateId: string) => void;
   onRemoveRoomFromTemplate?: (roomId: string) => void;
   getRoomTemplateAssociation?: (roomId: string) => string | undefined;
+  onSetCreationMode?: (mode: CreationMode) => void;
+  onSetOptionMode?: (mode: OptionMode) => void;
 }
 
 export function InspectorPanel({
@@ -38,6 +43,8 @@ export function InspectorPanel({
   componentTemplates,
   options,
   creationMode,
+  optionMode,
+  isEditingTemplate,
   onUpdateRoom,
   onUpdateEdge,
   onDeleteRoom,
@@ -46,6 +53,8 @@ export function InspectorPanel({
   onAddRoomToTemplate,
   onRemoveRoomFromTemplate,
   getRoomTemplateAssociation,
+  onSetCreationMode,
+  onSetOptionMode,
 }: InspectorPanelProps) {
   const [conditionsExpanded, setConditionsExpanded] = useState(true);
   const [isEditingRoomName, setIsEditingRoomName] = useState(false);
@@ -160,17 +169,75 @@ export function InspectorPanel({
     return getRoomTemplateAssociation(selectedRoom.id);
   };
 
+  // Mode labels
+  const CREATION_MODE_LABELS: Record<CreationMode, string> = {
+    'template-is-first-instance': 'Modeling Component is first Instance',
+    'all-instances-are-templates': 'All instances are Modeling Components',
+    'template-is-separate-file': 'Modeling Component is Separate File',
+    'template-always-live': 'Modeling Component always Live',
+  };
+
+  const OPTION_MODE_LABELS: Record<OptionMode, string> = {
+    'option-component': 'Option Component',
+    'special-option': 'Special Option',
+  };
+
   if (!selectedRoom && !selectedEdge && !selectedInstance && !selectedTemplate) {
     return (
       <div className="w-full h-full bg-white border-l border-gray-200 flex flex-col">
         <div className="p-4 border-b border-gray-200">
-          <h2 className="text-base font-semibold text-gray-900">Inspector</h2>
+          <h2 className="text-base font-semibold text-gray-900">Settings</h2>
         </div>
 
-        <div className="flex-1 flex items-center justify-center p-4">
-          <div className="text-center text-gray-500">
-            <MousePointer className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-            <p className="text-sm">Select a room, edge, or component instance to view properties</p>
+        <div className="flex-1 p-4 space-y-6">
+          {/* Creation Mode */}
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">Creation Mode</Label>
+            <Select
+              value={creationMode}
+              onValueChange={(value) => onSetCreationMode?.(value as CreationMode)}
+              disabled={!onSetCreationMode}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="template-is-first-instance">
+                  {CREATION_MODE_LABELS['template-is-first-instance']}
+                </SelectItem>
+                <SelectItem value="all-instances-are-templates">
+                  {CREATION_MODE_LABELS['all-instances-are-templates']}
+                </SelectItem>
+                <SelectItem value="template-is-separate-file">
+                  {CREATION_MODE_LABELS['template-is-separate-file']}
+                </SelectItem>
+                <SelectItem value="template-always-live">
+                  {CREATION_MODE_LABELS['template-always-live']}
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Option Mode */}
+          <div>
+            <Label className="text-sm font-medium text-gray-700 mb-2 block">Option Mode</Label>
+            <Select
+              value={optionMode}
+              onValueChange={(value) => onSetOptionMode?.(value as OptionMode)}
+              disabled={!onSetOptionMode}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="option-component">
+                  {OPTION_MODE_LABELS['option-component']}
+                </SelectItem>
+                <SelectItem value="special-option">
+                  {OPTION_MODE_LABELS['special-option']}
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
       </div>
@@ -261,9 +328,27 @@ export function InspectorPanel({
                     selectedRoom.conditions.map((condition) => {
                       const option = options.find(o => o.id === condition.optionId);
                       const selectedValue = option?.values.find(v => v.id === condition.valueId);
+                      const showSpecialCheckbox = isEditingTemplate && optionMode === 'special-option';
+                      const isSpecial = condition.isSpecial || false;
                       
                       return (
-                        <div key={condition.id} className="flex items-center gap-2">
+                        <div 
+                          key={condition.id} 
+                          className={`flex items-center gap-2 p-2 rounded ${isSpecial ? 'border-2 border-purple-500 bg-purple-50/30' : ''}`}
+                        >
+                          {/* Special Condition Checkbox (only in template edit mode with special-option mode) */}
+                          {showSpecialCheckbox && (
+                            <div className="flex items-center" title="Special (per-instance) option">
+                              <Checkbox
+                                checked={isSpecial}
+                                onCheckedChange={(checked) => {
+                                  updateCondition(condition.id, { isSpecial: checked === true });
+                                }}
+                                className="h-5 w-5"
+                              />
+                            </div>
+                          )}
+
                           {/* Option Dropdown */}
                           <Select
                             value={condition.optionId}

@@ -1,7 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Room, ComponentTemplate, Link, Option, type FileMetadata } from '@shared/schema';
+import { Room, ComponentTemplate, ComponentInstance, Link, Option, OptionComponent, type FileMetadata } from '@shared/schema';
+import { OptionMode } from '@/hooks/use-units-editor';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -17,8 +18,9 @@ interface ProjectInspectorPanelProps {
   componentTemplates: ComponentTemplate[];
   links: Link[];
   options: Option[];
+  optionComponents: OptionComponent[];
   activeOptionState: Record<string, string>;
-  creationMode: CreationMode;
+  optionMode: OptionMode;
   isSelectingOrigin: boolean;
   onSelectRoom: (roomId: string) => void;
   onCreateTemplate: (name: string, roomIds: string[]) => void;
@@ -27,20 +29,16 @@ interface ProjectInspectorPanelProps {
   onDeleteTemplate: (templateId: string) => void;
   onAddLink: (fileId: string, fileName: string) => void;
   onRemoveLink: (linkId: string) => void;
-  onCreationModeChange: (mode: CreationMode) => void;
   onTemplateDragStart: (templateId: string) => void;
   onTemplateDragEnd: () => void;
   onCreateOption: (name: string) => void;
   onSelectOption: (optionId: string) => void;
   onSetActiveOptionValue: (optionId: string, valueId: string) => void;
+  onCreateOptionComponent: (name: string) => void;
+  onSelectOptionComponent: (optionComponentId: string) => void;
+  onDeleteOptionComponent: (optionComponentId: string) => void;
+  getSpecialOptions: () => Array<{ option: Option; instances: ComponentInstance[] }>;
 }
-
-const CREATION_MODE_LABELS: Record<CreationMode, string> = {
-  'template-is-first-instance': 'Modeling Component is first Instance',
-  'all-instances-are-templates': 'All instances are Modeling Components',
-  'template-is-separate-file': 'Modeling Component is Separate File',
-  'template-always-live': 'Modeling Component always Live',
-};
 
 export function ProjectInspectorPanel({
   rooms,
@@ -48,8 +46,9 @@ export function ProjectInspectorPanel({
   componentTemplates,
   links,
   options,
+  optionComponents,
   activeOptionState,
-  creationMode,
+  optionMode,
   isSelectingOrigin,
   onSelectRoom,
   onCreateTemplate,
@@ -58,18 +57,23 @@ export function ProjectInspectorPanel({
   onDeleteTemplate,
   onAddLink,
   onRemoveLink,
-  onCreationModeChange,
   onTemplateDragStart,
   onTemplateDragEnd,
   onCreateOption,
   onSelectOption,
   onSetActiveOptionValue,
+  onCreateOptionComponent,
+  onSelectOptionComponent,
+  onDeleteOptionComponent,
+  getSpecialOptions,
 }: ProjectInspectorPanelProps) {
   const [templateName, setTemplateName] = useState('');
   const [showTemplateInput, setShowTemplateInput] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [optionName, setOptionName] = useState('');
   const [showOptionInput, setShowOptionInput] = useState(false);
+  const [optionComponentName, setOptionComponentName] = useState('');
+  const [showOptionComponentInput, setShowOptionComponentInput] = useState(false);
   
   const { data: publishedFiles = [] } = useQuery<FileMetadata[]>({
     queryKey: ['/api/files'],
@@ -97,32 +101,7 @@ export function ProjectInspectorPanel({
 
   return (
     <div className="w-full h-full bg-card border-r border-border flex flex-col shadow-sm">
-      <div className="p-4 border-b border-border bg-muted/30 space-y-3">
-        <div>
-          <Label className="text-xs font-semibold text-foreground/70 mb-1.5 block uppercase tracking-wide">Creation Mode</Label>
-          <Select 
-            value={creationMode} 
-            onValueChange={(value) => onCreationModeChange(value as CreationMode)}
-          >
-            <SelectTrigger className="w-full" data-testid="select-creation-mode">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="template-is-first-instance" data-testid="option-template-is-first-instance">
-                {CREATION_MODE_LABELS['template-is-first-instance']}
-              </SelectItem>
-              <SelectItem value="all-instances-are-templates" data-testid="option-all-instances-are-templates">
-                {CREATION_MODE_LABELS['all-instances-are-templates']}
-              </SelectItem>
-              <SelectItem value="template-is-separate-file" data-testid="option-template-is-separate-file">
-                {CREATION_MODE_LABELS['template-is-separate-file']}
-              </SelectItem>
-              <SelectItem value="template-always-live" data-testid="option-template-always-live">
-                {CREATION_MODE_LABELS['template-always-live']}
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="p-4 border-b border-border bg-muted/30">
         <h2 className="text-sm font-semibold text-foreground" data-testid="text-panel-title">PROJECT INSPECTOR</h2>
       </div>
       
@@ -399,6 +378,112 @@ export function ProjectInspectorPanel({
             )}
           </div>
 
+          {/* OPTION COMPONENTS SECTION - Only shown in option-component mode */}
+          {optionMode === 'option-component' && (
+            <>
+              <Separator />
+
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <Label className="text-xs font-semibold text-foreground/70 uppercase tracking-wide flex items-center gap-2">
+                    <Package className="w-4 h-4" />
+                    Option Components ({optionComponents.length})
+                  </Label>
+                </div>
+
+                {!showOptionComponentInput && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setShowOptionComponentInput(true);
+                      setOptionComponentName(`Option Component ${optionComponents.length + 1}`);
+                    }}
+                    className="w-full mb-3"
+                    data-testid="button-create-option-component"
+                  >
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create Option Component
+                  </Button>
+                )}
+
+                {showOptionComponentInput && (
+                  <div className="p-3 bg-accent rounded-md space-y-2 mb-3">
+                    <Label htmlFor="option-component-name" className="text-xs font-medium">Option Component Name</Label>
+                    <Input
+                      id="option-component-name"
+                      placeholder="Enter option component name..."
+                      value={optionComponentName}
+                      onChange={(e) => setOptionComponentName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && optionComponentName.trim()) {
+                          onCreateOptionComponent(optionComponentName.trim());
+                          setOptionComponentName('');
+                          setShowOptionComponentInput(false);
+                        }
+                      }}
+                      autoFocus
+                      data-testid="input-option-component-name"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          if (optionComponentName.trim()) {
+                            onCreateOptionComponent(optionComponentName.trim());
+                            setOptionComponentName('');
+                            setShowOptionComponentInput(false);
+                          }
+                        }}
+                        data-testid="button-save-option-component"
+                      >
+                        Save
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => {
+                          setShowOptionComponentInput(false);
+                          setOptionComponentName('');
+                        }}
+                        data-testid="button-cancel-option-component"
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+                {optionComponents.length === 0 ? (
+                  <div className="text-sm text-muted-foreground text-center py-4">
+                    No option components yet. Click "Create Option Component" to get started.
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    {optionComponents.map((optionComponent) => (
+                      <div
+                        key={optionComponent.id}
+                        onClick={() => onSelectOptionComponent(optionComponent.id)}
+                        className="p-2 rounded-sm border border-border bg-muted/50 hover:bg-muted hover:border-primary/50 transition-colors cursor-pointer"
+                        data-testid={`option-component-item-${optionComponent.id}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="font-medium text-foreground text-sm">
+                              {optionComponent.name}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              {optionComponent.optionIds.length} option{optionComponent.optionIds.length !== 1 ? 's' : ''}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
           {/* LINKS SECTION - COMMENTED OUT FOR NOW */}
           {/* <Separator />
 
@@ -520,28 +605,66 @@ export function ProjectInspectorPanel({
                   Active Option State
                 </Label>
                 <div className="space-y-3">
-                  {options.map((option) => (
-                    <div key={option.id}>
-                      <Label htmlFor={`active-option-${option.id}`} className="text-xs font-medium text-foreground mb-1 block">
-                        {option.name}
-                      </Label>
-                      <Select
-                        value={activeOptionState[option.id] || option.values[0]?.id}
-                        onValueChange={(valueId) => onSetActiveOptionValue(option.id, valueId)}
-                      >
-                        <SelectTrigger id={`active-option-${option.id}`} className="w-full">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {option.values.map((value) => (
-                            <SelectItem key={value.id} value={value.id}>
-                              {value.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  ))}
+                  {options.map((option) => {
+                    const specialOptionData = getSpecialOptions().find(so => so.option.id === option.id);
+                    const isSpecial = !!specialOptionData;
+                    
+                    return (
+                      <div key={option.id} className="space-y-2">
+                        {/* General Option */}
+                        <div>
+                          <Label htmlFor={`active-option-${option.id}`} className="text-xs font-medium text-foreground mb-1 block">
+                            {option.name} {isSpecial && <span className="text-purple-600">(General)</span>}
+                          </Label>
+                          <Select
+                            value={activeOptionState[option.id] || option.values[0]?.id}
+                            onValueChange={(valueId) => onSetActiveOptionValue(option.id, valueId)}
+                          >
+                            <SelectTrigger id={`active-option-${option.id}`} className="w-full">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {option.values.map((value) => (
+                                <SelectItem key={value.id} value={value.id}>
+                                  {value.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {/* Instance-Specific Options (for special options) */}
+                        {isSpecial && specialOptionData.instances.map((instance, index) => {
+                          const instanceOptionKey = `${instance.id}-${option.id}`;
+                          const template = componentTemplates.find(t => t.id === instance.templateId);
+                          const instanceLabel = `${option.name} (${template?.name || 'Template'} #${index + 1})`;
+                          
+                          return (
+                            <div key={instanceOptionKey} className="pl-3 border-l-2 border-purple-300">
+                              <Label htmlFor={`active-option-${instanceOptionKey}`} className="text-xs font-medium text-purple-700 mb-1 block">
+                                {instanceLabel}
+                              </Label>
+                              <Select
+                                value={activeOptionState[instanceOptionKey] || activeOptionState[option.id] || option.values[0]?.id}
+                                onValueChange={(valueId) => onSetActiveOptionValue(instanceOptionKey, valueId)}
+                              >
+                                <SelectTrigger id={`active-option-${instanceOptionKey}`} className="w-full border-purple-300">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {option.values.map((value) => (
+                                    <SelectItem key={value.id} value={value.id}>
+                                      {value.name}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </>

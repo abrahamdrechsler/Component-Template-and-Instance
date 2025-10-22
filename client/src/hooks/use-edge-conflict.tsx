@@ -102,14 +102,7 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
       createdAt: Date.now(),
     };
 
-    // Validate room placement
-    if (!RoomValidation.isValidRoomPlacement(newRoom, rooms)) {
-      // Find nearest valid position
-      const validPosition = RoomValidation.getNearestValidPosition(newRoom, x, y, rooms);
-      newRoom.x = validPosition.x;
-      newRoom.y = validPosition.y;
-    }
-
+    // No collision detection - rooms can overlap freely
     const updatedRooms = [...rooms, newRoom];
     setRooms(updatedRooms);
     
@@ -195,9 +188,9 @@ export function useEdgeConflict(): UseEdgeConflictReturn {
       updateColorPriorityForUsedColors(updatedRooms, edges);
     }
     
-    // Regenerate edges if dimensions or position changed
+    // Regenerate edges if dimensions, position, or conditions changed
     if (updates.width !== undefined || updates.height !== undefined || 
-        updates.x !== undefined || updates.y !== undefined) {
+        updates.x !== undefined || updates.y !== undefined || updates.conditions !== undefined) {
       // Preserve existing edge properties (colorOverride, name) when regenerating
       const existingEdgeProps = new Map<string, { colorOverride?: RoomColor; name?: string }>();
       edges.forEach(edge => {

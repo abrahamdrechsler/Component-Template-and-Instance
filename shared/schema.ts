@@ -16,6 +16,7 @@ export const roomConditionSchema = z.object({
   optionId: z.string(),
   valueId: z.string(),
   operator: z.enum(['equals', 'notEquals']),
+  isSpecial: z.boolean().optional(), // Special conditions create per-instance options
 });
 
 // Room schema
@@ -94,6 +95,13 @@ export const optionSchema = z.object({
   values: z.array(optionValueSchema).min(2), // At least 2 values required
 });
 
+// Option Component schema - a component that groups multiple options
+export const optionComponentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  optionIds: z.array(z.string()), // IDs of options included in this component
+});
+
 // File Metadata schema - for published files
 export const fileMetadataSchema = z.object({
   id: z.string(),
@@ -123,6 +131,7 @@ export const appStateSchema = z.object({
   links: z.array(linkSchema),
   options: z.array(optionSchema),
   activeOptionState: z.record(z.string(), z.string()), // Maps option ID to selected value ID
+  optionComponents: z.array(optionComponentSchema).optional(),
 });
 
 export type Room = z.infer<typeof roomSchema>;
@@ -139,9 +148,11 @@ export type Link = z.infer<typeof linkSchema>;
 export type FileMetadata = z.infer<typeof fileMetadataSchema>;
 export type Option = z.infer<typeof optionSchema>;
 export type OptionValue = z.infer<typeof optionValueSchema>;
+export type OptionComponent = z.infer<typeof optionComponentSchema>;
 
 // Utility function to check if a room should be visible based on its conditions
-export function isRoomVisible(room: Room, activeOptionState: Record<string, string>): boolean {
+// If instanceId is provided and the condition is special, check instance-specific option first
+export function isRoomVisible(room: Room, activeOptionState: Record<string, string>, instanceId?: string): boolean {
   // If room has no conditions, it's always visible
   if (!room.conditions || room.conditions.length === 0) {
     return true;
@@ -149,7 +160,19 @@ export function isRoomVisible(room: Room, activeOptionState: Record<string, stri
 
   // All conditions must be satisfied (AND logic)
   return room.conditions.every(condition => {
-    const activeValueId = activeOptionState[condition.optionId];
+    // For special conditions on instance rooms, check instance-specific option first
+    let activeValueId: string | undefined;
+    
+    if (condition.isSpecial && instanceId) {
+      // Check instance-specific option: ${instanceId}-${optionId}
+      const instanceOptionKey = `${instanceId}-${condition.optionId}`;
+      activeValueId = activeOptionState[instanceOptionKey];
+    }
+    
+    // Fall back to general option if no instance-specific value found
+    if (!activeValueId) {
+      activeValueId = activeOptionState[condition.optionId];
+    }
     
     // If the option isn't in active state, the condition can't be evaluated
     // In this case, we'll consider the room visible (fail-open)
