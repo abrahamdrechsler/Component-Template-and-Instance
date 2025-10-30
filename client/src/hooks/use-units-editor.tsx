@@ -1,5 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
-import { Room, Edge, ConflictMatrixEntry, RoomColor, EdgeFightingMode, CornerPriority, ComponentTemplate, ComponentInstance, Link, Option, OptionValue, OptionComponent, isRoomVisible } from '@shared/schema';
+import { Room, Edge, ConflictMatrixEntry, RoomColor, EdgeFightingMode, CornerPriority, ComponentTemplate, ComponentInstance, Link, Option, OptionValue, OptionComponent, NestedInstance, isRoomVisible } from '@shared/schema';
 import { ROOM_COLORS } from '@/types/room';
 import { CanvasUtils } from '@/lib/canvas-utils';
 import { EdgeFightingResolver } from '@/lib/edge-fighting';
@@ -76,6 +76,11 @@ export interface UseUnitsEditorReturn {
   updateTemplateOrigin: (templateId: string, x: number, y: number) => void;
   deleteTemplate: (templateId: string) => void;
   updateTemplate: (templateId: string, updates: Partial<ComponentTemplate>) => void;
+  addNestedInstance: (parentTemplateId: string, nestedTemplateId: string, x: number, y: number) => boolean;
+  moveNestedInstance: (parentTemplateId: string, nestedIndex: number, x: number, y: number) => void;
+  getNestedInstanceAt: (x: number, y: number) => { parentTemplateId: string; nestedIndex: number } | undefined;
+  selectedNestedInstanceIndex: number | undefined;
+  setSelectedNestedInstanceIndex: (index: number | undefined) => void;
   placeInstance: (templateId: string, x: number, y: number) => void;
   moveInstance: (instanceId: string, x: number, y: number) => void;
   moveTemplate: (templateId: string, deltaX: number, deltaY: number) => void;
@@ -123,6 +128,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   const [selectedRoomIds, setSelectedRoomIds] = useState<string[]>([]);
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | undefined>();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>();
+  const [selectedNestedInstanceIndex, setSelectedNestedInstanceIndex] = useState<number | undefined>();
   const [showGrid, setShowGrid] = useState(true);
   const [cornerPriorities, setCornerPriorities] = useState<Record<string, CornerPriority>>({});
   const [fileName, setFileName] = useState('Untitled Project');
@@ -707,6 +713,133 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   const updateTemplateOrigin = useCallback((templateId: string, x: number, y: number) => {
     updateTemplate(templateId, { originX: x, originY: y });
   }, [updateTemplate]);
+
+  // Helper function to check if adding a nested instance would create a circular reference
+  const wouldCreateCircularReference = useCallback((parentTemplateId: string, nestedTemplateId: string, visited = new Set<string>()): boolean => {
+    // Can't nest a template inside itself
+    if (parentTemplateId === nestedTemplateId) return true;
+    
+    // Check if we've already visited this template (circular reference detected)
+    if (visited.has(parentTemplateId)) return true;
+    visited.add(parentTemplateId);
+    
+    // Get the parent template
+    const parentTemplate = componentTemplates.find(t => t.id === parentTemplateId);
+    if (!parentTemplate) return false;
+    
+    // Check all nested instances in the parent template
+    if (parentTemplate.nestedInstances) {
+      for (const nested of parentTemplate.nestedInstances) {
+        // If any nested instance uses the nestedTemplateId, we have a circular reference
+        if (nested.templateId === nestedTemplateId) return true;
+        
+        // Recursively check if this nested template would create a circular reference
+        if (wouldCreateCircularReference(nested.templateId, nestedTemplateId, visited)) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }, [componentTemplates]);
+
+  const addNestedInstance = useCallback((parentTemplateId: string, nestedTemplateId: string, x: number, y: number): boolean => {
+    // Check for circular references
+    if (wouldCreateCircularReference(parentTemplateId, nestedTemplateId)) {
+      console.warn('Cannot add nested instance: would create circular reference');
+      return false;
+    }
+    
+    const parentTemplate = componentTemplates.find(t => t.id === parentTemplateId);
+    if (!parentTemplate) return false;
+    
+    // Calculate position relative to parent template's origin
+    const relativeX = x - parentTemplate.originX;
+    const relativeY = y - parentTemplate.originY;
+    
+    const nestedInstance: NestedInstance = {
+      templateId: nestedTemplateId,
+      relativeX,
+      relativeY,
+    };
+    
+    // Add to template's nested instances
+    const currentNested = parentTemplate.nestedInstances || [];
+    updateTemplate(parentTemplateId, {
+      nestedInstances: [...currentNested, nestedInstance],
+    });
+    
+    return true;
+  }, [componentTemplates, updateTemplate, wouldCreateCircularReference]);
+
+  const moveNestedInstance = useCallback((parentTemplateId: string, nestedIndex: number, x: number, y: number) => {
+    const parentTemplate = componentTemplates.find(t => t.id === parentTemplateId);
+    if (!parentTemplate || !parentTemplate.nestedInstances || nestedIndex >= parentTemplate.nestedInstances.length) {
+      return;
+    }
+    
+    // Calculate new relative position
+    const relativeX = x - parentTemplate.originX;
+    const relativeY = y - parentTemplate.originY;
+    
+    // Update the nested instance at the given index
+    const updatedNestedInstances = [...parentTemplate.nestedInstances];
+    updatedNestedInstances[nestedIndex] = {
+      ...updatedNestedInstances[nestedIndex],
+      relativeX,
+      relativeY,
+    };
+    
+    updateTemplate(parentTemplateId, {
+      nestedInstances: updatedNestedInstances,
+    });
+  }, [componentTemplates, updateTemplate]);
+
+  const getNestedInstanceAt = useCallback((x: number, y: number): { parentTemplateId: string; nestedIndex: number } | undefined => {
+    // Only check for nested instances when in edit mode
+    if (!isEditingTemplate || !editingTemplateId) return undefined;
+    
+    const editingTemplate = componentTemplates.find(t => t.id === editingTemplateId);
+    if (!editingTemplate || !editingTemplate.nestedInstances) return undefined;
+    
+    // Check each nested instance in reverse order (so top-most is selected first)
+    for (let i = editingTemplate.nestedInstances.length - 1; i >= 0; i--) {
+      const nestedInstance = editingTemplate.nestedInstances[i];
+      const nestedTemplate = componentTemplates.find(t => t.id === nestedInstance.templateId);
+      
+      if (nestedTemplate) {
+        const nestedTemplateRooms = rooms.filter(r => nestedTemplate.roomIds.includes(r.id));
+        if (nestedTemplateRooms.length > 0) {
+          const nestedOriginX = nestedTemplate.originX ?? Math.min(...nestedTemplateRooms.map(r => r.x));
+          const nestedOriginY = nestedTemplate.originY ?? Math.min(...nestedTemplateRooms.map(r => r.y));
+          
+          // Calculate instance position
+          const instanceX = editingTemplate.originX + nestedInstance.relativeX;
+          const instanceY = editingTemplate.originY + nestedInstance.relativeY;
+          
+          // Calculate bounding box
+          const instanceRoomPositions = nestedTemplateRooms.map(r => ({
+            x1: instanceX + (r.x - nestedOriginX),
+            y1: instanceY + (r.y - nestedOriginY),
+            x2: instanceX + (r.x - nestedOriginX) + r.width,
+            y2: instanceY + (r.y - nestedOriginY) + r.height,
+          }));
+          
+          const minX = Math.min(...instanceRoomPositions.map(p => p.x1));
+          const minY = Math.min(...instanceRoomPositions.map(p => p.y1));
+          const maxX = Math.max(...instanceRoomPositions.map(p => p.x2));
+          const maxY = Math.max(...instanceRoomPositions.map(p => p.y2));
+          
+          // Check if point is within bounding box
+          if (x >= minX && x < maxX && y >= minY && y < maxY) {
+            return { parentTemplateId: editingTemplateId, nestedIndex: i };
+          }
+        }
+      }
+    }
+    
+    return undefined;
+  }, [isEditingTemplate, editingTemplateId, componentTemplates, rooms]);
 
   const placeInstance = useCallback((templateId: string, x: number, y: number) => {
     const template = componentTemplates.find(t => t.id === templateId);
@@ -1429,6 +1562,11 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     updateTemplateOrigin,
     deleteTemplate,
     updateTemplate,
+    addNestedInstance,
+    moveNestedInstance,
+    getNestedInstanceAt,
+    selectedNestedInstanceIndex,
+    setSelectedNestedInstanceIndex,
     placeInstance,
     moveInstance,
     moveTemplate,

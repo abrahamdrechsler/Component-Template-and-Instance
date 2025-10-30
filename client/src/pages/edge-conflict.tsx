@@ -80,6 +80,11 @@ export default function EdgeConflictPage() {
     moveTemplate,
     deleteInstance,
     duplicateInstance,
+    addNestedInstance,
+    moveNestedInstance,
+    getNestedInstanceAt,
+    selectedNestedInstanceIndex,
+    setSelectedNestedInstanceIndex,
     addLink,
     removeLink,
     enterTemplateEditMode,
@@ -167,12 +172,22 @@ export default function EdgeConflictPage() {
             duplicateInstance(selectedInstanceId);
           }
           break;
+        case 'escape':
+          // Clear all selections and return to home settings inspector
+          setSelectedRoomId(undefined);
+          setSelectedEdgeId(undefined);
+          setSelectedInstanceId(undefined);
+          setSelectedTemplateId(undefined);
+          setSelectedRoomIds([]);
+          setSelectedOptionId(undefined);
+          setSelectedOptionComponentId(undefined);
+          break;
       }
     };
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [setSelectedTool, selectedInstanceId, duplicateInstance]);
+  }, [setSelectedTool, selectedInstanceId, duplicateInstance, setSelectedRoomId, setSelectedEdgeId, setSelectedInstanceId, setSelectedTemplateId, setSelectedRoomIds, setSelectedOptionId, setSelectedOptionComponentId]);
 
   const handleImport = async (file: File) => {
     try {
@@ -267,6 +282,8 @@ export default function EdgeConflictPage() {
             activeOptionState={activeOptionState}
             optionMode={optionMode}
             isSelectingOrigin={isSelectingOrigin}
+            isEditingTemplate={isEditingTemplate}
+            editingTemplateId={editingTemplateId}
             onSelectRoom={setSelectedRoomId}
             onCreateTemplate={createTemplate}
             onStartOriginSelection={startOriginSelection}
@@ -300,7 +317,7 @@ export default function EdgeConflictPage() {
             <div className="absolute top-0 left-0 right-0 z-10 bg-blue-500 text-white px-4 py-2 flex items-center justify-between shadow-lg">
               <div className="flex items-center gap-2">
                 <div className="text-sm font-medium">Editing Modeling Component</div>
-                <div className="text-xs opacity-90">Make changes to the modeling component rooms, then save or discard</div>
+                <div className="text-xs opacity-90">Draw rooms or drag other modeling components to nest them • Save or discard when done</div>
               </div>
               <div className="flex gap-2">
                 <button
@@ -360,6 +377,11 @@ export default function EdgeConflictPage() {
                   onMoveTemplate={moveTemplate}
                   onToggleCornerPriority={toggleCornerPriority}
                   onPlaceInstance={placeInstance}
+                  onAddNestedInstance={addNestedInstance}
+                  onMoveNestedInstance={moveNestedInstance}
+                  getNestedInstanceAt={getNestedInstanceAt}
+                  selectedNestedInstanceIndex={selectedNestedInstanceIndex}
+                  onSelectNestedInstance={setSelectedNestedInstanceIndex}
                   onEnterTemplateEditMode={enterTemplateEditMode}
                   onSelectOrigin={selectOrigin}
                   onSetTemplateOrigin={setTemplateOrigin}
@@ -370,6 +392,7 @@ export default function EdgeConflictPage() {
                   getInstanceAt={getInstanceAt}
                   getTemplateAt={getTemplateAt}
                   onDeselectOption={() => setSelectedOptionId(undefined)}
+                  onDeselectOptionComponent={() => setSelectedOptionComponentId(undefined)}
                   activeOptionState={activeOptionState}
                 />
               </div>

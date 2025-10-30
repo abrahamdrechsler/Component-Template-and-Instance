@@ -55,6 +55,13 @@ export const conflictMatrixEntrySchema = z.object({
 // Corner priority schema
 export const cornerPrioritySchema = z.enum(['horizontal', 'vertical']);
 
+// Nested Instance schema - an instance that is part of a template definition
+export const nestedInstanceSchema = z.object({
+  templateId: z.string(), // Which template to instantiate
+  relativeX: z.number(), // Position relative to template origin
+  relativeY: z.number(),
+});
+
 // Component Template schema - a saved grouping of rooms
 export const componentTemplateSchema = z.object({
   id: z.string(),
@@ -63,6 +70,7 @@ export const componentTemplateSchema = z.object({
   sourceFileId: z.string().optional(), // If imported from another file
   originX: z.number(), // X coordinate of the template's origin point
   originY: z.number(), // Y coordinate of the template's origin point
+  nestedInstances: z.array(nestedInstanceSchema).optional(), // Nested component instances
 });
 
 // Component Instance schema - a placed occurrence of a template
@@ -142,6 +150,7 @@ export type AppState = z.infer<typeof appStateSchema>;
 export type RoomColor = z.infer<typeof roomColorSchema>;
 export type EdgeFightingMode = z.infer<typeof edgeFightingModeSchema>;
 export type CornerPriority = z.infer<typeof cornerPrioritySchema>;
+export type NestedInstance = z.infer<typeof nestedInstanceSchema>;
 export type ComponentTemplate = z.infer<typeof componentTemplateSchema>;
 export type ComponentInstance = z.infer<typeof componentInstanceSchema>;
 export type Link = z.infer<typeof linkSchema>;

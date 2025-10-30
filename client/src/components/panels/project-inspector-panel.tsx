@@ -22,6 +22,8 @@ interface ProjectInspectorPanelProps {
   activeOptionState: Record<string, string>;
   optionMode: OptionMode;
   isSelectingOrigin: boolean;
+  isEditingTemplate?: boolean;
+  editingTemplateId?: string;
   onSelectRoom: (roomId: string) => void;
   onCreateTemplate: (name: string, roomIds: string[]) => void;
   onStartOriginSelection: (name: string, roomIds: string[]) => void;
@@ -50,6 +52,8 @@ export function ProjectInspectorPanel({
   activeOptionState,
   optionMode,
   isSelectingOrigin,
+  isEditingTemplate,
+  editingTemplateId,
   onSelectRoom,
   onCreateTemplate,
   onStartOriginSelection,
@@ -228,11 +232,19 @@ export function ProjectInspectorPanel({
               </div>
             ) : (
               <div className="space-y-2">
-                {componentTemplates.map((template) => (
+                {componentTemplates.map((template) => {
+                  const isCurrentlyEditing = isEditingTemplate && editingTemplateId === template.id;
+                  const canDrag = !isCurrentlyEditing;
+                  
+                  return (
                   <div
                     key={template.id}
-                    draggable
+                    draggable={canDrag}
                     onDragStart={(e) => {
+                      if (!canDrag) {
+                        e.preventDefault();
+                        return;
+                      }
                       console.log('Drag start:', template.id);
                       e.dataTransfer.setData('templateId', template.id);
                       e.dataTransfer.effectAllowed = 'copy';
@@ -247,8 +259,13 @@ export function ProjectInspectorPanel({
                       console.log('Drag end');
                       onTemplateDragEnd();
                     }}
-                    className="p-2 rounded-sm border border-border bg-muted/50 cursor-move hover:bg-muted hover:border-primary/50 transition-colors"
+                    className={`p-2 rounded-sm border transition-colors ${
+                      isCurrentlyEditing 
+                        ? 'border-blue-500 bg-blue-50 cursor-not-allowed opacity-60' 
+                        : 'border-border bg-muted/50 cursor-move hover:bg-muted hover:border-primary/50'
+                    }`}
                     data-testid={`template-item-${template.id}`}
+                    title={isCurrentlyEditing ? 'Currently editing this template' : 'Drag to place or nest in another template'}
                   >
                     <div className="flex items-center justify-between">
                       <div className="flex-1">
@@ -271,7 +288,8 @@ export function ProjectInspectorPanel({
                       </Button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

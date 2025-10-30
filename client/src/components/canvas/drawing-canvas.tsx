@@ -41,6 +41,11 @@ interface DrawingCanvasProps {
   onMoveTemplate: (templateId: string, deltaX: number, deltaY: number) => void;
   onToggleCornerPriority: (x: number, y: number) => void;
   onPlaceInstance: (templateId: string, x: number, y: number) => void;
+  onAddNestedInstance?: (parentTemplateId: string, nestedTemplateId: string, x: number, y: number) => boolean;
+  onMoveNestedInstance?: (parentTemplateId: string, nestedIndex: number, x: number, y: number) => void;
+  getNestedInstanceAt?: (x: number, y: number) => { parentTemplateId: string; nestedIndex: number } | undefined;
+  selectedNestedInstanceIndex?: number;
+  onSelectNestedInstance?: (index: number | undefined) => void;
   onEnterTemplateEditMode: (templateId: string, instanceId?: string) => void;
   onSelectOrigin: (x: number, y: number) => void;
   onSetTemplateOrigin: (x: number, y: number) => void;
@@ -51,6 +56,7 @@ interface DrawingCanvasProps {
   getInstanceAt: (x: number, y: number) => ComponentInstance | undefined;
   getTemplateAt: (x: number, y: number) => ComponentTemplate | undefined;
   onDeselectOption?: () => void;
+  onDeselectOptionComponent?: () => void;
   activeOptionState: Record<string, string>;
 }
 
@@ -90,6 +96,11 @@ export function DrawingCanvas({
   onMoveTemplate,
   onToggleCornerPriority,
   onPlaceInstance,
+  onAddNestedInstance,
+  onMoveNestedInstance,
+  getNestedInstanceAt,
+  selectedNestedInstanceIndex,
+  onSelectNestedInstance,
   onEnterTemplateEditMode,
   onSelectOrigin,
   onSetTemplateOrigin,
@@ -100,6 +111,7 @@ export function DrawingCanvas({
   getInstanceAt,
   getTemplateAt,
   onDeselectOption,
+  onDeselectOptionComponent,
   activeOptionState,
 }: DrawingCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -294,7 +306,195 @@ export function DrawingCanvas({
             ctx.stroke();
           });
         }
+        
+        // Draw nested instances for this template
+        if (template.nestedInstances && template.nestedInstances.length > 0) {
+          template.nestedInstances.forEach(nestedInstance => {
+            const nestedTemplate = componentTemplates.find(t => t.id === nestedInstance.templateId);
+            if (nestedTemplate) {
+              const nestedTemplateRooms = rooms.filter(r => 
+                nestedTemplate.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+              );
+              if (nestedTemplateRooms.length > 0) {
+                const nestedOriginX = nestedTemplate.originX ?? Math.min(...nestedTemplateRooms.map(r => r.x));
+                const nestedOriginY = nestedTemplate.originY ?? Math.min(...nestedTemplateRooms.map(r => r.y));
+                
+                // Position is template origin + relative offset
+                const instanceX = template.originX + nestedInstance.relativeX;
+                const instanceY = template.originY + nestedInstance.relativeY;
+                
+                // Draw nested instance rooms with edges
+                nestedTemplateRooms.forEach(room => {
+                  const offsetX = room.x - nestedOriginX;
+                  const offsetY = room.y - nestedOriginY;
+                  
+                  const roomEdges = edges.filter(e => e.roomId === room.id);
+                  roomEdges.forEach(edge => {
+                    const color = getEdgeColor(edge);
+                    const instanceEdge = {
+                      ...edge,
+                      x1: edge.x1 - nestedOriginX + instanceX,
+                      y1: edge.y1 - nestedOriginY + instanceY,
+                      x2: edge.x2 - nestedOriginX + instanceX,
+                      y2: edge.y2 - nestedOriginY + instanceY,
+                    };
+                    CanvasUtils.drawEdge(ctx, instanceEdge, gridSize, color, cornerPriorities, rooms);
+                  });
+                });
+                
+                // Draw transparent overlay for nested instance
+                ctx.save();
+                ctx.beginPath();
+                nestedTemplateRooms.forEach(room => {
+                  const offsetX = room.x - nestedOriginX;
+                  const offsetY = room.y - nestedOriginY;
+                  const nx = (instanceX + offsetX) * gridSize;
+                  const ny = (instanceY + offsetY) * gridSize;
+                  const width = room.width * gridSize;
+                  const height = room.height * gridSize;
+                  ctx.rect(nx, ny, width, height);
+                });
+                ctx.clip();
+                
+                const minNX = Math.min(...nestedTemplateRooms.map(r => (instanceX + (r.x - nestedOriginX)) * gridSize));
+                const minNY = Math.min(...nestedTemplateRooms.map(r => (instanceY + (r.y - nestedOriginY)) * gridSize));
+                const maxNX = Math.max(...nestedTemplateRooms.map(r => (instanceX + (r.x - nestedOriginX) + r.width) * gridSize));
+                const maxNY = Math.max(...nestedTemplateRooms.map(r => (instanceY + (r.y - nestedOriginY) + r.height) * gridSize));
+                
+                ctx.fillStyle = 'rgba(139, 92, 246, 0.25)'; // purple/violet overlay for nested
+                ctx.fillRect(minNX, minNY, maxNX - minNX, maxNY - minNY);
+                ctx.restore();
+              }
+            }
+          });
+        }
       });
+    }
+
+    // Draw nested instances for the template being edited
+    if (isEditingTemplate && editingTemplateId) {
+      const editingTemplate = componentTemplates.find(t => t.id === editingTemplateId);
+      if (editingTemplate && editingTemplate.nestedInstances && editingTemplate.nestedInstances.length > 0) {
+        editingTemplate.nestedInstances.forEach((nestedInstance, i) => {
+          const nestedTemplate = componentTemplates.find(t => t.id === nestedInstance.templateId);
+          if (nestedTemplate) {
+            const nestedTemplateRooms = rooms.filter(r => 
+              nestedTemplate.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+            );
+            if (nestedTemplateRooms.length > 0) {
+              const nestedOriginX = nestedTemplate.originX ?? Math.min(...nestedTemplateRooms.map(r => r.x));
+              const nestedOriginY = nestedTemplate.originY ?? Math.min(...nestedTemplateRooms.map(r => r.y));
+              
+              // Position is template origin + relative offset
+              const instanceX = editingTemplate.originX + nestedInstance.relativeX;
+              const instanceY = editingTemplate.originY + nestedInstance.relativeY;
+              
+              // Draw nested instance rooms with edges at normal opacity
+              nestedTemplateRooms.forEach(room => {
+                const offsetX = room.x - nestedOriginX;
+                const offsetY = room.y - nestedOriginY;
+                
+                const roomEdges = edges.filter(e => e.roomId === room.id);
+                roomEdges.forEach(edge => {
+                  const color = getEdgeColor(edge);
+                  const instanceEdge = {
+                    ...edge,
+                    x1: edge.x1 - nestedOriginX + instanceX,
+                    y1: edge.y1 - nestedOriginY + instanceY,
+                    x2: edge.x2 - nestedOriginX + instanceX,
+                    y2: edge.y2 - nestedOriginY + instanceY,
+                  };
+                  CanvasUtils.drawEdge(ctx, instanceEdge, gridSize, color, cornerPriorities, rooms);
+                });
+              });
+              
+              // Draw transparent overlay for nested instance
+              ctx.save();
+              ctx.beginPath();
+              nestedTemplateRooms.forEach(room => {
+                const offsetX = room.x - nestedOriginX;
+                const offsetY = room.y - nestedOriginY;
+                const nx = (instanceX + offsetX) * gridSize;
+                const ny = (instanceY + offsetY) * gridSize;
+                const width = room.width * gridSize;
+                const height = room.height * gridSize;
+                ctx.rect(nx, ny, width, height);
+              });
+              ctx.clip();
+              
+              const minNX = Math.min(...nestedTemplateRooms.map(r => (instanceX + (r.x - nestedOriginX)) * gridSize));
+              const minNY = Math.min(...nestedTemplateRooms.map(r => (instanceY + (r.y - nestedOriginY)) * gridSize));
+              const maxNX = Math.max(...nestedTemplateRooms.map(r => (instanceX + (r.x - nestedOriginX) + r.width) * gridSize));
+              const maxNY = Math.max(...nestedTemplateRooms.map(r => (instanceY + (r.y - nestedOriginY) + r.height) * gridSize));
+              
+              // Use purple overlay to distinguish nested instances
+              ctx.fillStyle = 'rgba(139, 92, 246, 0.35)'; // Slightly more visible in edit mode
+              ctx.fillRect(minNX, minNY, maxNX - minNX, maxNY - minNY);
+              ctx.restore();
+              
+              // Draw selection highlight if this nested instance is selected
+              if (selectedNestedInstanceIndex === i) {
+                // Build a set of all occupied grid cells
+                const occupiedCells = new Set<string>();
+                nestedTemplateRooms.forEach(room => {
+                  const offsetX = room.x - nestedOriginX;
+                  const offsetY = room.y - nestedOriginY;
+                  for (let x = instanceX + offsetX; x < instanceX + offsetX + room.width; x++) {
+                    for (let y = instanceY + offsetY; y < instanceY + offsetY + room.height; y++) {
+                      occupiedCells.add(`${x},${y}`);
+                    }
+                  }
+                });
+                
+                // Find all external edges by checking each cell's borders
+                const externalEdges: { x1: number, y1: number, x2: number, y2: number }[] = [];
+                
+                nestedTemplateRooms.forEach(room => {
+                  const offsetX = room.x - nestedOriginX;
+                  const offsetY = room.y - nestedOriginY;
+                  const roomLeft = instanceX + offsetX;
+                  const roomTop = instanceY + offsetY;
+                  
+                  for (let x = roomLeft; x < roomLeft + room.width; x++) {
+                    for (let y = roomTop; y < roomTop + room.height; y++) {
+                      // Top edge
+                      if (!occupiedCells.has(`${x},${y - 1}`)) {
+                        externalEdges.push({ x1: x, y1: y, x2: x + 1, y2: y });
+                      }
+                      // Bottom edge
+                      if (!occupiedCells.has(`${x},${y + 1}`)) {
+                        externalEdges.push({ x1: x, y1: y + 1, x2: x + 1, y2: y + 1 });
+                      }
+                      // Left edge
+                      if (!occupiedCells.has(`${x - 1},${y}`)) {
+                        externalEdges.push({ x1: x, y1: y, x2: x, y2: y + 1 });
+                      }
+                      // Right edge
+                      if (!occupiedCells.has(`${x + 1},${y}`)) {
+                        externalEdges.push({ x1: x + 1, y1: y, x2: x + 1, y2: y + 1 });
+                      }
+                    }
+                  }
+                });
+                
+                // Draw the perimeter with dashed purple line
+                ctx.strokeStyle = '#8b5cf6'; // Purple-500
+                ctx.lineWidth = 3;
+                ctx.setLineDash([8, 4]);
+                
+                externalEdges.forEach(edge => {
+                  ctx.beginPath();
+                  ctx.moveTo(edge.x1 * gridSize, edge.y1 * gridSize);
+                  ctx.lineTo(edge.x2 * gridSize, edge.y2 * gridSize);
+                  ctx.stroke();
+                });
+                
+                ctx.setLineDash([]);
+              }
+            }
+          }
+        });
+      }
     }
 
     // Draw component instances
@@ -437,6 +637,70 @@ export function DrawingCanvas({
             });
             
             ctx.setLineDash([]);
+          }
+          
+          // Draw nested instances for this instance's template
+          if (template.nestedInstances && template.nestedInstances.length > 0) {
+            template.nestedInstances.forEach(nestedInstance => {
+              const nestedTemplate = componentTemplates.find(t => t.id === nestedInstance.templateId);
+              if (nestedTemplate) {
+                const nestedTemplateRooms = rooms.filter(r => 
+                  nestedTemplate.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
+                );
+                if (nestedTemplateRooms.length > 0) {
+                  const nestedOriginX = nestedTemplate.originX ?? Math.min(...nestedTemplateRooms.map(r => r.x));
+                  const nestedOriginY = nestedTemplate.originY ?? Math.min(...nestedTemplateRooms.map(r => r.y));
+                  
+                  // Position is parent instance position + relative offset
+                  const nestedInstanceX = instance.x + nestedInstance.relativeX;
+                  const nestedInstanceY = instance.y + nestedInstance.relativeY;
+                  
+                  // Draw nested instance rooms with edges
+                  nestedTemplateRooms.forEach(room => {
+                    const offsetX = room.x - nestedOriginX;
+                    const offsetY = room.y - nestedOriginY;
+                    
+                    const roomEdges = edges.filter(e => e.roomId === room.id);
+                    roomEdges.forEach(edge => {
+                      const color = isEditingTemplate ? '#9CA3AF' : getEdgeColor(edge);
+                      const nestedEdge = {
+                        ...edge,
+                        x1: edge.x1 - nestedOriginX + nestedInstanceX,
+                        y1: edge.y1 - nestedOriginY + nestedInstanceY,
+                        x2: edge.x2 - nestedOriginX + nestedInstanceX,
+                        y2: edge.y2 - nestedOriginY + nestedInstanceY,
+                      };
+                      CanvasUtils.drawEdge(ctx, nestedEdge, gridSize, color, cornerPriorities, rooms);
+                    });
+                  });
+                  
+                  // Draw transparent overlay for nested instance
+                  ctx.save();
+                  ctx.beginPath();
+                  nestedTemplateRooms.forEach(room => {
+                    const offsetX = room.x - nestedOriginX;
+                    const offsetY = room.y - nestedOriginY;
+                    const nx = (nestedInstanceX + offsetX) * gridSize;
+                    const ny = (nestedInstanceY + offsetY) * gridSize;
+                    const width = room.width * gridSize;
+                    const height = room.height * gridSize;
+                    ctx.rect(nx, ny, width, height);
+                  });
+                  ctx.clip();
+                  
+                  const minNX = Math.min(...nestedTemplateRooms.map(r => (nestedInstanceX + (r.x - nestedOriginX)) * gridSize));
+                  const minNY = Math.min(...nestedTemplateRooms.map(r => (nestedInstanceY + (r.y - nestedOriginY)) * gridSize));
+                  const maxNX = Math.max(...nestedTemplateRooms.map(r => (nestedInstanceX + (r.x - nestedOriginX) + r.width) * gridSize));
+                  const maxNY = Math.max(...nestedTemplateRooms.map(r => (nestedInstanceY + (r.y - nestedOriginY) + r.height) * gridSize));
+                  
+                  // Use different overlay color for nested instances - purple/violet
+                  const nestedFillColor = isEditingTemplate ? 'rgba(156, 163, 175, 0.15)' : 'rgba(139, 92, 246, 0.25)';
+                  ctx.fillStyle = nestedFillColor;
+                  ctx.fillRect(minNX, minNY, maxNX - minNX, maxNY - minNY);
+                  ctx.restore();
+                }
+              }
+            });
           }
           
           // Reset alpha after drawing instance
@@ -1043,6 +1307,20 @@ export function DrawingCanvas({
       return;
     }
     
+    // Enable dragging for nested instances once mouse moves
+    if (!canvasState.isDragging && canvasState.dragStart && selectedNestedInstanceIndex !== undefined) {
+      const deltaX = Math.abs(gridPoint.x - canvasState.dragStart.x);
+      const deltaY = Math.abs(gridPoint.y - canvasState.dragStart.y);
+      
+      // Start dragging if moved at least 1 grid cell
+      if (deltaX > 0 || deltaY > 0) {
+        setCanvasState(prev => ({
+          ...prev,
+          isDragging: true,
+        }));
+      }
+    }
+    
     // Check for origin point hover when not dragging anything
     if (!canvasState.isDragging && !isMarqueeSelecting && !draggedOriginTemplateId) {
       let foundHoveredOrigin: string | null = null;
@@ -1339,7 +1617,27 @@ export function DrawingCanvas({
         break;
 
       case 'move':
-        // Check for component instance first
+        // In edit mode, check for nested instance first
+        if (isEditingTemplate && getNestedInstanceAt) {
+          const nestedInstance = getNestedInstanceAt(gridPoint.x, gridPoint.y);
+          if (nestedInstance && onSelectNestedInstance) {
+            onSelectNestedInstance(nestedInstance.nestedIndex);
+            onSelectRoom(undefined);
+            onSelectInstance(undefined);
+            onSelectTemplate(undefined);
+            if (onSelectRoomIds) {
+              onSelectRoomIds([]);
+            }
+            setCanvasState(prev => ({
+              ...prev,
+              isDragging: false,
+              dragStart: gridPoint,
+            }));
+            return;
+          }
+        }
+        
+        // Check for component instance 
         const instanceToMove = getInstanceAt(gridPoint.x, gridPoint.y);
         if (instanceToMove) {
           onSelectInstance(instanceToMove.id);
@@ -1347,6 +1645,9 @@ export function DrawingCanvas({
           onSelectTemplate(undefined);
           if (onSelectRoomIds) {
             onSelectRoomIds([]);
+          }
+          if (onSelectNestedInstance) {
+            onSelectNestedInstance(undefined);
           }
           setCanvasState(prev => ({
             ...prev,
@@ -1433,7 +1734,27 @@ export function DrawingCanvas({
         break;
 
       case 'select':
-        // Check for component instance first
+        // In edit mode, check for nested instance first
+        if (isEditingTemplate && getNestedInstanceAt) {
+          const nestedInstance = getNestedInstanceAt(gridPoint.x, gridPoint.y);
+          if (nestedInstance && onSelectNestedInstance) {
+            onSelectNestedInstance(nestedInstance.nestedIndex);
+            onSelectRoom(undefined);
+            onSelectInstance(undefined);
+            onSelectTemplate(undefined);
+            if (onSelectRoomIds) {
+              onSelectRoomIds([]);
+            }
+            setCanvasState(prev => ({
+              ...prev,
+              isDragging: false,
+              dragStart: gridPoint,
+            }));
+            return;
+          }
+        }
+        
+        // Check for component instance
         const instanceToSelect = getInstanceAt(gridPoint.x, gridPoint.y);
         if (instanceToSelect) {
           // Select the instance and clear any room selections
@@ -1442,6 +1763,9 @@ export function DrawingCanvas({
           onSelectTemplate(undefined);
           if (onSelectRoomIds) {
             onSelectRoomIds([]);
+          }
+          if (onSelectNestedInstance) {
+            onSelectNestedInstance(undefined);
           }
           // Set up for potential dragging
           setCanvasState(prev => ({
@@ -1535,6 +1859,9 @@ export function DrawingCanvas({
               if (onSelectRoomIds) {
                 onSelectRoomIds([]);
               }
+              // Also clear option and option component selections
+              onDeselectOption?.();
+              onDeselectOptionComponent?.();
             }
             
             // Start marquee selection
@@ -1546,7 +1873,7 @@ export function DrawingCanvas({
         }
         break;
     }
-  }, [selectedTool, getRoomAt, getInstanceAt, onSelectRoom, onSelectRoomIds, onSelectInstance, onDeleteRoom, onDeleteInstance, onToggleCornerPriority, gridSize, rooms, selectedRoomIds, isEditingTemplate, editingTemplateId, isSelectingOrigin, creationMode, componentTemplates, templateOriginX, templateOriginY, activeOptionState, onSetTemplateOrigin]);
+  }, [selectedTool, getRoomAt, getInstanceAt, onSelectRoom, onSelectRoomIds, onSelectInstance, onDeleteRoom, onDeleteInstance, onToggleCornerPriority, gridSize, rooms, selectedRoomIds, isEditingTemplate, editingTemplateId, isSelectingOrigin, creationMode, componentTemplates, templateOriginX, templateOriginY, activeOptionState, onSetTemplateOrigin, onDeselectOption, onDeselectOptionComponent]);
 
   const handleMouseUp = useCallback((event: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -1594,6 +1921,16 @@ export function DrawingCanvas({
       
       if (deltaX !== 0 || deltaY !== 0) {
         onMoveTemplate(selectedTemplateId, deltaX, deltaY);
+      }
+    }
+
+    // Handle nested instance dragging (during edit mode)
+    if (canvasState.isDragging && selectedNestedInstanceIndex !== undefined && isEditingTemplate && editingTemplateId && onMoveNestedInstance) {
+      if (canvasState.dragStart) {
+        const targetX = gridPoint.x;
+        const targetY = gridPoint.y;
+        
+        onMoveNestedInstance(editingTemplateId, selectedNestedInstanceIndex, targetX, targetY);
       }
     }
 
@@ -2015,11 +2352,20 @@ export function DrawingCanvas({
     const point = CanvasUtils.getCanvasCoordinates(event.nativeEvent, canvas);
     const gridPoint = CanvasUtils.getGridCoordinates(point, gridSize);
     
-    onPlaceInstance(templateId, gridPoint.x, gridPoint.y);
+    // If in template edit mode, add as nested instance
+    if (isEditingTemplate && editingTemplateId && onAddNestedInstance) {
+      const success = onAddNestedInstance(editingTemplateId, templateId, gridPoint.x, gridPoint.y);
+      if (!success) {
+        console.warn('Failed to add nested instance (likely circular reference)');
+      }
+    } else {
+      // Normal mode: place as regular instance
+      onPlaceInstance(templateId, gridPoint.x, gridPoint.y);
+    }
     
     // Clear drag preview (the parent will clear draggedTemplateId via onDragEnd)
     setDragPreviewPos(null);
-  }, [gridSize, onPlaceInstance]);
+  }, [gridSize, onPlaceInstance, onAddNestedInstance, isEditingTemplate, editingTemplateId]);
 
   const handleDragLeave = useCallback(() => {
     // Clear drag preview (the parent will clear draggedTemplateId via onDragEnd)
