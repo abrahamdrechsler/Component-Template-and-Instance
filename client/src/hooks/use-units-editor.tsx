@@ -187,6 +187,21 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     }
   }, [colorPriority]);
 
+  // Helper function to filter rooms for global edge generation
+  // Excludes template rooms with special conditions (their edges are computed per-instance)
+  const filterRoomsForGlobalEdges = useCallback((roomList: Room[]): Room[] => {
+    return roomList.filter(r => {
+      if (!isRoomVisible(r, activeOptionState)) return false;
+      
+      // Check if room belongs to a template and has special conditions
+      const belongsToTemplate = componentTemplates.some(t => t.roomIds.includes(r.id));
+      const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
+      
+      // Exclude template rooms with special conditions from global edge generation
+      return !(belongsToTemplate && hasSpecialCondition);
+    });
+  }, [activeOptionState, componentTemplates]);
+
   const addRoom = useCallback((x: number, y: number, width: number, height: number) => {
     const roomId = `room-${nextRoomIdRef.current++}`;
     const newRoom: Room = {
@@ -210,7 +225,8 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     }
     
     // Filter to only visible rooms for edge generation
-    const visibleRooms = updatedRooms.filter(r => isRoomVisible(r, activeOptionState));
+    // Excludes template rooms with special conditions (their edges are computed per-instance)
+    const visibleRooms = filterRoomsForGlobalEdges(updatedRooms);
     
     const allEdges: Edge[] = [];
     for (const room of visibleRooms) {
@@ -231,7 +247,8 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     setRooms(updatedRooms);
     
     // Filter to only visible rooms for edge generation
-    const visibleRooms = updatedRooms.filter(r => isRoomVisible(r, activeOptionState));
+    // Excludes template rooms with special conditions (their edges are computed per-instance)
+    const visibleRooms = filterRoomsForGlobalEdges(updatedRooms);
     
     const allEdges: Edge[] = [];
     for (const room of visibleRooms) {
@@ -270,7 +287,8 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     });
     
     // Filter to only visible rooms for edge generation
-    const visibleRooms = updatedRooms.filter(r => isRoomVisible(r, activeOptionState));
+    // Excludes template rooms with special conditions (their edges are computed per-instance)
+    const visibleRooms = filterRoomsForGlobalEdges(updatedRooms);
     
     const allEdges: Edge[] = [];
     for (const room of visibleRooms) {
@@ -286,7 +304,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       allEdges.push(...roomEdges);
     }
     setEdges(allEdges);
-  }, [rooms, edges, activeOptionState]);
+  }, [rooms, edges, activeOptionState, filterRoomsForGlobalEdges]);
 
   const updateRoom = useCallback((roomId: string, updates: Partial<Room>) => {
     const updatedRooms = rooms.map(room => 
@@ -313,7 +331,8 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       });
       
       // Filter to only visible rooms for edge generation
-      const visibleRooms = updatedRooms.filter(r => isRoomVisible(r, activeOptionState));
+      // Excludes template rooms with special conditions (their edges are computed per-instance)
+      const visibleRooms = filterRoomsForGlobalEdges(updatedRooms);
       
       const allEdges: Edge[] = [];
       for (const room of visibleRooms) {
@@ -330,7 +349,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       }
       setEdges(allEdges);
     }
-  }, [rooms, edges, updateColorPriorityForUsedColors, activeOptionState]);
+  }, [rooms, edges, updateColorPriorityForUsedColors, activeOptionState, filterRoomsForGlobalEdges]);
 
   const updateEdge = useCallback((edgeId: string, updates: Partial<Edge>) => {
     const updatedEdges = edges.map(edge => 
@@ -345,11 +364,12 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
 
   const getEdgeColor = useCallback((edge: Edge): string => {
     // Filter to only visible rooms for edge color resolution
-    const visibleRooms = rooms.filter(r => isRoomVisible(r, activeOptionState));
+    // Excludes template rooms with special conditions (their edges are computed per-instance)
+    const visibleRooms = filterRoomsForGlobalEdges(rooms);
     return EdgeFightingResolver.resolveEdgeColor(
       edge, visibleRooms, mode, colorPriority, conflictMatrix, edges
     );
-  }, [rooms, edges, mode, colorPriority, conflictMatrix, activeOptionState]);
+  }, [rooms, edges, mode, colorPriority, conflictMatrix, activeOptionState, filterRoomsForGlobalEdges]);
 
   const getRoomAt = useCallback((x: number, y: number): Room | undefined => {
     return rooms.find(room => {
@@ -513,7 +533,8 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     
     // Regenerate edges for all rooms (not just template rooms, to handle interactions)
     // Filter to only visible rooms for edge generation
-    const visibleRooms = updatedRooms.filter(r => isRoomVisible(r, activeOptionState));
+    // Excludes template rooms with special conditions (their edges are computed per-instance)
+    const visibleRooms = filterRoomsForGlobalEdges(updatedRooms);
     
     const allEdges: Edge[] = [];
     for (const room of visibleRooms) {
@@ -521,7 +542,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       allEdges.push(...roomEdges);
     }
     setEdges(allEdges);
-  }, [componentTemplates, rooms, activeOptionState]);
+  }, [componentTemplates, rooms, activeOptionState, filterRoomsForGlobalEdges]);
 
   const exportData = useCallback(() => {
     const data = {
@@ -1199,7 +1220,8 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
           
           // Regenerate edges for the updated rooms
           // Filter to only visible rooms for edge generation
-          const visibleRooms = updatedRooms.filter(r => isRoomVisible(r, activeOptionState));
+          // Excludes template rooms with special conditions (their edges are computed per-instance)
+          const visibleRooms = filterRoomsForGlobalEdges(updatedRooms);
           
           const allEdges: Edge[] = [];
           for (const room of visibleRooms) {
@@ -1398,7 +1420,17 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     });
     
     // Filter to only visible rooms for edge generation
-    const visibleRooms = rooms.filter(r => isRoomVisible(r, newActiveOptionState));
+    // Excludes template rooms with special conditions (their edges are computed per-instance)
+    const visibleRooms = rooms.filter(r => {
+      if (!isRoomVisible(r, newActiveOptionState)) return false;
+      
+      // Check if room belongs to a template and has special conditions
+      const belongsToTemplate = componentTemplates.some(t => t.roomIds.includes(r.id));
+      const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
+      
+      // Exclude template rooms with special conditions from global edge generation
+      return !(belongsToTemplate && hasSpecialCondition);
+    });
     
     const allEdges: Edge[] = [];
     for (const room of visibleRooms) {
@@ -1414,7 +1446,7 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
       allEdges.push(...roomEdges);
     }
     setEdges(allEdges);
-  }, [activeOptionState, rooms, edges]);
+  }, [activeOptionState, rooms, edges, componentTemplates]);
 
   // Option Component management functions
   const createOptionComponent = useCallback((name: string) => {
