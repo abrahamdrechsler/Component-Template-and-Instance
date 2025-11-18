@@ -192,8 +192,19 @@ export function DrawingCanvas({
       
       // Skip edges for rooms that don't meet visibility conditions
       const room = rooms.find(r => r.id === edge.roomId);
-      if (room && !isRoomVisible(room, activeOptionState)) {
-        return;
+      if (room) {
+        // If we're editing a template and the room has special conditions,
+        // always show it (special conditions only apply to instances, not template definitions)
+        const belongsToEditingTemplate = isEditingTemplate && editingTemplateId && 
+          componentTemplates.find(t => t.id === editingTemplateId)?.roomIds.includes(room.id);
+        const hasSpecialCondition = room.conditions?.some(c => c.isSpecial);
+        
+        // Skip visibility check for template rooms with special conditions during editing
+        if (!(belongsToEditingTemplate && hasSpecialCondition)) {
+          if (!isRoomVisible(room, activeOptionState)) {
+            return;
+          }
+        }
       }
       
       // In template editing mode, handle edges differently
@@ -248,9 +259,16 @@ export function DrawingCanvas({
     // In "template-is-first-instance" mode, draw blue outline around templates (when not editing)
     if (creationMode === 'template-is-first-instance' && !isEditingTemplate) {
       componentTemplates.forEach(template => {
-        const templateRooms = rooms.filter(r => 
-          template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
-        );
+        const templateRooms = rooms.filter(r => {
+          if (!template.roomIds.includes(r.id)) return false;
+          
+          // Template rooms with special conditions should always be visible
+          // (special conditions only apply to instances, not template definitions)
+          const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
+          if (hasSpecialCondition) return true;
+          
+          return isRoomVisible(r, activeOptionState);
+        });
         
         if (templateRooms.length > 0) {
           // Build a set of all occupied grid cells for this template
@@ -312,9 +330,12 @@ export function DrawingCanvas({
           template.nestedInstances.forEach(nestedInstance => {
             const nestedTemplate = componentTemplates.find(t => t.id === nestedInstance.templateId);
             if (nestedTemplate) {
-              const nestedTemplateRooms = rooms.filter(r => 
-                nestedTemplate.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
-              );
+              const nestedTemplateRooms = rooms.filter(r => {
+                if (!nestedTemplate.roomIds.includes(r.id)) return false;
+                const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
+                if (hasSpecialCondition) return true;
+                return isRoomVisible(r, activeOptionState);
+              });
               if (nestedTemplateRooms.length > 0) {
                 const nestedOriginX = nestedTemplate.originX ?? Math.min(...nestedTemplateRooms.map(r => r.x));
                 const nestedOriginY = nestedTemplate.originY ?? Math.min(...nestedTemplateRooms.map(r => r.y));
@@ -378,9 +399,12 @@ export function DrawingCanvas({
         editingTemplate.nestedInstances.forEach((nestedInstance, i) => {
           const nestedTemplate = componentTemplates.find(t => t.id === nestedInstance.templateId);
           if (nestedTemplate) {
-            const nestedTemplateRooms = rooms.filter(r => 
-              nestedTemplate.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
-            );
+            const nestedTemplateRooms = rooms.filter(r => {
+              if (!nestedTemplate.roomIds.includes(r.id)) return false;
+              const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
+              if (hasSpecialCondition) return true;
+              return isRoomVisible(r, activeOptionState);
+            });
             if (nestedTemplateRooms.length > 0) {
               const nestedOriginX = nestedTemplate.originX ?? Math.min(...nestedTemplateRooms.map(r => r.x));
               const nestedOriginY = nestedTemplate.originY ?? Math.min(...nestedTemplateRooms.map(r => r.y));
@@ -644,9 +668,12 @@ export function DrawingCanvas({
             template.nestedInstances.forEach(nestedInstance => {
               const nestedTemplate = componentTemplates.find(t => t.id === nestedInstance.templateId);
               if (nestedTemplate) {
-                const nestedTemplateRooms = rooms.filter(r => 
-                  nestedTemplate.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
-                );
+                const nestedTemplateRooms = rooms.filter(r => {
+                  if (!nestedTemplate.roomIds.includes(r.id)) return false;
+                  const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
+                  if (hasSpecialCondition) return true;
+                  return isRoomVisible(r, activeOptionState);
+                });
                 if (nestedTemplateRooms.length > 0) {
                   const nestedOriginX = nestedTemplate.originX ?? Math.min(...nestedTemplateRooms.map(r => r.x));
                   const nestedOriginY = nestedTemplate.originY ?? Math.min(...nestedTemplateRooms.map(r => r.y));
@@ -874,9 +901,12 @@ export function DrawingCanvas({
     if (selectedTemplateId && canvasState.isDragging && canvasState.dragStart && mousePos && creationMode === 'template-is-first-instance') {
       const template = componentTemplates.find(t => t.id === selectedTemplateId);
       if (template) {
-        const templateRooms = rooms.filter(r => 
-          template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
-        );
+        const templateRooms = rooms.filter(r => {
+          if (!template.roomIds.includes(r.id)) return false;
+          const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
+          if (hasSpecialCondition) return true;
+          return isRoomVisible(r, activeOptionState);
+        });
         if (templateRooms.length > 0) {
           // Calculate delta from drag start
           const currentGridPos = CanvasUtils.getGridCoordinates(mousePos, gridSize);
@@ -1064,9 +1094,12 @@ export function DrawingCanvas({
     if (draggedTemplateId && dragPreviewPos) {
       const template = componentTemplates.find(t => t.id === draggedTemplateId);
       if (template) {
-        const templateRooms = rooms.filter(r => 
-          template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
-        );
+        const templateRooms = rooms.filter(r => {
+          if (!template.roomIds.includes(r.id)) return false;
+          const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
+          if (hasSpecialCondition) return true;
+          return isRoomVisible(r, activeOptionState);
+        });
         if (templateRooms.length > 0) {
           // Use template origin as reference point
           const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
@@ -1157,9 +1190,12 @@ export function DrawingCanvas({
       componentTemplates.forEach(template => {
         if (template.originX !== undefined && template.originY !== undefined) {
           // Only show origin on the actual template rooms when they are visible
-          const templateRooms = rooms.filter(r => 
-            template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
-          );
+          const templateRooms = rooms.filter(r => {
+            if (!template.roomIds.includes(r.id)) return false;
+            const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
+            if (hasSpecialCondition) return true;
+            return isRoomVisible(r, activeOptionState);
+          });
           
           // Only show origin if template rooms are actually visible (not in "all-instances-are-templates" mode)
           const shouldShowOrigin = creationMode !== 'all-instances-are-templates' && templateRooms.length > 0;
@@ -1329,9 +1365,12 @@ export function DrawingCanvas({
       if (!isSelectingOrigin && !isEditingTemplate && creationMode !== 'all-instances-are-templates') {
         for (const template of componentTemplates) {
           if (template.originX !== undefined && template.originY !== undefined) {
-            const templateRooms = rooms.filter(r => 
-              template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
-            );
+            const templateRooms = rooms.filter(r => {
+              if (!template.roomIds.includes(r.id)) return false;
+              const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
+              if (hasSpecialCondition) return true;
+              return isRoomVisible(r, activeOptionState);
+            });
             if (templateRooms.length > 0) {
               const originPixelX = template.originX * gridSize;
               const originPixelY = template.originY * gridSize;
@@ -1533,9 +1572,12 @@ export function DrawingCanvas({
       // Check if clicking on any template origin point
       for (const template of componentTemplates) {
         if (template.originX !== undefined && template.originY !== undefined) {
-          const templateRooms = rooms.filter(r => 
-            template.roomIds.includes(r.id) && isRoomVisible(r, activeOptionState)
-          );
+          const templateRooms = rooms.filter(r => {
+            if (!template.roomIds.includes(r.id)) return false;
+            const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
+            if (hasSpecialCondition) return true;
+            return isRoomVisible(r, activeOptionState);
+          });
           if (templateRooms.length > 0) {
             const originPixelX = template.originX * gridSize;
             const originPixelY = template.originY * gridSize;

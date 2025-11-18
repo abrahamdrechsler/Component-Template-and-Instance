@@ -191,14 +191,17 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   // Excludes template rooms with special conditions (their edges are computed per-instance)
   const filterRoomsForGlobalEdges = useCallback((roomList: Room[]): Room[] => {
     return roomList.filter(r => {
-      if (!isRoomVisible(r, activeOptionState)) return false;
-      
       // Check if room belongs to a template and has special conditions
       const belongsToTemplate = componentTemplates.some(t => t.roomIds.includes(r.id));
       const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
       
       // Exclude template rooms with special conditions from global edge generation
-      return !(belongsToTemplate && hasSpecialCondition);
+      // (these are handled per-instance, so skip visibility check)
+      if (belongsToTemplate && hasSpecialCondition) {
+        return false;
+      }
+      
+      return isRoomVisible(r, activeOptionState);
     });
   }, [activeOptionState, componentTemplates]);
 
@@ -1422,14 +1425,17 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     // Filter to only visible rooms for edge generation
     // Excludes template rooms with special conditions (their edges are computed per-instance)
     const visibleRooms = rooms.filter(r => {
-      if (!isRoomVisible(r, newActiveOptionState)) return false;
-      
       // Check if room belongs to a template and has special conditions
       const belongsToTemplate = componentTemplates.some(t => t.roomIds.includes(r.id));
       const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
       
       // Exclude template rooms with special conditions from global edge generation
-      return !(belongsToTemplate && hasSpecialCondition);
+      // (these are handled per-instance, so skip visibility check)
+      if (belongsToTemplate && hasSpecialCondition) {
+        return false;
+      }
+      
+      return isRoomVisible(r, newActiveOptionState);
     });
     
     const allEdges: Edge[] = [];
