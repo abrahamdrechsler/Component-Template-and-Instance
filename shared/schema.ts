@@ -169,17 +169,24 @@ export function isRoomVisible(room: Room, activeOptionState: Record<string, stri
 
   // All conditions must be satisfied (AND logic)
   return room.conditions.every(condition => {
-    // For special conditions on instance rooms, check instance-specific option first
     let activeValueId: string | undefined;
     
+    // For special conditions, ALWAYS check instance-specific option first when instanceId is provided
+    // This ensures instance-specific options properly override general options
     if (condition.isSpecial && instanceId) {
       // Check instance-specific option: ${instanceId}-${optionId}
       const instanceOptionKey = `${instanceId}-${condition.optionId}`;
-      activeValueId = activeOptionState[instanceOptionKey];
-    }
-    
-    // Fall back to general option if no instance-specific value found
-    if (!activeValueId) {
+      
+      // IMPORTANT: Check if instance-specific value exists in state
+      // We must check with 'in' operator because the value might be stored but we want to ensure it exists
+      if (instanceOptionKey in activeOptionState) {
+        activeValueId = activeOptionState[instanceOptionKey];
+      } else {
+        // Fall back to general option only if instance-specific is not set
+        activeValueId = activeOptionState[condition.optionId];
+      }
+    } else {
+      // For non-special conditions or when no instanceId, use general option
       activeValueId = activeOptionState[condition.optionId];
     }
     

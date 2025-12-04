@@ -188,17 +188,18 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
   }, [colorPriority]);
 
   // Helper function to filter rooms for global edge generation
-  // Excludes template rooms with special conditions (their edges are computed per-instance)
+  // Template rooms with special conditions are INCLUDED so instances can use their edges
+  // Visibility is determined at draw time for those rooms, not at edge generation time
   const filterRoomsForGlobalEdges = useCallback((roomList: Room[]): Room[] => {
     return roomList.filter(r => {
       // Check if room belongs to a template and has special conditions
       const belongsToTemplate = componentTemplates.some(t => t.roomIds.includes(r.id));
       const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
       
-      // Exclude template rooms with special conditions from global edge generation
-      // (these are handled per-instance, so skip visibility check)
+      // Template rooms with special conditions need edges generated for instance rendering
+      // Their visibility is determined per-instance at draw time, so always include them here
       if (belongsToTemplate && hasSpecialCondition) {
-        return false;
+        return true;
       }
       
       return isRoomVisible(r, activeOptionState);
@@ -893,76 +894,18 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     const templateRooms = rooms.filter(r => template.roomIds.includes(r.id));
     if (templateRooms.length === 0) return;
     
-    const originX = template.originX ?? Math.min(...templateRooms.map(r => r.x));
-    const originY = template.originY ?? Math.min(...templateRooms.map(r => r.y));
-    
     // Constrain to grid (no negative coordinates)
     const constrainedX = Math.max(0, x);
     const constrainedY = Math.max(0, y);
     
-    // Create virtual rooms for the instance at the new position
-    const movedInstanceRooms: Room[] = templateRooms.map(room => ({
-      ...room,
-      id: `moved-${instance.id}-${room.id}`,
-      x: constrainedX + (room.x - originX),
-      y: constrainedY + (room.y - originY),
+    // No collision detection - instances can overlap freely
+    setComponentInstances(prev => prev.map(inst => {
+      if (inst.id === instanceId) {
+        return { ...inst, x: constrainedX, y: constrainedY };
+      }
+      return inst;
     }));
-    
-    // Create virtual rooms for all OTHER instances
-    const otherInstanceRooms: Room[] = [];
-    componentInstances.forEach(otherInstance => {
-      if (otherInstance.id !== instanceId) {
-        const otherTemplate = componentTemplates.find(t => t.id === otherInstance.templateId);
-        if (otherTemplate) {
-          const otherTemplateRooms = rooms.filter(r => otherTemplate.roomIds.includes(r.id));
-          if (otherTemplateRooms.length > 0) {
-            const otherOriginX = otherTemplate.originX ?? Math.min(...otherTemplateRooms.map(r => r.x));
-            const otherOriginY = otherTemplate.originY ?? Math.min(...otherTemplateRooms.map(r => r.y));
-            
-            otherTemplateRooms.forEach(room => {
-              otherInstanceRooms.push({
-                ...room,
-                id: `virtual-${otherInstance.id}-${room.id}`,
-                x: otherInstance.x + (room.x - otherOriginX),
-                y: otherInstance.y + (room.y - otherOriginY),
-              });
-            });
-          }
-        }
-      }
-    });
-    
-    // In "template-is-first-instance" mode, also check against template rooms
-    const templateRoomsToCheck: Room[] = [];
-    if (creationMode === 'template-is-first-instance') {
-      componentTemplates.forEach(t => {
-        const tRooms = rooms.filter(r => t.roomIds.includes(r.id));
-        templateRoomsToCheck.push(...tRooms);
-      });
-    }
-    
-    // Combine all rooms to check against
-    const allRoomsToCheck = [...otherInstanceRooms, ...templateRoomsToCheck];
-    
-    // Validate each room of the moved instance
-    let isValid = true;
-    for (const movedRoom of movedInstanceRooms) {
-      if (!RoomValidation.isValidRoomPlacement(movedRoom, allRoomsToCheck)) {
-        isValid = false;
-        break;
-      }
-    }
-    
-    // Only move if valid
-    if (isValid) {
-      setComponentInstances(prev => prev.map(inst => {
-        if (inst.id === instanceId) {
-          return { ...inst, x: constrainedX, y: constrainedY };
-        }
-        return inst;
-      }));
-    }
-  }, [componentInstances, componentTemplates, rooms, creationMode]);
+  }, [componentInstances, componentTemplates, rooms]);
 
   const deleteInstance = useCallback((instanceId: string) => {
     setComponentInstances(prev => prev.filter(i => i.id !== instanceId));
@@ -1423,16 +1366,16 @@ export function useUnitsEditor(): UseUnitsEditorReturn {
     });
     
     // Filter to only visible rooms for edge generation
-    // Excludes template rooms with special conditions (their edges are computed per-instance)
+    // Template rooms with special conditions are INCLUDED so instances can use their edges
     const visibleRooms = rooms.filter(r => {
       // Check if room belongs to a template and has special conditions
       const belongsToTemplate = componentTemplates.some(t => t.roomIds.includes(r.id));
       const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
       
-      // Exclude template rooms with special conditions from global edge generation
-      // (these are handled per-instance, so skip visibility check)
+      // Template rooms with special conditions need edges generated for instance rendering
+      // Their visibility is determined per-instance at draw time, so always include them here
       if (belongsToTemplate && hasSpecialCondition) {
-        return false;
+        return true;
       }
       
       return isRoomVisible(r, newActiveOptionState);

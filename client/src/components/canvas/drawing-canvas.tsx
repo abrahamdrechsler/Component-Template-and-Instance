@@ -262,11 +262,8 @@ export function DrawingCanvas({
         const templateRooms = rooms.filter(r => {
           if (!template.roomIds.includes(r.id)) return false;
           
-          // Template rooms with special conditions should always be visible
-          // (special conditions only apply to instances, not template definitions)
-          const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
-          if (hasSpecialCondition) return true;
-          
+          // Template rooms respect the general option state for visibility
+          // This ensures consistency between the template perimeter and its edges
           return isRoomVisible(r, activeOptionState);
         });
         
@@ -332,8 +329,7 @@ export function DrawingCanvas({
             if (nestedTemplate) {
               const nestedTemplateRooms = rooms.filter(r => {
                 if (!nestedTemplate.roomIds.includes(r.id)) return false;
-                const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
-                if (hasSpecialCondition) return true;
+                // Nested instances in templates respect general option state
                 return isRoomVisible(r, activeOptionState);
               });
               if (nestedTemplateRooms.length > 0) {
@@ -670,8 +666,7 @@ export function DrawingCanvas({
               if (nestedTemplate) {
                 const nestedTemplateRooms = rooms.filter(r => {
                   if (!nestedTemplate.roomIds.includes(r.id)) return false;
-                  const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
-                  if (hasSpecialCondition) return true;
+                  // Nested instances within placed instances respect general option state
                   return isRoomVisible(r, activeOptionState);
                 });
                 if (nestedTemplateRooms.length > 0) {
@@ -903,8 +898,7 @@ export function DrawingCanvas({
       if (template) {
         const templateRooms = rooms.filter(r => {
           if (!template.roomIds.includes(r.id)) return false;
-          const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
-          if (hasSpecialCondition) return true;
+          // Show visible rooms based on current option state
           return isRoomVisible(r, activeOptionState);
         });
         if (templateRooms.length > 0) {
@@ -1096,8 +1090,7 @@ export function DrawingCanvas({
       if (template) {
         const templateRooms = rooms.filter(r => {
           if (!template.roomIds.includes(r.id)) return false;
-          const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
-          if (hasSpecialCondition) return true;
+          // Show visible rooms based on current option state
           return isRoomVisible(r, activeOptionState);
         });
         if (templateRooms.length > 0) {
@@ -1192,8 +1185,7 @@ export function DrawingCanvas({
           // Only show origin on the actual template rooms when they are visible
           const templateRooms = rooms.filter(r => {
             if (!template.roomIds.includes(r.id)) return false;
-            const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
-            if (hasSpecialCondition) return true;
+            // Show origin based on current option state visibility
             return isRoomVisible(r, activeOptionState);
           });
           
@@ -1367,8 +1359,7 @@ export function DrawingCanvas({
           if (template.originX !== undefined && template.originY !== undefined) {
             const templateRooms = rooms.filter(r => {
               if (!template.roomIds.includes(r.id)) return false;
-              const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
-              if (hasSpecialCondition) return true;
+              // Check visibility based on current option state
               return isRoomVisible(r, activeOptionState);
             });
             if (templateRooms.length > 0) {
@@ -1574,8 +1565,7 @@ export function DrawingCanvas({
         if (template.originX !== undefined && template.originY !== undefined) {
           const templateRooms = rooms.filter(r => {
             if (!template.roomIds.includes(r.id)) return false;
-            const hasSpecialCondition = r.conditions?.some(c => c.isSpecial);
-            if (hasSpecialCondition) return true;
+            // Check visibility based on current option state
             return isRoomVisible(r, activeOptionState);
           });
           if (templateRooms.length > 0) {
