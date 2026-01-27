@@ -4,7 +4,6 @@ import { Toolbar } from '@/components/panels/toolbar';
 import { ProjectInspectorPanel } from '@/components/panels/project-inspector-panel';
 import { InspectorPanel } from '@/components/panels/inspector-panel';
 import { OptionInspectorPanel } from '@/components/panels/option-inspector-panel';
-import { OptionComponentInspectorPanel } from '@/components/panels/option-component-inspector-panel';
 import { DrawingCanvas } from '@/components/canvas/drawing-canvas';
 import { ROOM_COLORS } from '@/types/room';
 import { useToast } from '@/hooks/use-toast';
@@ -98,17 +97,6 @@ export default function EdgeConflictPage() {
     deleteOptionValue,
     setActiveOptionValue,
     setSelectedOptionId,
-    optionComponents,
-    selectedOptionComponentId,
-    createOptionComponent,
-    updateOptionComponent,
-    deleteOptionComponent,
-    addOptionToComponent,
-    removeOptionFromComponent,
-    setSelectedOptionComponentId,
-    optionMode,
-    setOptionMode,
-    getSpecialOptions,
   } = useUnitsEditor();
 
   // Resizing handlers
@@ -278,9 +266,8 @@ export default function EdgeConflictPage() {
             componentTemplates={componentTemplates}
             links={links}
             options={options}
-            optionComponents={optionComponents}
             activeOptionState={activeOptionState}
-            optionMode={optionMode}
+            creationMode={creationMode}
             isSelectingOrigin={isSelectingOrigin}
             isEditingTemplate={isEditingTemplate}
             editingTemplateId={editingTemplateId}
@@ -290,16 +277,13 @@ export default function EdgeConflictPage() {
             onCancelOriginSelection={cancelOriginSelection}
             onDeleteTemplate={deleteTemplate}
             onAddLink={addLink}
+            onCreationModeChange={setCreationMode}
             onRemoveLink={removeLink}
             onTemplateDragStart={setDraggedTemplateId}
             onTemplateDragEnd={() => setDraggedTemplateId(null)}
             onCreateOption={createOption}
             onSelectOption={setSelectedOptionId}
             onSetActiveOptionValue={setActiveOptionValue}
-            onCreateOptionComponent={createOptionComponent}
-            onSelectOptionComponent={setSelectedOptionComponentId}
-            onDeleteOptionComponent={deleteOptionComponent}
-            getSpecialOptions={getSpecialOptions}
           />
         </div>
 
@@ -409,16 +393,7 @@ export default function EdgeConflictPage() {
 
         {/* Right Inspector Panel */}
         <div style={{ width: rightPanelWidth, flexShrink: 0 }}>
-          {selectedOptionComponentId ? (
-            <OptionComponentInspectorPanel
-              optionComponent={optionComponents.find(oc => oc.id === selectedOptionComponentId)}
-              options={options}
-              onUpdateOptionComponent={updateOptionComponent}
-              onDeleteOptionComponent={deleteOptionComponent}
-              onAddOptionToComponent={addOptionToComponent}
-              onRemoveOptionFromComponent={removeOptionFromComponent}
-            />
-          ) : selectedOptionId ? (
+          {selectedOptionId ? (
             <OptionInspectorPanel
               option={options.find(o => o.id === selectedOptionId)}
               onUpdateOption={updateOption}
@@ -437,15 +412,11 @@ export default function EdgeConflictPage() {
               componentTemplates={componentTemplates}
               options={options}
               creationMode={creationMode}
-              optionMode={optionMode}
-              isEditingTemplate={isEditingTemplate}
               onUpdateRoom={updateRoom}
               onUpdateEdge={updateEdge}
               onDeleteRoom={deleteRoom}
               onDeleteInstance={deleteInstance}
               onUpdateTemplate={updateTemplate}
-              onSetCreationMode={setCreationMode}
-              onSetOptionMode={setOptionMode}
             />
           )}
         </div>
