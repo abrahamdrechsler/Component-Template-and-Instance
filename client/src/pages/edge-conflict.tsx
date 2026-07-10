@@ -4,6 +4,7 @@ import { Toolbar } from '@/components/panels/toolbar';
 import { ProjectInspectorPanel } from '@/components/panels/project-inspector-panel';
 import { InspectorPanel } from '@/components/panels/inspector-panel';
 import { OptionInspectorPanel } from '@/components/panels/option-inspector-panel';
+import { OptionComponentInspectorPanel } from '@/components/panels/option-component-inspector-panel';
 import { DrawingCanvas } from '@/components/canvas/drawing-canvas';
 import { ROOM_COLORS } from '@/types/room';
 import { useToast } from '@/hooks/use-toast';
@@ -36,6 +37,7 @@ export default function EdgeConflictPage() {
     activeOptionState,
     selectedOptionId,
     creationMode,
+    optionMode,
     isEditingTemplate,
     editingTemplateId,
     editingInstanceId,
@@ -97,6 +99,16 @@ export default function EdgeConflictPage() {
     deleteOptionValue,
     setActiveOptionValue,
     setSelectedOptionId,
+    setOptionMode,
+    optionComponents,
+    selectedOptionComponentId,
+    createOptionComponent,
+    updateOptionComponent,
+    deleteOptionComponent,
+    addOptionToComponent,
+    removeOptionFromComponent,
+    setSelectedOptionComponentId,
+    getSpecialOptions,
   } = useUnitsEditor();
 
   // Resizing handlers
@@ -266,8 +278,9 @@ export default function EdgeConflictPage() {
             componentTemplates={componentTemplates}
             links={links}
             options={options}
+            optionComponents={optionComponents}
             activeOptionState={activeOptionState}
-            creationMode={creationMode}
+            optionMode={optionMode}
             isSelectingOrigin={isSelectingOrigin}
             isEditingTemplate={isEditingTemplate}
             editingTemplateId={editingTemplateId}
@@ -277,13 +290,22 @@ export default function EdgeConflictPage() {
             onCancelOriginSelection={cancelOriginSelection}
             onDeleteTemplate={deleteTemplate}
             onAddLink={addLink}
-            onCreationModeChange={setCreationMode}
             onRemoveLink={removeLink}
             onTemplateDragStart={setDraggedTemplateId}
             onTemplateDragEnd={() => setDraggedTemplateId(null)}
             onCreateOption={createOption}
-            onSelectOption={setSelectedOptionId}
+            onSelectOption={(optionId) => {
+              setSelectedOptionId(optionId);
+              setSelectedOptionComponentId(undefined);
+            }}
             onSetActiveOptionValue={setActiveOptionValue}
+            onCreateOptionComponent={createOptionComponent}
+            onSelectOptionComponent={(optionComponentId) => {
+              setSelectedOptionComponentId(optionComponentId);
+              setSelectedOptionId(undefined);
+            }}
+            onDeleteOptionComponent={deleteOptionComponent}
+            getSpecialOptions={getSpecialOptions}
           />
         </div>
 
@@ -402,6 +424,15 @@ export default function EdgeConflictPage() {
               onUpdateOptionValue={updateOptionValue}
               onDeleteOptionValue={deleteOptionValue}
             />
+          ) : selectedOptionComponentId ? (
+            <OptionComponentInspectorPanel
+              optionComponent={optionComponents.find(o => o.id === selectedOptionComponentId)}
+              options={options}
+              onUpdateOptionComponent={updateOptionComponent}
+              onDeleteOptionComponent={deleteOptionComponent}
+              onAddOptionToComponent={addOptionToComponent}
+              onRemoveOptionFromComponent={removeOptionFromComponent}
+            />
           ) : (
             <InspectorPanel
               selectedRoom={selectedRoom}
@@ -412,11 +443,15 @@ export default function EdgeConflictPage() {
               componentTemplates={componentTemplates}
               options={options}
               creationMode={creationMode}
+              optionMode={optionMode}
+              isEditingTemplate={isEditingTemplate}
               onUpdateRoom={updateRoom}
               onUpdateEdge={updateEdge}
               onDeleteRoom={deleteRoom}
               onDeleteInstance={deleteInstance}
               onUpdateTemplate={updateTemplate}
+              onSetCreationMode={setCreationMode}
+              onSetOptionMode={setOptionMode}
             />
           )}
         </div>
